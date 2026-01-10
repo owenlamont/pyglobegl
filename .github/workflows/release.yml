@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      # Publish on any tag that looks like a semantic version e.g. 1.2.3
+      - '*.*.*'
+
+jobs:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install toolchain
+        run: mise install
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: mise exec -- pnpm install
+      - name: Build frontend assets
+        working-directory: frontend
+        run: mise exec -- pnpm run build
+      - uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867
+      - run: uv build
+      - run: uv publish --trusted-publishing always

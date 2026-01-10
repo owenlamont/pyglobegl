@@ -1,0 +1,25 @@
+[project]
+name = "pyglobegl"
+version = "0.1.0"
+description = "AnyWidget wrapper for globe.gl"
+readme = "README.md"
+authors = [
+    { name = "Owen Lamont", email = "owenrlamont@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "anywidget>=0.9.21",
+    "traitlets>=5.14.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.22,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "jupyterlab>=4.5.1",
+    "marimo>=0.19.0",
+    "notebook>=7.5.1",
+    "pytest>=9.0.2",
+]
