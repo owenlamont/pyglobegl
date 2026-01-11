@@ -48,6 +48,11 @@ def _write_debug_artifacts(page, prefix: str) -> None:
         (artifacts_dir / f"{prefix}-output.txt").write_text(
             "\n".join(output_text.all_inner_texts()), encoding="utf-8"
         )
+    status_text = page.locator(".jp-StatusBar-TextItem")
+    if status_text.count() > 0:
+        (artifacts_dir / f"{prefix}-statusbar.txt").write_text(
+            "\n".join(status_text.all_inner_texts()), encoding="utf-8"
+        )
 
 
 def _select_kernel_if_prompted(page) -> None:
@@ -58,16 +63,14 @@ def _select_kernel_if_prompted(page) -> None:
     _select_kernel_from_dialog(page)
 
 
-def _wait_for_kernel_idle(page, timeout_ms: int = 60000) -> None:
-    kernel_status = page.locator(".jp-KernelStatus")
+def _wait_for_kernel_idle(page, timeout_ms: int = 60000) -> bool:
+    kernel_status = page.locator(".jp-StatusBar-TextItem", has_text="Idle")
     start = time.monotonic()
     while time.monotonic() - start < timeout_ms / 1000:
         if kernel_status.count() > 0:
-            text = kernel_status.first.inner_text().strip().lower()
-            if "idle" in text:
-                return
+            return True
         page.wait_for_timeout(250)
-    raise TimeoutError("Kernel did not become idle in time.")
+    return False
 
 
 def _select_kernel_from_dialog(page) -> bool:
