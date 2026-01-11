@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import shutil
 import socket
 import subprocess  # noqa: S404
@@ -56,11 +56,14 @@ def _marimo_server() -> Iterator[str]:
             raise RuntimeError("Timed out waiting for marimo server.")
         yield url
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                with suppress(subprocess.TimeoutExpired):
+                    proc.wait(timeout=5)
 
 
 @pytest.mark.ui

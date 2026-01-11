@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import secrets
 import shutil
 import socket
@@ -66,11 +66,14 @@ def _jupyterlab_server() -> Iterator[str]:
             raise RuntimeError("Timed out waiting for JupyterLab.")
         yield url
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                with suppress(subprocess.TimeoutExpired):
+                    proc.wait(timeout=10)
 
 
 @pytest.mark.ui
