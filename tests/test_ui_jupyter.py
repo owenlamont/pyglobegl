@@ -129,9 +129,17 @@ def _ensure_webgl_available(page) -> None:
 
 
 def _dismiss_notifications(page) -> None:
-    toast_no = page.get_by_role("button", name="No")
-    if toast_no.is_visible():
+    toast_container = page.locator(".Toastify__toast-container")
+    if toast_container.count() == 0:
+        return
+    toast_no = toast_container.get_by_role("button", name="No").first
+    if toast_no.count() > 0 and toast_no.is_visible():
         toast_no.click(timeout=2000)
+        page.wait_for_timeout(200)
+        return
+    toast_close = toast_container.get_by_role("button", name="Hide notification").first
+    if toast_close.count() > 0 and toast_close.is_visible():
+        toast_close.click(timeout=2000)
         page.wait_for_timeout(200)
 
 
