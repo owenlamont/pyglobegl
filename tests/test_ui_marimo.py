@@ -43,7 +43,11 @@ def _marimo_server() -> Iterator[str]:
     try:
         url = f"http://127.0.0.1:{port}"
         start = time.monotonic()
-        while time.monotonic() - start < 20:
+        while time.monotonic() - start < 60:
+            if proc.poll() is not None:
+                raise RuntimeError(
+                    f"Marimo server exited early with code {proc.returncode}."
+                )
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 if sock.connect_ex(("127.0.0.1", port)) == 0:
                     break
