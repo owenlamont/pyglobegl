@@ -68,23 +68,26 @@ def _select_kernel_from_dialog(page) -> None:
     pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
 
 
-def _execute_cell(notebook, cell_text: str):
+def _execute_cell(page, notebook, cell_text: str):
     cell = notebook.get_by_text(cell_text, exact=True).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
-    cell.evaluate(
-        """
-        (node) => {
-          const widget = node.closest("[data-id]");
-          if (!widget) return;
-          const app = window.jupyterapp || window.jupyterlab;
-          if (!app) return;
-          app.commands.execute("notebook:run-cell-and-select-next", {
-            notebook: widget,
-          });
-        }
-        """
-    )
+    panel_id = notebook.get_attribute("data-id")
+    if panel_id:
+        page.evaluate(
+            """
+            (panelId) => {
+              const app = window.jupyterapp || window.jupyterlab;
+              if (!app) return;
+              const widget = app.shell.widgets("main").find((w) => w.id === panelId);
+              if (!widget) return;
+              app.commands.execute("notebook:run-cell-and-select-next", {
+                notebook: widget,
+              });
+            }
+            """,
+            panel_id,
+        )
     return cell
 
 
@@ -249,7 +252,7 @@ def test_jupyter_widget_renders(page: "Page") -> None:
             notebook.get_by_text(
                 "from pyglobegl import GlobeWidget", exact=True
             ).wait_for(timeout=60000)
-            cell = _execute_cell(notebook, "from pyglobegl import GlobeWidget")
+            cell = _execute_cell(page, notebook, "from pyglobegl import GlobeWidget")
             _select_kernel_from_dialog(page)
             _wait_for_canvas(page, cell)
             _assert_no_root_overflow(page)
