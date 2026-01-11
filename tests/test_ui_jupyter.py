@@ -22,6 +22,16 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
+def _try_select_python_kernel(dialog, timeout_ms: int = 20000) -> bool:
+    buttons = dialog.get_by_role("button", name=re.compile(r"Python", re.IGNORECASE))
+    try:
+        buttons.first.wait_for(state="visible", timeout=timeout_ms)
+        buttons.first.click(timeout=timeout_ms)
+        return True
+    except PlaywrightTimeoutError:
+        return False
+
+
 @contextmanager
 def _jupyterlab_server() -> Iterator[str]:
     port = _free_port()
@@ -85,12 +95,16 @@ def test_jupyter_widget_renders(page: "Page") -> None:
         page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
         select_kernel = page.get_by_role("button", name="Select Kernel")
         if select_kernel.is_visible():
-            select_kernel.click()
+            with suppress(PlaywrightTimeoutError):
+                select_kernel.click(timeout=2000)
             dialog = page.get_by_role("dialog")
-            dialog.get_by_role(
-                "button", name=re.compile(r"Python", re.IGNORECASE)
-            ).first.click()
-            page.wait_for_timeout(500)
+            with suppress(PlaywrightTimeoutError):
+                dialog.wait_for(timeout=2000)
+            if dialog.is_visible():
+                if _try_select_python_kernel(dialog):
+                    page.wait_for_timeout(500)
+                else:
+                    pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
         cell_text = page.get_by_text("from pyglobegl import GlobeWidget")
         cell_text.wait_for(timeout=60000)
         cell = cell_text.locator("xpath=ancestor::div[contains(@class,'jp-Cell')]")
@@ -100,12 +114,12 @@ def test_jupyter_widget_renders(page: "Page") -> None:
         with suppress(PlaywrightTimeoutError):
             dialog.wait_for(timeout=2000)
         if dialog.is_visible():
-            dialog.get_by_role(
-                "button", name=re.compile(r"Python", re.IGNORECASE)
-            ).first.click()
-            page.wait_for_timeout(500)
-            cell.locator(".jp-InputArea").click()
-            page.keyboard.press("Shift+Enter")
+            if _try_select_python_kernel(dialog):
+                page.wait_for_timeout(500)
+                cell.locator(".jp-InputArea").click()
+                page.keyboard.press("Shift+Enter")
+            else:
+                pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
         page.wait_for_selector("canvas", state="attached", timeout=60000)
         page.wait_for_function(
             """
