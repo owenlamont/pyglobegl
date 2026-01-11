@@ -119,18 +119,5 @@ forwarding).
 
 ### Playwright Screenshot Path Notes
 
-The MCP server only writes inside its own temp output directory. To keep copies
-in a stable Windows path, copy after capture:
-
-- Screenshot is created under:
-  - `C:\Users\<USER>\AppData\Local\Temp\playwright-mcp-output\<run>\`
-  - `artifacts\...`
-- Copy to a stable folder visible from WSL:
-  - Run:
-    ```bash
-    mkdir -p /mnt/c/Users/<USER>/AppData/Local/Temp/pyglobegl
-    src="/mnt/c/Users/<USER>/AppData/Local/Temp/playwright-mcp-output/<run>/"
-    src="${src}artifacts/<file>.png"
-    dst="/mnt/c/Users/<USER>/AppData/Local/Temp/pyglobegl/<file>.png"
-    cp "$src" "$dst"
-    ```
+If we need to inspect Playwright screenshots, ask the user to grant read access
+to the top-level Windows Temp directory so the MCP output can be read directly.
