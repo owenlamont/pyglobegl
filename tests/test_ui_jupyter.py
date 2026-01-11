@@ -80,9 +80,26 @@ def _jupyterlab_server() -> Iterator[str]:
 def test_jupyter_widget_renders(page: "Page") -> None:
     with _jupyterlab_server() as url:
         page.goto(url)
-        page.get_by_text("from pyglobegl import GlobeWidget").click()
+        page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+        cell_text = page.get_by_text("from pyglobegl import GlobeWidget")
+        cell_text.wait_for(timeout=60000)
+        cell = cell_text.locator("xpath=ancestor::div[contains(@class,'jp-Cell')]")
+        cell.locator(".jp-InputArea").click()
         page.keyboard.press("Shift+Enter")
-        page.wait_for_selector("canvas", timeout=30000)
+        page.wait_for_selector("canvas", state="attached", timeout=60000)
+        page.wait_for_function(
+            """
+            () => {
+              const canvas = document.querySelector("canvas");
+              if (!canvas) {
+                return false;
+              }
+              const rect = canvas.getBoundingClientRect();
+              return rect.width > 0 && rect.height > 0;
+            }
+            """,
+            timeout=60000,
+        )
 
         root_overflow = page.evaluate(
             """
