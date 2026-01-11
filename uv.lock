@@ -1717,6 +1717,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipykernel" },
     { name = "jupyterlab" },
     { name = "marimo" },
     { name = "notebook" },
@@ -1735,6 +1736,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "jupyterlab", specifier = ">=4.5.1" },
     { name = "marimo", specifier = ">=0.19.0" },
     { name = "notebook", specifier = ">=7.5.1" },

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
+import re
 import secrets
 import shutil
 import socket
@@ -7,6 +8,7 @@ import subprocess  # noqa: S404
 import time
 from typing import TYPE_CHECKING
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import pytest
 
 
@@ -81,11 +83,29 @@ def test_jupyter_widget_renders(page: "Page") -> None:
     with _jupyterlab_server() as url:
         page.goto(url)
         page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+        select_kernel = page.get_by_role("button", name="Select Kernel")
+        if select_kernel.is_visible():
+            select_kernel.click()
+            dialog = page.get_by_role("dialog")
+            dialog.get_by_role(
+                "button", name=re.compile(r"Python", re.IGNORECASE)
+            ).first.click()
+            page.wait_for_timeout(500)
         cell_text = page.get_by_text("from pyglobegl import GlobeWidget")
         cell_text.wait_for(timeout=60000)
         cell = cell_text.locator("xpath=ancestor::div[contains(@class,'jp-Cell')]")
         cell.locator(".jp-InputArea").click()
         page.keyboard.press("Shift+Enter")
+        dialog = page.get_by_role("dialog")
+        with suppress(PlaywrightTimeoutError):
+            dialog.wait_for(timeout=2000)
+        if dialog.is_visible():
+            dialog.get_by_role(
+                "button", name=re.compile(r"Python", re.IGNORECASE)
+            ).first.click()
+            page.wait_for_timeout(500)
+            cell.locator(".jp-InputArea").click()
+            page.keyboard.press("Shift+Enter")
         page.wait_for_selector("canvas", state="attached", timeout=60000)
         page.wait_for_function(
             """
