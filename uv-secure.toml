@@ -1,0 +1,9 @@
+format = "columns"
+check_uv_tool = false
+
+[vulnerability_criteria]
+ignore_vulnerabilities = [
+  # nbconvert SVG->PDF Windows search path issue (dev-only dependency)
+  "GHSA-xm59-rqc7-hhvf",
+  "CVE-2025-53000"
+]

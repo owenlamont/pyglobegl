@@ -1,0 +1,6 @@
+[rules]
+redundant-cast = "error"
+unused-ignore-comment = "error"
+
+[environment]
+python-version = "3.10"
