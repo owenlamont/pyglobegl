@@ -72,14 +72,15 @@ def _run_cell(page, notebook, cell_text: str):
     cell = notebook.get_by_text(cell_text, exact=True).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
-    cell.locator(".cm-content").click()
-    run_button = page.get_by_role(
-        "button", name=re.compile(r"Run this cell", re.IGNORECASE)
-    )
-    if run_button.count() > 0:
-        run_button.first.click(timeout=2000)
-    else:
-        page.keyboard.press("Shift+Enter")
+    cell.locator(".jp-InputPrompt").click()
+    page.keyboard.press("Shift+Enter")
+    page.wait_for_timeout(500)
+    if cell.locator(".jp-OutputArea").count() == 0:
+        run_button = page.get_by_role(
+            "button", name=re.compile(r"Run this cell", re.IGNORECASE)
+        )
+        if run_button.count() > 0:
+            run_button.first.click(timeout=2000)
     return cell
 
 
