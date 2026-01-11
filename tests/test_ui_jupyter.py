@@ -58,36 +58,39 @@ def _select_kernel_if_prompted(page) -> None:
     _select_kernel_from_dialog(page)
 
 
-def _select_kernel_from_dialog(page) -> None:
+def _wait_for_kernel_idle(page, timeout_ms: int = 60000) -> None:
+    kernel_status = page.locator(".jp-KernelStatus")
+    start = time.monotonic()
+    while time.monotonic() - start < timeout_ms / 1000:
+        if kernel_status.count() > 0:
+            text = kernel_status.first.inner_text().strip().lower()
+            if "idle" in text:
+                return
+        page.wait_for_timeout(250)
+    raise TimeoutError("Kernel did not become idle in time.")
+
+
+def _select_kernel_from_dialog(page) -> bool:
     dialog = page.get_by_role("dialog")
     if not dialog.is_visible():
-        return
+        return False
     if _try_select_python_kernel(dialog):
         page.wait_for_timeout(500)
-        return
+        return True
     pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
+    return False
 
 
 def _execute_cell(page, notebook, cell_text: str):
     cell = notebook.get_by_text(cell_text, exact=True).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
-    panel_id = notebook.get_attribute("data-id")
-    if panel_id:
-        page.evaluate(
-            """
-            (panelId) => {
-              const app = window.jupyterapp || window.jupyterlab;
-              if (!app) return;
-              const widget = app.shell.widgets("main").find((w) => w.id === panelId);
-              if (!widget) return;
-              app.commands.execute("notebook:run-cell-and-select-next", {
-                notebook: widget,
-              });
-            }
-            """,
-            panel_id,
-        )
+    editor = cell.locator(".jp-InputArea-editor").first
+    if editor.count() > 0:
+        editor.click(timeout=2000)
+    else:
+        cell.click(timeout=2000)
+    page.keyboard.press("Shift+Enter")
     run_button = page.get_by_role(
         "button", name=re.compile(r"Run this cell", re.IGNORECASE)
     )
@@ -253,12 +256,17 @@ def test_jupyter_widget_renders(page: "Page") -> None:
             _dismiss_notifications(page)
             _ensure_webgl_available(page)
             _select_kernel_if_prompted(page)
+            _wait_for_kernel_idle(page)
             notebook = page.locator(".jp-NotebookPanel").first
             notebook.get_by_text(
                 "from pyglobegl import GlobeWidget", exact=True
             ).wait_for(timeout=60000)
             cell = _execute_cell(page, notebook, "from pyglobegl import GlobeWidget")
-            _select_kernel_from_dialog(page)
+            if _select_kernel_from_dialog(page):
+                _wait_for_kernel_idle(page)
+                cell = _execute_cell(
+                    page, notebook, "from pyglobegl import GlobeWidget"
+                )
             _wait_for_canvas(page, cell)
             _assert_no_root_overflow(page)
         except Exception:
