@@ -17,7 +17,7 @@ def _(mo):
     from pyglobegl import GlobeWidget
 
     widget = mo.ui.anywidget(GlobeWidget())
-    return (widget,)
+    widget  # noqa: B018
 
 
 if __name__ == "__main__":

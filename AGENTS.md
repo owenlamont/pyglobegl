@@ -62,26 +62,29 @@ and immediately use the widget without rebuilding JupyterLab.
 - Build frontend assets before testing: `cd frontend && pnpm run build`.
 - JupyterLab: `uv run jupyter lab` and open `examples/jupyter_demo.ipynb`.
 - Notebook: `uv run jupyter notebook` and open `examples/jupyter_demo.ipynb`.
-- marimo: `uv run marimo edit examples/marimo_demo.py`.
+- marimo (edit + app view):
+  - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
+    `--skip-update-check`.
 
 ## Playwright-Assisted Validation (WSL2 + Windows GPU)
 
 The widget uses WebGL; WSL browsers often fail to create a WebGL context. To
-automate rendering checks, run Playwright on Windows and point it at the WSL
-servers bound to `0.0.0.0`.
+automate rendering checks, run Playwright on Windows and open the marimo server
+on `localhost` (don’t force `--host 0.0.0.0`, which can break localhost
+forwarding).
 
 - Configure Playwright MCP to use Windows PowerShell (config in
   `~/.codex/config.toml`):
   - `command = "pwsh.exe"`
   - `args = ["-NoLogo", "-NoProfile", "-Command", "npx @playwright/mcp@latest"]`
-- Start marimo on all interfaces so Windows can reach it:
-  - `uv run marimo run --host 0.0.0.0 --port 2726 examples/marimo_demo.py`
-- Find the WSL IP for Windows access:
-  - `hostname -I` (use the first IP)
-- In Playwright, open: `http://<WSL_IP>:2726`
-  - Wait a few seconds for the widget to render.
-  - Verify a `<canvas>` exists via Playwright evaluation.
-  - A black sphere with blue haze is expected unless a globe texture is set.
+- Start marimo (edit mode) in WSL:
+  - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
+    `--skip-update-check`
+  - Use the printed access token URL in Windows (example):
+    - `http://localhost:2729?access_token=<TOKEN>`
+- In marimo, run all cells (command palette → “Re-run all cells” or click the
+  run-all button) and toggle app view (Ctrl + .).
+  - The textured Earth should render once app view is enabled.
 - For JupyterLab automation, start:
   - Run:
     ```bash
