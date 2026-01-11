@@ -9,10 +9,36 @@ function P6() {
   });
 }
 function B6({ el: i }) {
-  i.style.width = "100%", i.style.height = "500px", i.style.minHeight = "500px", P6(), Promise.resolve().then(() => Gue).then(({ default: e }) => {
-    const t = e()(i);
-    t.pointOfView({ lat: 0, lng: 0, altitude: 2 }, 0), t.globeImageUrl(C6);
-  });
+  i.style.width = "100%", i.style.height = "auto", i.style.display = "flex", i.style.justifyContent = "center", i.style.alignItems = "center", P6();
+  let e;
+  return Promise.resolve().then(() => Gue).then(({ default: t }) => {
+    const n = document.createElement("div");
+    i.replaceChildren(n);
+    const r = t()(n);
+    r.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0), r.atmosphereAltitude(0.05), r.globeImageUrl(C6);
+    const s = i.closest(".output-area"), o = () => {
+      const { width: a } = i.getBoundingClientRect();
+      if (a <= 0)
+        return;
+      const l = s || i.parentElement;
+      let u = l ? l.clientHeight : 0, d = 0, p = 0;
+      if (l) {
+        const M = window.getComputedStyle(l), T = Number.parseFloat(M.paddingTop), C = Number.parseFloat(M.paddingBottom);
+        d = T + C;
+        const E = Number.parseFloat(M.maxHeight);
+        Number.isFinite(E) && (p = E), u > 0 && (u = Math.max(0, u - d));
+      }
+      const g = p > 0 ? Math.max(0, p - d) : u, y = window.innerHeight || 0, b = Math.min(
+        a,
+        g > 0 ? g : a,
+        y > 0 ? y : a
+      ), w = Math.max(0, Math.floor(b * 0.75));
+      i.style.width = "100%", i.style.height = `${g > 0 ? g : w}px`, i.style.margin = "0", n.style.width = `${w}px`, n.style.height = `${w}px`, r.width(w).height(w);
+    };
+    o(), e = new ResizeObserver(o), e.observe(i);
+  }), () => {
+    e?.disconnect();
+  };
 }
 const que = { render: B6 };
 const Bc = "182", bo = { ROTATE: 0, DOLLY: 1, PAN: 2 }, PA = { ROTATE: 0, PAN: 1, DOLLY_PAN: 2, DOLLY_ROTATE: 3 }, $E = 0, Jx = 1, e4 = 2, N6 = 0, Zd = 1, I6 = 2, sl = 3, no = 0, si = 1, Zi = 2, ys = 0, bs = 1, QA = 2, JA = 3, YA = 4, UA = 5, Qr = 100, Bb = 101, Nb = 102, t4 = 103, n4 = 104, $a = 200, Ib = 201, Db = 202, Lb = 203, pf = 204, mf = 205, Fb = 206, Ub = 207, kb = 208, Ob = 209, Vb = 210, D6 = 211, L6 = 212, F6 = 213, U6 = 214, gf = 0, xf = 1, yf = 2, hu = 3, bf = 4, vf = 5, Sf = 6, Tf = 7, e0 = 0, i4 = 1, r4 = 2, Br = 0, Gb = 1, qb = 2, zb = 3, Wb = 4, s4 = 5, Hb = 6, Kb = 7, jb = 300, Jo = 301, La = 302, XA = 303, ZA = 304, yc = 306, bc = 1e3, Bs = 1001, vc = 1002, ri = 1003, Qb = 1004, ol = 1005, Si = 1006, kA = 1007, Ns = 1008, k6 = 1008, Ti = 1009, dc = 1010, fc = 1011, Wo = 1012, br = 1013, ii = 1014, Qi = 1015, wi = 1016, Ng = 1017, Ig = 1018, io = 1020, Dg = 35902, Lg = 35899, Jb = 1021, t0 = 1022, Yi = 1023, Dr = 1026, ms = 1027, n0 = 1028, qh = 1029, gs = 1030, zh = 1031, O6 = 1032, Wh = 1033, ou = 33776, au = 33777, lu = 33778, uu = 33779, Mf = 35840, wf = 35841, _f = 35842, Ef = 35843, $A = 36196, eh = 37492, th = 37496, nh = 37488, ih = 37489, Sc = 37490, rh = 37491, sh = 37808, oh = 37809, ah = 37810, lh = 37811, uh = 37812, ch = 37813, Ah = 37814, hh = 37815, dh = 37816, fh = 37817, ph = 37818, mh = 37819, gh = 37820, xh = 37821, yh = 36492, Yx = 36494, Xx = 36495, bh = 36283, vh = 36284, Tc = 36285, Sh = 36286, V6 = 0, G6 = 1, yT = 2, q6 = 3200, wa = 0, o4 = 1, Ps = "", Pr = "srgb", du = "srgb-linear", Th = "linear", xt = "srgb", l2 = "", a4 = "rg", z6 = "ga", W6 = 0, Ju = 7680, H6 = 7681, K6 = 7682, j6 = 7683, Q6 = 34055, J6 = 34056, Y6 = 5386, X6 = 512, Z6 = 513, $6 = 514, eI = 515, tI = 516, nI = 517, iI = 518, Zx = 519, Yb = 512, i0 = 513, Xb = 514, r0 = 515, Zb = 516, $b = 517, s0 = 518, ev = 519, Mh = 35044, sc = 35048, bT = "300 es", xs = 2e3, So = 2001, va = {

@@ -16,8 +16,12 @@ def _():
 def _(mo):
     from pyglobegl import GlobeWidget
 
-    widget = mo.ui.anywidget(GlobeWidget())
-    widget  # noqa: B018
+    return mo.ui.anywidget(GlobeWidget())
+
+
+@app.cell
+def _():
+    return
 
 
 if __name__ == "__main__":

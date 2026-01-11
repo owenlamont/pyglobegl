@@ -65,6 +65,8 @@ and immediately use the widget without rebuilding JupyterLab.
 - marimo (edit + app view):
   - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
     `--skip-update-check`.
+  - After rebuilding the frontend, re-run the widget cell so marimo refreshes
+    the anywidget JS bundle (stale outputs keep the old hash).
 
 ## Playwright-Assisted Validation (WSL2 + Windows GPU)
 
@@ -84,6 +86,8 @@ forwarding).
     - `http://localhost:2729?access_token=<TOKEN>`
 - In marimo, run all cells (command palette → “Re-run all cells” or click the
   run-all button) and toggle app view (Ctrl + .).
+  - Re-run the widget cell after each frontend rebuild to pick up the latest
+    JS bundle (the JS hash changes when the bundle changes).
   - The textured Earth should render once app view is enabled.
 - For JupyterLab automation, start:
   - Run:
