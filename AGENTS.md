@@ -92,11 +92,11 @@ forwarding).
 - For JupyterLab automation, start:
   - Run:
     ```bash
-    uv run jupyter lab --ip 0.0.0.0 --ServerApp.port=8888 \
-      --ServerApp.token=devtoken
+    uv run jupyter lab --no-browser --port 8890 --ip 127.0.0.1
     ```
-  - Open `http://<WSL_IP>:8888/lab?token=devtoken` in Playwright and run the
-    first cell in `examples/jupyter_demo.ipynb`.
+  - Copy the tokenized URL from the logs, then open:
+    - `http://127.0.0.1:8890/lab/tree/examples/jupyter_demo.ipynb?token=<TOKEN>`
+  - Run the first cell and confirm the globe renders.
 
 ## UI Tests (Opt-in)
 
