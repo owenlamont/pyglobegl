@@ -142,24 +142,22 @@ def _open_jupyter_log(port: int) -> tuple[Path, object]:
 
 
 def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.Popen:
+    args = [
+        uv_path,
+        "run",
+        "jupyter",
+        "lab",
+        "--no-browser",
+        "--ip",
+        "127.0.0.1",
+        "--ServerApp.port",
+        str(port),
+    ]
+    if token:
+        args.extend(["--ServerApp.token", token])
+    args.extend(["--ServerApp.password", ""])
     return subprocess.Popen(  # noqa: S603
-        [
-            uv_path,
-            "run",
-            "jupyter",
-            "lab",
-            "--no-browser",
-            "--ip",
-            "127.0.0.1",
-            "--ServerApp.port",
-            str(port),
-            "--ServerApp.token",
-            token,
-            "--ServerApp.password",
-            "",
-        ],
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
+        args, stdout=log_file, stderr=subprocess.STDOUT
     )
 
 
