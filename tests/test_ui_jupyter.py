@@ -88,6 +88,11 @@ def _execute_cell(page, notebook, cell_text: str):
             """,
             panel_id,
         )
+    run_button = page.get_by_role(
+        "button", name=re.compile(r"Run this cell", re.IGNORECASE)
+    )
+    if run_button.count() > 0:
+        run_button.first.click(timeout=2000)
     return cell
 
 
