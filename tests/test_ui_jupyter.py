@@ -43,6 +43,11 @@ def _write_debug_artifacts(page, prefix: str) -> None:
         (artifacts_dir / f"{prefix}-kernel-status.txt").write_text(
             kernel_status.inner_text(), encoding="utf-8"
         )
+    output_text = page.locator(".jp-OutputArea-output")
+    if output_text.count() > 0:
+        (artifacts_dir / f"{prefix}-output.txt").write_text(
+            "\n".join(output_text.all_inner_texts()), encoding="utf-8"
+        )
 
 
 def _select_kernel_if_prompted(page) -> None:
@@ -75,6 +80,11 @@ def _run_cell(page, cell_text: str):
 def _wait_for_canvas(page, cell, timeout_ms: int = 60000) -> None:
     output = cell.locator(".jp-OutputArea")
     output.wait_for(state="attached", timeout=timeout_ms)
+    output_text = output.locator(".jp-OutputArea-output")
+    if output_text.count() > 0:
+        text = "\n".join(output_text.all_inner_texts()).strip()
+        if text:
+            raise RuntimeError(f"Cell output error:\n{text}")
     canvas = output.locator("canvas").first
     canvas.wait_for(state="attached", timeout=timeout_ms)
     deadline = time.monotonic() + timeout_ms / 1000
@@ -100,6 +110,22 @@ def _assert_no_root_overflow(page) -> None:
         """
     )
     assert not root_overflow
+
+
+def _ensure_webgl_available(page) -> None:
+    has_webgl = page.evaluate(
+        """
+        () => {
+          const canvas = document.createElement("canvas");
+          return !!(
+            canvas.getContext("webgl") ||
+            canvas.getContext("experimental-webgl")
+          );
+        }
+        """
+    )
+    if not has_webgl:
+        pytest.skip("WebGL is not available in this browser environment.")
 
 
 def _tail_log(log_path: Path, max_chars: int = 4000) -> str:
@@ -192,6 +218,7 @@ def test_jupyter_widget_renders(page: "Page") -> None:
         try:
             page.goto(url)
             page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+            _ensure_webgl_available(page)
             _select_kernel_if_prompted(page)
             page.get_by_text("from pyglobegl import GlobeWidget").wait_for(
                 timeout=60000
