@@ -102,14 +102,21 @@ def _assert_no_root_overflow(page) -> None:
     assert not root_overflow
 
 
-@contextmanager
-def _jupyterlab_server() -> Iterator[str]:
-    port = _free_port()
-    uv_path = shutil.which("uv")
-    if uv_path is None:
-        raise RuntimeError("uv not found on PATH.")
-    token = secrets.token_urlsafe(16)
-    proc = subprocess.Popen(  # noqa: S603
+def _tail_log(log_path: Path, max_chars: int = 4000) -> str:
+    if not log_path.exists():
+        return ""
+    return log_path.read_text(encoding="utf-8")[-max_chars:]
+
+
+def _open_jupyter_log(port: int) -> tuple[Path, object]:
+    artifacts_dir = Path("ui-artifacts")
+    artifacts_dir.mkdir(exist_ok=True)
+    log_path = artifacts_dir / f"jupyterlab-{port}.log"
+    return log_path, log_path.open("w", encoding="utf-8")
+
+
+def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.Popen:
+    return subprocess.Popen(  # noqa: S603
         [
             uv_path,
             "run",
@@ -125,36 +132,58 @@ def _jupyterlab_server() -> Iterator[str]:
             "--ServerApp.password",
             "",
         ],
-        stdout=subprocess.DEVNULL,
+        stdout=log_file,
         stderr=subprocess.STDOUT,
     )
 
+
+def _wait_for_jupyter(
+    port: int, token: str, proc: subprocess.Popen, log_path: Path
+) -> str:
+    url = f"http://127.0.0.1:{port}/lab/tree/examples/jupyter_demo.ipynb?token={token}"
+    start = time.monotonic()
+    while time.monotonic() - start < 90:
+        if proc.poll() is not None:
+            tail = _tail_log(log_path)
+            raise RuntimeError(
+                "JupyterLab exited early with code "
+                f"{proc.returncode}. Log tail:\n{tail}"
+            )
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            if sock.connect_ex(("127.0.0.1", port)) == 0:
+                return url
+        time.sleep(0.1)
+    tail = _tail_log(log_path)
+    raise RuntimeError(f"Timed out waiting for JupyterLab. Log tail:\n{tail}")
+
+
+def _shutdown_process(proc: subprocess.Popen, log_file) -> None:
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=10)
+    if not log_file.closed:
+        log_file.close()
+
+
+@contextmanager
+def _jupyterlab_server() -> Iterator[str]:
+    port = _free_port()
+    uv_path = shutil.which("uv")
+    if uv_path is None:
+        raise RuntimeError("uv not found on PATH.")
+    token = secrets.token_urlsafe(16)
+    log_path, log_file = _open_jupyter_log(port)
+    proc = _start_jupyter(uv_path, token, port, log_file)
+
     try:
-        url = (
-            f"http://127.0.0.1:{port}/lab/tree/examples/jupyter_demo.ipynb"
-            f"?token={token}"
-        )
-        start = time.monotonic()
-        while time.monotonic() - start < 90:
-            if proc.poll() is not None:
-                raise RuntimeError(
-                    f"JupyterLab exited early with code {proc.returncode}."
-                )
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                if sock.connect_ex(("127.0.0.1", port)) == 0:
-                    break
-            time.sleep(0.1)
-        else:
-            raise RuntimeError("Timed out waiting for JupyterLab.")
+        url = _wait_for_jupyter(port, token, proc, log_path)
         yield url
     finally:
-        if proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait(timeout=10)
+        _shutdown_process(proc, log_file)
 
 
 @pytest.mark.ui
