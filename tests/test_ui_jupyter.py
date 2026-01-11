@@ -68,35 +68,24 @@ def _select_kernel_from_dialog(page) -> None:
     pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
 
 
-def _run_cell(page, notebook, cell_text: str):
+def _execute_cell(notebook, cell_text: str):
     cell = notebook.get_by_text(cell_text, exact=True).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
-    cell.locator(".jp-InputPrompt").click()
-    page.keyboard.press("Shift+Enter")
-    page.wait_for_timeout(500)
-    if cell.locator(".jp-OutputArea").count() == 0:
-        run_button = page.get_by_role(
-            "button", name=re.compile(r"Run this cell", re.IGNORECASE)
-        )
-        if run_button.count() > 0:
-            run_button.first.click(timeout=2000)
-            page.wait_for_timeout(500)
-    if cell.locator(".jp-OutputArea").count() == 0:
-        _run_all_cells(page)
-    return cell
-
-
-def _run_all_cells(page) -> None:
-    run_menu = page.get_by_role("menuitem", name="Run")
-    if run_menu.count() == 0:
-        return
-    run_menu.click(timeout=2000)
-    run_all = page.get_by_role(
-        "menuitem", name=re.compile(r"Run All Cells", re.IGNORECASE)
+    cell.evaluate(
+        """
+        (node) => {
+          const widget = node.closest("[data-id]");
+          if (!widget) return;
+          const app = window.jupyterapp || window.jupyterlab;
+          if (!app) return;
+          app.commands.execute("notebook:run-cell-and-select-next", {
+            notebook: widget,
+          });
+        }
+        """
     )
-    if run_all.count() > 0:
-        run_all.first.click(timeout=2000)
+    return cell
 
 
 def _wait_for_canvas(page, cell, timeout_ms: int = 60000) -> None:
@@ -260,7 +249,7 @@ def test_jupyter_widget_renders(page: "Page") -> None:
             notebook.get_by_text(
                 "from pyglobegl import GlobeWidget", exact=True
             ).wait_for(timeout=60000)
-            cell = _run_cell(page, notebook, "from pyglobegl import GlobeWidget")
+            cell = _execute_cell(notebook, "from pyglobegl import GlobeWidget")
             _select_kernel_from_dialog(page)
             _wait_for_canvas(page, cell)
             _assert_no_root_overflow(page)
