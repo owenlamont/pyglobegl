@@ -68,8 +68,8 @@ def _select_kernel_from_dialog(page) -> None:
     pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
 
 
-def _run_cell(page, cell_text: str):
-    cell = page.get_by_text(cell_text).locator(
+def _run_cell(page, notebook, cell_text: str):
+    cell = notebook.get_by_text(cell_text, exact=True).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
     cell.locator(".jp-InputArea").click()
@@ -126,6 +126,13 @@ def _ensure_webgl_available(page) -> None:
     )
     if not has_webgl:
         pytest.skip("WebGL is not available in this browser environment.")
+
+
+def _dismiss_notifications(page) -> None:
+    toast_no = page.get_by_role("button", name="No")
+    if toast_no.is_visible():
+        toast_no.click(timeout=2000)
+        page.wait_for_timeout(200)
 
 
 def _tail_log(log_path: Path, max_chars: int = 4000) -> str:
@@ -216,12 +223,14 @@ def test_jupyter_widget_renders(page: "Page") -> None:
         try:
             page.goto(url)
             page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+            _dismiss_notifications(page)
             _ensure_webgl_available(page)
             _select_kernel_if_prompted(page)
-            page.get_by_text("from pyglobegl import GlobeWidget").wait_for(
-                timeout=60000
-            )
-            cell = _run_cell(page, "from pyglobegl import GlobeWidget")
+            notebook = page.locator(".jp-NotebookPanel").first
+            notebook.get_by_text(
+                "from pyglobegl import GlobeWidget", exact=True
+            ).wait_for(timeout=60000)
+            cell = _run_cell(page, notebook, "from pyglobegl import GlobeWidget")
             _select_kernel_from_dialog(page)
             _wait_for_canvas(page, cell)
             _assert_no_root_overflow(page)
