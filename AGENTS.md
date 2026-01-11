@@ -107,6 +107,16 @@ forwarding).
   - Run on Windows or full Linux to execute the UI test.
   - If Playwright browsers are missing: `uv run playwright install`.
 
+### Jupyter UI Test Notes
+
+- The Jupyter UI test is in `tests/test_ui_jupyter.py`.
+- It starts JupyterLab in-process, opens `examples/jupyter_demo.ipynb`, selects
+  the Python kernel, and executes the first cell via the Jupyter command API.
+- The test waits for a canvas inside the output area and fails with artifacts
+  (HTML + screenshot) when the widget does not render.
+- If it flakes, re-download UI artifacts from the failed CI job and inspect
+  the screenshot/log tail to see whether the cell executed and produced output.
+
 ### Playwright Screenshot Path Notes
 
 The MCP server only writes inside its own temp output directory. To keep copies
