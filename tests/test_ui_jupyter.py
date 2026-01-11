@@ -81,7 +81,22 @@ def _run_cell(page, notebook, cell_text: str):
         )
         if run_button.count() > 0:
             run_button.first.click(timeout=2000)
+            page.wait_for_timeout(500)
+    if cell.locator(".jp-OutputArea").count() == 0:
+        _run_all_cells(page)
     return cell
+
+
+def _run_all_cells(page) -> None:
+    run_menu = page.get_by_role("menuitem", name="Run")
+    if run_menu.count() == 0:
+        return
+    run_menu.click(timeout=2000)
+    run_all = page.get_by_role(
+        "menuitem", name=re.compile(r"Run All Cells", re.IGNORECASE)
+    )
+    if run_all.count() > 0:
+        run_all.first.click(timeout=2000)
 
 
 def _wait_for_canvas(page, cell, timeout_ms: int = 60000) -> None:
