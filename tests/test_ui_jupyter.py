@@ -154,8 +154,8 @@ def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.
         str(port),
     ]
     if token:
-        args.extend(["--ServerApp.token", token])
-    args.extend(["--ServerApp.password", ""])
+        args.append(f"--ServerApp.token={token}")
+    args.append("--ServerApp.password=")
     return subprocess.Popen(  # noqa: S603
         args, stdout=log_file, stderr=subprocess.STDOUT
     )
