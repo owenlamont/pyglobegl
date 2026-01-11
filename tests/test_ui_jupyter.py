@@ -63,29 +63,27 @@ def _select_kernel_from_dialog(page) -> None:
     pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
 
 
-def _run_cell(page, cell_text: str) -> None:
+def _run_cell(page, cell_text: str):
     cell = page.get_by_text(cell_text).locator(
         "xpath=ancestor::div[contains(@class,'jp-Cell')]"
     )
     cell.locator(".jp-InputArea").click()
     page.keyboard.press("Shift+Enter")
+    return cell
 
 
-def _wait_for_canvas(page) -> None:
-    page.wait_for_selector("canvas", state="attached", timeout=60000)
-    page.wait_for_function(
-        """
-        () => {
-          const canvas = document.querySelector("canvas");
-          if (!canvas) {
-            return false;
-          }
-          const rect = canvas.getBoundingClientRect();
-          return rect.width > 0 && rect.height > 0;
-        }
-        """,
-        timeout=60000,
-    )
+def _wait_for_canvas(page, cell, timeout_ms: int = 60000) -> None:
+    output = cell.locator(".jp-OutputArea")
+    output.wait_for(state="attached", timeout=timeout_ms)
+    canvas = output.locator("canvas").first
+    canvas.wait_for(state="attached", timeout=timeout_ms)
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        box = canvas.bounding_box()
+        if box and box["width"] > 0 and box["height"] > 0:
+            return
+        page.wait_for_timeout(250)
+    raise TimeoutError("Canvas never became visible.")
 
 
 def _assert_no_root_overflow(page) -> None:
@@ -169,9 +167,9 @@ def test_jupyter_widget_renders(page: "Page") -> None:
             page.get_by_text("from pyglobegl import GlobeWidget").wait_for(
                 timeout=60000
             )
-            _run_cell(page, "from pyglobegl import GlobeWidget")
+            cell = _run_cell(page, "from pyglobegl import GlobeWidget")
             _select_kernel_from_dialog(page)
-            _wait_for_canvas(page)
+            _wait_for_canvas(page, cell)
             _assert_no_root_overflow(page)
         except Exception:
             try:

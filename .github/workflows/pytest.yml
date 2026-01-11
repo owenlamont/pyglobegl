@@ -35,6 +35,13 @@ jobs:
         run: uv run playwright install chromium
       - name: Run tests with Coverage
         run: uv run pytest -n logical --color=no -m "ui or not ui" tests --cov=. --cov-branch --cov-report=term-missing
+      - name: Upload UI artifacts
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ui-artifacts-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ui-artifacts
+          if-no-files-found: ignore
       - name: Upload coverage artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
