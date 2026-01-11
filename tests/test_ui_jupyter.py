@@ -1,5 +1,6 @@
 from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
+from pathlib import Path
 import re
 import secrets
 import shutil
@@ -8,7 +9,6 @@ import subprocess  # noqa: S404
 import time
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import pytest
 
 
@@ -24,12 +24,84 @@ def _free_port() -> int:
 
 def _try_select_python_kernel(dialog, timeout_ms: int = 20000) -> bool:
     buttons = dialog.get_by_role("button", name=re.compile(r"Python", re.IGNORECASE))
-    try:
-        buttons.first.wait_for(state="visible", timeout=timeout_ms)
-        buttons.first.click(timeout=timeout_ms)
-        return True
-    except PlaywrightTimeoutError:
+    if buttons.count() == 0:
         return False
+    buttons.first.wait_for(state="visible", timeout=timeout_ms)
+    buttons.first.click(timeout=timeout_ms)
+    return True
+
+
+def _write_debug_artifacts(page, prefix: str) -> None:
+    artifacts_dir = Path("ui-artifacts")
+    artifacts_dir.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(artifacts_dir / f"{prefix}-screenshot.png"), full_page=True
+    )
+    (artifacts_dir / f"{prefix}-page.html").write_text(page.content(), encoding="utf-8")
+    kernel_status = page.locator(".jp-KernelStatus")
+    if kernel_status.count() > 0:
+        (artifacts_dir / f"{prefix}-kernel-status.txt").write_text(
+            kernel_status.inner_text(), encoding="utf-8"
+        )
+
+
+def _select_kernel_if_prompted(page) -> None:
+    select_kernel = page.get_by_role("button", name="Select Kernel")
+    if not select_kernel.is_visible():
+        return
+    select_kernel.click(timeout=2000)
+    _select_kernel_from_dialog(page)
+
+
+def _select_kernel_from_dialog(page) -> None:
+    dialog = page.get_by_role("dialog")
+    if not dialog.is_visible():
+        return
+    if _try_select_python_kernel(dialog):
+        page.wait_for_timeout(500)
+        return
+    pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
+
+
+def _run_cell(page, cell_text: str) -> None:
+    cell = page.get_by_text(cell_text).locator(
+        "xpath=ancestor::div[contains(@class,'jp-Cell')]"
+    )
+    cell.locator(".jp-InputArea").click()
+    page.keyboard.press("Shift+Enter")
+
+
+def _wait_for_canvas(page) -> None:
+    page.wait_for_selector("canvas", state="attached", timeout=60000)
+    page.wait_for_function(
+        """
+        () => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) {
+            return false;
+          }
+          const rect = canvas.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        }
+        """,
+        timeout=60000,
+    )
+
+
+def _assert_no_root_overflow(page) -> None:
+    root_overflow = page.evaluate(
+        """
+        () => {
+          const doc = document.documentElement;
+          const body = document.body;
+          return (
+            doc.scrollHeight > doc.clientHeight + 1 ||
+            body.scrollHeight > body.clientHeight + 1
+          );
+        }
+        """
+    )
+    assert not root_overflow
 
 
 @contextmanager
@@ -84,67 +156,25 @@ def _jupyterlab_server() -> Iterator[str]:
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
-                with suppress(subprocess.TimeoutExpired):
-                    proc.wait(timeout=10)
+                proc.wait(timeout=10)
 
 
 @pytest.mark.ui
 def test_jupyter_widget_renders(page: "Page") -> None:
     with _jupyterlab_server() as url:
-        page.goto(url)
-        page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
-        select_kernel = page.get_by_role("button", name="Select Kernel")
-        if select_kernel.is_visible():
-            with suppress(PlaywrightTimeoutError):
-                select_kernel.click(timeout=2000)
-            dialog = page.get_by_role("dialog")
-            with suppress(PlaywrightTimeoutError):
-                dialog.wait_for(timeout=2000)
-            if dialog.is_visible():
-                if _try_select_python_kernel(dialog):
-                    page.wait_for_timeout(500)
-                else:
-                    pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
-        cell_text = page.get_by_text("from pyglobegl import GlobeWidget")
-        cell_text.wait_for(timeout=60000)
-        cell = cell_text.locator("xpath=ancestor::div[contains(@class,'jp-Cell')]")
-        cell.locator(".jp-InputArea").click()
-        page.keyboard.press("Shift+Enter")
-        dialog = page.get_by_role("dialog")
-        with suppress(PlaywrightTimeoutError):
-            dialog.wait_for(timeout=2000)
-        if dialog.is_visible():
-            if _try_select_python_kernel(dialog):
-                page.wait_for_timeout(500)
-                cell.locator(".jp-InputArea").click()
-                page.keyboard.press("Shift+Enter")
-            else:
-                pytest.skip("Jupyter kernel picker did not expose a Python kernel.")
-        page.wait_for_selector("canvas", state="attached", timeout=60000)
-        page.wait_for_function(
-            """
-            () => {
-              const canvas = document.querySelector("canvas");
-              if (!canvas) {
-                return false;
-              }
-              const rect = canvas.getBoundingClientRect();
-              return rect.width > 0 && rect.height > 0;
-            }
-            """,
-            timeout=60000,
-        )
-
-        root_overflow = page.evaluate(
-            """
-            () => {
-              const doc = document.documentElement;
-              const body = document.body;
-              return (
-                doc.scrollHeight > doc.clientHeight + 1 ||
-                body.scrollHeight > body.clientHeight + 1
-              );
-            }
-            """
-        )
-        assert not root_overflow
+        try:
+            page.goto(url)
+            page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+            _select_kernel_if_prompted(page)
+            page.get_by_text("from pyglobegl import GlobeWidget").wait_for(
+                timeout=60000
+            )
+            _run_cell(page, "from pyglobegl import GlobeWidget")
+            _select_kernel_from_dialog(page)
+            _wait_for_canvas(page)
+            _assert_no_root_overflow(page)
+        except Exception:
+            try:
+                _write_debug_artifacts(page, "jupyter")
+            finally:
+                raise
