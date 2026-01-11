@@ -98,6 +98,15 @@ forwarding).
   - Open `http://<WSL_IP>:8888/lab?token=devtoken` in Playwright and run the
     first cell in `examples/jupyter_demo.ipynb`.
 
+## UI Tests (Opt-in)
+
+- UI tests are marked `ui` and excluded by default.
+- Run marimo UI checks:
+- `uv run pytest -m ui`
+  - Skips on WSL because Chromium crashes.
+  - Run on Windows or full Linux to execute the UI test.
+  - If Playwright browsers are missing: `uv run playwright install`.
+
 ### Playwright Screenshot Path Notes
 
 The MCP server only writes inside its own temp output directory. To keep copies
