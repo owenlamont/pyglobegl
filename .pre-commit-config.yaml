@@ -20,7 +20,7 @@ repos:
       - id: check-xml
       - id: check-yaml
       - id: check-added-large-files
-        exclude: '(^|/)uv\.lock$|^src/pyglobegl/_static/'
+        exclude: '(^|/)uv\.lock$'
       - id: no-commit-to-branch
         args: [--branch, main]
       - id: mixed-line-ending

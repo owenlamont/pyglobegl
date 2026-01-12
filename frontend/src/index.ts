@@ -1,5 +1,3 @@
-import earthTextureUrl from "./assets/earth-day.jpg";
-
 type AnyWidgetRenderProps = {
 	el: HTMLElement;
 	model: {
@@ -44,7 +42,6 @@ export function render({ el }: AnyWidgetRenderProps): () => void {
 		const globe = Globe()(mount);
 		globe.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0);
 		globe.atmosphereAltitude(0.05);
-		globe.globeImageUrl(earthTextureUrl);
 
 		const outputArea = el.closest(".output-area") as HTMLElement | null;
 
