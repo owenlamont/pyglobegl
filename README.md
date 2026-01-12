@@ -1,7 +1,8 @@
 # pyglobegl
 
-AnyWidget wrapper for globe.gl with integrations with popular Python spatial
-packages.
+[AnyWidget](https://github.com/manzt/anywidget) wrapper for
+[globe.gl](https://github.com/vasturiano/globe.gl) with integrations with
+popular Python spatial packages.
 
 ## Goals
 
@@ -11,15 +12,33 @@ packages.
   build/extension install).
 - Keep the Python API friendly for spatial data workflows.
 
-## Roadmap (Short Term)
+## Roadmap
 
-- Initialize the project via `uv init --package pyglobegl`.
-- Add baseline Python package structure and minimal widget class.
-- Add frontend build pipeline using Vite + @anywidget/vite and bundle globe.gl
-  assets.
-- Package prebuilt labextension assets (install.json, labextension files,
-  classifiers).
-- Add smoke tests and a minimal demo notebook.
+- **Near term**
+  - Expose the base globe.gl API surface in the same order as the official API
+    reference (initialisation, layout, globe layer, then the data layers).
+  - Publish low-level layer bindings for: points, arcs, polygons, paths,
+    heatmaps, hex bins, hexed polygons, tiles, particles, rings, labels, HTML
+    elements, 3D objects, custom layer, render control, and utility options.
+  - Prioritize strongly typed, overload-heavy Python APIs with flexible input
+    unions (e.g., accept Pillow images, NumPy arrays, or remote URLs anywhere
+    globe.gl accepts textures/images).
+  - Solidify a CRS-first API: detect CRS on inputs and auto-reproject to
+    EPSG:4326 before emitting lat/lng data for globe.gl layers.
+
+- **Mid term**
+  - GeoPandas adapter: map geometry types to globe.gl layers with sensible
+    defaults and schema validation.
+  - MovingPandas trajectories (static): accept trajectory/segment outputs and
+    render via paths/arcs without time animation in v1.
+  - Geometry-only inputs: accept bare geometry collections (Shapely or
+    GeoJSON-like) as a convenience layer when CRS metadata is explicit.
+
+- **Long term / research**
+  - GeoPolars exploration: track maturity and define an adapter plan once CRS
+    metadata and extension types are stable upstream.
+  - Raster feasibility: investigate mapping rasters to globe.gl via tiles,
+    heatmaps, or sampled grids; document constraints and recommended workflows.
 
 ## Development Notes / Scratchpad
 
@@ -37,11 +56,6 @@ packages.
   `src/pyglobegl/_static/`.
 - Static frontend assets are bundled into the Python package and referenced via
   `_esm` from `src/pyglobegl/_static/index.js`.
-
-## Open Questions
-
-- Default asset set (earth textures) and size budget for bundled assets.
-- Whether to include optional CDN fallback for large assets.
 
 ## Build Assets (Release Checklist)
 
