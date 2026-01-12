@@ -44,6 +44,7 @@ popular Python spatial packages.
 
 - Use the uv CLI for dependency and project changes. Do not edit
   `pyproject.toml` or `uv.lock` directly.
+- Solara demo: `uv run solara run examples/solara_demo.py`.
 - Bundle globe.gl and required assets for offline-friendly installs while
   staying under PyPI size limits.
 - Start with Python linting/tooling (ruff, ty, typos, yamllint, zizmor). Use
@@ -56,6 +57,7 @@ popular Python spatial packages.
   `src/pyglobegl/_static/`.
 - Static frontend assets are bundled into the Python package and referenced via
   `_esm` from `src/pyglobegl/_static/index.js`.
+- Solara UI checks use `pytest-ipywidgets` in `tests/test_ui_solara.py`.
 
 ## Build Assets (Release Checklist)
 
