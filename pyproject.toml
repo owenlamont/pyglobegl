@@ -58,6 +58,7 @@ dev = [
     "notebook>=7.5.1",
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
+    "pytest-ipywidgets[solara]>=1.56.0",
     "pytest-playwright>=0.7.2",
     "pytest-randomly>=4.0.1",
     "pytest-xdist>=3.8.0",
