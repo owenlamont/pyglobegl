@@ -59,6 +59,19 @@ popular Python spatial packages.
   `_esm` from `src/pyglobegl/_static/index.js`.
 - Solara UI checks use `pytest-ipywidgets` in `tests/test_ui_solara.py`.
 
+## WSL2 Test Notes
+
+- WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and
+  WebGL available in the Playwright Chromium build.
+- If the UI tests are meant to enforce hardware acceleration, set
+  `PYGLOBEGL_REQUIRE_HW_ACCEL=1` before running pytest so software renderers
+  skip early.
+- On WSL2, the UI test harness retries the browser launch with the D3D12-backed
+  Mesa driver if the initial WebGL probe reports a software renderer. You can
+  still set `GALLIUM_DRIVER=d3d12` and `MESA_LOADER_DRIVER_OVERRIDE=d3d12`
+  manually, and optionally set `PYGLOBEGL_WSL_GPU_ADAPTER=<GPU name>` to map to
+  `MESA_D3D12_DEFAULT_ADAPTER_NAME` when multiple adapters are present.
+
 ## Build Assets (Release Checklist)
 
 1) `cd frontend && pnpm run build`
