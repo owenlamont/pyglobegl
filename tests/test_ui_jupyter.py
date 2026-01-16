@@ -31,13 +31,9 @@ def _try_select_python_kernel(dialog, timeout_ms: int = 20000) -> bool:
     return True
 
 
-def _write_debug_artifacts(page, prefix: str) -> None:
+def _write_debug_artifacts(page, prefix: str, ui_artifacts_writer) -> None:
+    ui_artifacts_writer(page, prefix)
     artifacts_dir = Path("ui-artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
-    page.screenshot(
-        path=str(artifacts_dir / f"{prefix}-screenshot.png"), full_page=True
-    )
-    (artifacts_dir / f"{prefix}-page.html").write_text(page.content(), encoding="utf-8")
     kernel_status = page.locator(".jp-KernelStatus")
     if kernel_status.count() > 0:
         (artifacts_dir / f"{prefix}-kernel-status.txt").write_text(
@@ -250,8 +246,7 @@ def _jupyterlab_server() -> Iterator[str]:
         _shutdown_process(proc, log_file)
 
 
-@pytest.mark.ui
-def test_jupyter_widget_renders(page: "Page") -> None:
+def test_jupyter_widget_renders(page: "Page", ui_artifacts_writer) -> None:
     with _jupyterlab_server() as url:
         try:
             page.goto(url)
@@ -274,6 +269,6 @@ def test_jupyter_widget_renders(page: "Page") -> None:
             _assert_no_root_overflow(page)
         except Exception:
             try:
-                _write_debug_artifacts(page, "jupyter")
+                _write_debug_artifacts(page, "jupyter", ui_artifacts_writer)
             finally:
                 raise

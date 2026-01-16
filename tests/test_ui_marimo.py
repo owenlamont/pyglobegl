@@ -6,8 +6,6 @@ import subprocess  # noqa: S404
 import time
 from typing import TYPE_CHECKING
 
-import pytest
-
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -66,11 +64,14 @@ def _marimo_server() -> Iterator[str]:
                     proc.wait(timeout=5)
 
 
-@pytest.mark.ui
-def test_marimo_widget_renders(page: "Page") -> None:
+def test_marimo_widget_renders(page: "Page", ui_artifacts_writer) -> None:
     with _marimo_server() as url:
         page.goto(url)
-        page.wait_for_selector("canvas", timeout=20000)
+        try:
+            page.wait_for_selector("canvas", timeout=20000)
+        except Exception:
+            ui_artifacts_writer(page, "marimo-canvas-timeout")
+            raise
 
         root_overflow = page.evaluate(
             """

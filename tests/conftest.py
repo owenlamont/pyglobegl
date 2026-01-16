@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 import os
 import pathlib
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import pytest
 
@@ -92,6 +94,24 @@ def _probe_webgl(browser: Any) -> tuple[bool, str | None, str | None]:
     return bool(result.get("ok")), result.get("renderer"), result.get("vendor")
 
 
+if TYPE_CHECKING:
+    from playwright.sync_api import Page as PlaywrightPage
+
+
+def _write_debug_artifacts(page: PlaywrightPage, prefix: str) -> None:
+    artifacts_dir = pathlib.Path("ui-artifacts")
+    artifacts_dir.mkdir(exist_ok=True)
+    page.screenshot(
+        path=str(artifacts_dir / f"{prefix}-screenshot.png"), full_page=True
+    )
+    (artifacts_dir / f"{prefix}-page.html").write_text(page.content(), encoding="utf-8")
+
+
+@pytest.fixture(scope="session")
+def ui_artifacts_writer() -> Callable[[PlaywrightPage, str], None]:
+    return _write_debug_artifacts
+
+
 @pytest.fixture(scope="session")
 def browser_type_launch_args(pytestconfig: pytest.Config) -> dict:
     launch_options: dict = {}
@@ -116,9 +136,6 @@ def browser_type_launch_args(pytestconfig: pytest.Config) -> dict:
     ]
     if _is_wsl():
         launch_options["args"].extend(_wsl_browser_args())
-        env_overrides = _wsl_env_overrides()
-        if env_overrides:
-            launch_options["env"] = {**os.environ, **env_overrides}
     return launch_options
 
 
@@ -131,6 +148,12 @@ def browser(launch_browser: Callable[..., Any]):
         )
     browser_instance = launch_browser()
     has_webgl, renderer, _vendor = _probe_webgl(browser_instance)
+    if _is_wsl() and (not has_webgl or _is_software_renderer(renderer)):
+        browser_instance.close()
+        env_overrides = _wsl_env_overrides()
+        if env_overrides:
+            browser_instance = launch_browser(env={**os.environ, **env_overrides})
+            has_webgl, renderer, _vendor = _probe_webgl(browser_instance)
     if not has_webgl:
         browser_instance.close()
         pytest.skip("WebGL is not available in this browser environment.")
