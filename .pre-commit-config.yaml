@@ -3,7 +3,7 @@
 repos:
   # Disabled until https://github.com/kynan/nbstripout/issues/208 is resolved.
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.2
+    rev: 0.8.1
     hooks:
       - id: nbstripout
         args: [--drop-empty-cells]
