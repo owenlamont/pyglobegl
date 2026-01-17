@@ -91,9 +91,11 @@ forwarding).
   - The textured Earth should render once app view is enabled.
 - For JupyterLab automation, start:
   - Run:
+
     ```bash
     uv run jupyter lab --no-browser --port 8890 --ip 127.0.0.1
     ```
+
   - Copy the tokenized URL from the logs, then open:
     - `http://127.0.0.1:8890/lab/tree/examples/jupyter_demo.ipynb?token=<TOKEN>`
   - Run the first cell and confirm the globe renders.
