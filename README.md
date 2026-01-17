@@ -59,6 +59,33 @@ popular Python spatial packages.
   `_esm` from `src/pyglobegl/_static/index.js`.
 - Solara UI checks use `pytest-ipywidgets` in `tests/test_ui_solara.py`.
 
+### Globe.gl Init/Layout + Test Foundation (Issue #13)
+
+- Implement container layout pass-through early: `width`, `height`,
+  `globe_offset`, `background_color`, `background_image_url`.
+- Implement init config pass-through: `renderer_config`, `wait_for_globe_ready`,
+  `animate_in` (forward to globe.gl init config as-is).
+- Pythonic API surface with internal mapping to globe.gl names; keep mappings
+  obvious via type hints and docstrings.
+- Decision: use Pydantic from the start with a single composed config model
+  (`GlobeConfig`) containing sub-configs (`init`, `layout`).
+- Decision: rely on Pydantic v2 serialization (`serialization_alias`,
+  `serialize_by_alias`, `model_dump`) instead of hand-rolled JS mapping logic.
+- Keep widget constructor small: pass a single config object rather than many
+  keyword args as the API grows.
+- Progress: added Pydantic dependency; created `GlobeConfig` models; wiring
+  widget state + frontend config usage completed; rebuilt `_static` bundle.
+- Build a shared canvas export fixture:
+  - Try multiple extraction strategies (Playwright element screenshot vs
+    `toDataURL` with `preserveDrawingBuffer`).
+  - Verify exact pixel dimensions and that capture includes only the canvas.
+  - Stabilize DPR handling (`devicePixelRatio=1` or scale-aware expectations).
+- Save test artifacts (timestamped) to a gitignored directory for visual review.
+- Start with low-res canvases (512, 256, 128) and settle on the smallest size
+  that still reveals behavior differences reliably.
+- Use "no-assert" snapshot tests initially, then graduate to reference images
+  or histogram comparisons once stable.
+
 ## WSL2 Test Notes
 
 - WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and
