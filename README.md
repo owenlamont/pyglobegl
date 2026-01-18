@@ -85,6 +85,18 @@ popular Python spatial packages.
 - Note: parameterized image tests should use `pytest.param(..., id="...")` and
   reference images named `{test_name}-{param_id}.png`.
 - Note: `ui-artifacts` cleanup runs only on the xdist master to avoid races.
+- Scope update: expand to Globe Layer API (globe image/bump image, visibility
+  toggles, atmosphere settings, curvature resolution, globe material, and
+  globe callbacks). Callbacks will be routed to Python via anywidget custom
+  messages.
+- Progress: added globe layer graticules test (parameterized with ids) using
+  reference images.
+- Progress: added view config (point of view + transition) to control zoom in
+  tests without changing global defaults.
+- Note: tests disable `animate_in` to avoid camera zoom animation during
+  snapshots.
+- Progress: globe-layer tests wait for `__pyglobegl_globe_ready` and then use
+  capture stability helper.
 - Progress: added canvas capture report with capture timings + PNG dimensions
   and attempted DPR override for evaluation.
 - Findings: data-URL and readPixels require `preserveDrawingBuffer=True`.

@@ -15,39 +15,54 @@ function N7({ el: i, model: e }) {
     i.replaceChildren(r);
     const s = () => e.get("config"), o = s(), a = new n(r, o?.init);
     a.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0), a.atmosphereAltitude(0.05);
-    const l = i.closest(".output-area"), u = () => {
-      const { width: w } = i.getBoundingClientRect();
-      if (w <= 0)
+    const l = i.closest(".output-area");
+    a.onGlobeReady(() => {
+      globalThis.__pyglobegl_globe_ready = !0, e.send({ type: "globe_ready" });
+    }), a.onGlobeClick((S) => {
+      e.send({ type: "globe_click", payload: S });
+    }), a.onGlobeRightClick((S) => {
+      e.send({ type: "globe_right_click", payload: S });
+    });
+    const u = () => {
+      const { width: S } = i.getBoundingClientRect();
+      if (S <= 0)
         return;
-      const T = l || i.parentElement;
-      let S = T ? T.clientHeight : 0, R = 0, E = 0;
-      if (T) {
-        const F = window.getComputedStyle(T), D = Number.parseFloat(F.paddingTop), k = Number.parseFloat(F.paddingBottom);
-        R = D + k;
-        const G = Number.parseFloat(F.maxHeight);
-        Number.isFinite(G) && (E = G), S > 0 && (S = Math.max(0, S - R));
+      const R = l || i.parentElement;
+      let E = R ? R.clientHeight : 0, N = 0, L = 0;
+      if (R) {
+        const k = window.getComputedStyle(R), G = Number.parseFloat(k.paddingTop), W = Number.parseFloat(k.paddingBottom);
+        N = G + W;
+        const $ = Number.parseFloat(k.maxHeight);
+        Number.isFinite($) && (L = $), E > 0 && (E = Math.max(0, E - N));
       }
-      const N = E > 0 ? Math.max(0, E - R) : S, L = window.innerHeight || 0, B = Math.min(
-        w,
-        N > 0 ? N : w,
-        L > 0 ? L : w
-      ), U = Math.max(0, Math.floor(B * 0.75));
-      i.style.width = "100%", i.style.height = `${N > 0 ? N : U}px`, i.style.margin = "0", r.style.width = `${U}px`, r.style.height = `${U}px`, a.width(U).height(U);
-    }, A = (w) => {
-      const T = w?.width, S = w?.height, R = typeof T == "number" && Number.isFinite(T), E = typeof S == "number" && Number.isFinite(S);
-      return !R && !E ? !1 : (R && (r.style.width = `${T}px`, a.width(T)), E && (r.style.height = `${S}px`, i.style.height = `${S}px`, a.height(S)), R && !E && (r.style.height = `${T}px`, i.style.height = `${T}px`, a.height(T)), E && !R && (r.style.width = `${S}px`, a.width(S)), !0);
-    }, p = (w) => {
-      w && (w.globeOffset && a.globeOffset(w.globeOffset), w.backgroundColor && a.backgroundColor(w.backgroundColor), w.backgroundImageUrl && a.backgroundImageUrl(w.backgroundImageUrl));
-    }, g = () => {
+      const B = L > 0 ? Math.max(0, L - N) : E, U = window.innerHeight || 0, F = Math.min(
+        S,
+        B > 0 ? B : S,
+        U > 0 ? U : S
+      ), D = Math.max(0, Math.floor(F * 0.75));
+      i.style.width = "100%", i.style.height = `${B > 0 ? B : D}px`, i.style.margin = "0", r.style.width = `${D}px`, r.style.height = `${D}px`, a.width(D).height(D);
+    }, A = (S) => {
+      const R = S?.width, E = S?.height, N = typeof R == "number" && Number.isFinite(R), L = typeof E == "number" && Number.isFinite(E);
+      return !N && !L ? !1 : (N && (r.style.width = `${R}px`, a.width(R)), L && (r.style.height = `${E}px`, i.style.height = `${E}px`, a.height(E)), N && !L && (r.style.height = `${R}px`, i.style.height = `${R}px`, a.height(R)), L && !N && (r.style.width = `${E}px`, a.width(E)), !0);
+    }, p = (S) => {
+      S && (S.globeOffset && a.globeOffset(S.globeOffset), S.backgroundColor && a.backgroundColor(S.backgroundColor), S.backgroundImageUrl && a.backgroundImageUrl(S.backgroundImageUrl));
+    }, g = (S) => {
+      S && (S.globeImageUrl !== void 0 && a.globeImageUrl(S.globeImageUrl ?? null), S.bumpImageUrl !== void 0 && a.bumpImageUrl(S.bumpImageUrl ?? null), S.showGlobe !== void 0 && a.showGlobe(S.showGlobe), S.showGraticules !== void 0 && a.showGraticules(S.showGraticules), S.showAtmosphere !== void 0 && a.showAtmosphere(S.showAtmosphere), S.atmosphereColor !== void 0 && a.atmosphereColor(S.atmosphereColor), S.atmosphereAltitude !== void 0 && a.atmosphereAltitude(S.atmosphereAltitude), S.globeCurvatureResolution !== void 0 && a.globeCurvatureResolution(S.globeCurvatureResolution), S.globeMaterial !== void 0 && a.globeMaterial(S.globeMaterial));
+    }, x = (S) => {
+      if (!S || !S.pointOfView)
+        return;
+      const R = S.transitionMs ?? 0;
+      a.pointOfView(S.pointOfView, R), globalThis.__pyglobegl_pov = a.pointOfView();
+    }, v = () => {
       t || (u(), t = new ResizeObserver(u), t.observe(i));
-    }, x = () => {
+    }, w = () => {
       t?.disconnect(), t = void 0;
-    }, v = (w) => {
-      const T = w?.layout;
-      A(T) ? x() : g(), p(T);
+    }, T = (S) => {
+      const R = S?.layout, E = S?.globe, N = S?.view;
+      A(R) ? w() : v(), p(R), g(E), x(N);
     };
-    v(o), e.on("change:config", () => {
-      v(s());
+    T(o), e.on("change:config", () => {
+      T(s());
     });
   }), () => {
     t?.disconnect();

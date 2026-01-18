@@ -37,6 +37,57 @@ class GlobeLayoutConfig(BaseModel):
     )
 
 
+class GlobeLayerConfig(BaseModel):
+    """Globe layer settings for globe.gl."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    globe_image_url: str | None = Field(
+        default=None, serialization_alias="globeImageUrl"
+    )
+    bump_image_url: str | None = Field(default=None, serialization_alias="bumpImageUrl")
+    show_globe: bool | None = Field(default=None, serialization_alias="showGlobe")
+    show_graticules: bool | None = Field(
+        default=None, serialization_alias="showGraticules"
+    )
+    show_atmosphere: bool | None = Field(
+        default=None, serialization_alias="showAtmosphere"
+    )
+    atmosphere_color: str | None = Field(
+        default=None, serialization_alias="atmosphereColor"
+    )
+    atmosphere_altitude: float | None = Field(
+        default=None, serialization_alias="atmosphereAltitude"
+    )
+    globe_curvature_resolution: float | None = Field(
+        default=None, serialization_alias="globeCurvatureResolution"
+    )
+    globe_material: object | None = Field(
+        default=None, serialization_alias="globeMaterial"
+    )
+
+
+class PointOfView(BaseModel):
+    """Point-of-view parameters for the globe camera."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    lat: float
+    lng: float
+    altitude: float
+
+
+class GlobeViewConfig(BaseModel):
+    """View configuration for globe.gl camera."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    point_of_view: PointOfView | None = Field(
+        default=None, serialization_alias="pointOfView"
+    )
+    transition_ms: int | None = Field(default=None, serialization_alias="transitionMs")
+
+
 class GlobeConfig(BaseModel):
     """Top-level configuration container for GlobeWidget."""
 
@@ -44,3 +95,5 @@ class GlobeConfig(BaseModel):
 
     init: GlobeInitConfig = Field(default_factory=GlobeInitConfig)
     layout: GlobeLayoutConfig = Field(default_factory=GlobeLayoutConfig)
+    globe: GlobeLayerConfig = Field(default_factory=GlobeLayerConfig)
+    view: GlobeViewConfig = Field(default_factory=GlobeViewConfig)

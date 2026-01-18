@@ -10,7 +10,7 @@ import pathlib
 import shutil
 from typing import Any, TYPE_CHECKING
 
-from PIL import Image
+from PIL import Image, ImageChops
 import pytest
 
 
@@ -165,13 +165,102 @@ def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
     return base64.b64decode(encoded)
 
 
+def _safe_name(value: str) -> str:
+    return (
+        value.replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "-")
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace(" ", "_")
+    )
+
+
+def _timestamp_local() -> str:
+    return _safe_name(datetime.now().astimezone().isoformat(timespec="seconds"))
+
+
+def _images_identical(first: Image.Image, second: Image.Image) -> bool:
+    if first.size != second.size:
+        return False
+    diff = ImageChops.difference(first, second)
+    return diff.getbbox() is None
+
+
 @pytest.fixture
-def canvas_capture() -> Callable[[PlaywrightPage], Image.Image]:
-    def _capture(page: PlaywrightPage) -> Image.Image:
+def canvas_capture() -> Callable[[PlaywrightPage, int], Image.Image]:
+    def _capture(page: PlaywrightPage, max_attempts: int = 3) -> Image.Image:
         png_bytes = _capture_canvas_data_url(page)
-        return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+        current = Image.open(io.BytesIO(png_bytes)).convert("RGBA")
+        for _ in range(max_attempts - 1):
+            page.wait_for_timeout(100)
+            next_bytes = _capture_canvas_data_url(page)
+            next_image = Image.open(io.BytesIO(next_bytes)).convert("RGBA")
+            if _images_identical(current, next_image):
+                return current
+            current = next_image
+        return current
 
     return _capture
+
+
+@pytest.fixture
+def canvas_label(request: pytest.FixtureRequest) -> str:
+    base = getattr(request.node, "originalname", request.node.name)
+    if hasattr(request.node, "callspec"):
+        ids = request.node.callspec.id.split("-")
+        browser = request.node.callspec.params.get("browser_name")
+        if browser:
+            ids = [item for item in ids if item != browser]
+        if ids:
+            base = f"{base}-{'-'.join(ids)}"
+    return _safe_name(base)
+
+
+@pytest.fixture
+def canvas_reference_path() -> Callable[[str], pathlib.Path]:
+    def _resolve(test_name: str) -> pathlib.Path:
+        return pathlib.Path("tests/reference-images") / f"{test_name}.png"
+
+    return _resolve
+
+
+@pytest.fixture
+def canvas_save_capture() -> Callable[[Image.Image, str], pathlib.Path]:
+    def _save(image: Image.Image, label: str) -> pathlib.Path:
+        filename = f"{_safe_name(label)}-{_timestamp_local()}.png"
+        path = pathlib.Path("ui-artifacts") / filename
+        image.save(path)
+        return path
+
+    return _save
+
+
+@pytest.fixture
+def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
+    def _compare(captured: Image.Image, reference_path: pathlib.Path) -> None:
+        reference = Image.open(reference_path).convert("RGBA")
+        if captured.size != reference.size:
+            raise AssertionError(
+                f"Reference size {reference.size} does not match capture size "
+                f"{captured.size}."
+            )
+        diff = ImageChops.difference(captured, reference)
+        diff_bbox = diff.getbbox()
+        if diff_bbox is None:
+            return
+        diff_pixels = sum(1 for pixel in diff.getdata() if pixel != (0, 0, 0, 0))
+        diff_path = (
+            pathlib.Path("ui-artifacts")
+            / f"canvas-capture-diff-{_timestamp_local()}.png"
+        )
+        diff.save(diff_path)
+        raise AssertionError(
+            "Captured image differs from reference. "
+            f"Diff pixels: {diff_pixels}. Diff saved to {diff_path}."
+        )
+
+    return _compare
 
 
 @pytest.fixture(scope="session")

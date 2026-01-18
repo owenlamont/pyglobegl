@@ -5,6 +5,7 @@ type AnyWidgetRenderProps = {
 		set: (key: string, value: unknown) => void;
 		save_changes: () => void;
 		on: (event: string, callback: () => void) => void;
+		send: (data: unknown, buffers?: ArrayBuffer[] | undefined) => void;
 	};
 };
 
@@ -22,9 +23,34 @@ type GlobeLayoutConfig = {
 	backgroundImageUrl?: string;
 };
 
+type GlobeLayerConfig = {
+	globeImageUrl?: string | null;
+	bumpImageUrl?: string | null;
+	showGlobe?: boolean;
+	showGraticules?: boolean;
+	showAtmosphere?: boolean;
+	atmosphereColor?: string;
+	atmosphereAltitude?: number;
+	globeCurvatureResolution?: number;
+	globeMaterial?: unknown;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
+	globe?: GlobeLayerConfig;
+	view?: GlobeViewConfig;
+};
+
+type PointOfView = {
+	lat: number;
+	lng: number;
+	altitude: number;
+};
+
+type GlobeViewConfig = {
+	pointOfView?: PointOfView;
+	transitionMs?: number;
 };
 
 function ensureWebGPUShaderStage(): void {
@@ -67,6 +93,21 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		globe.atmosphereAltitude(0.05);
 
 		const outputArea = el.closest(".output-area") as HTMLElement | null;
+
+		globe.onGlobeReady(() => {
+			(
+				globalThis as { __pyglobegl_globe_ready?: boolean }
+			).__pyglobegl_globe_ready = true;
+			model.send({ type: "globe_ready" });
+		});
+
+		globe.onGlobeClick((coords: { lat: number; lng: number }) => {
+			model.send({ type: "globe_click", payload: coords });
+		});
+
+		globe.onGlobeRightClick((coords: { lat: number; lng: number }) => {
+			model.send({ type: "globe_right_click", payload: coords });
+		});
 
 		const resize = () => {
 			const { width } = el.getBoundingClientRect();
@@ -160,6 +201,49 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyGlobeProps = (globeConfig?: GlobeLayerConfig): void => {
+			if (!globeConfig) {
+				return;
+			}
+			if (globeConfig.globeImageUrl !== undefined) {
+				globe.globeImageUrl(globeConfig.globeImageUrl ?? null);
+			}
+			if (globeConfig.bumpImageUrl !== undefined) {
+				globe.bumpImageUrl(globeConfig.bumpImageUrl ?? null);
+			}
+			if (globeConfig.showGlobe !== undefined) {
+				globe.showGlobe(globeConfig.showGlobe);
+			}
+			if (globeConfig.showGraticules !== undefined) {
+				globe.showGraticules(globeConfig.showGraticules);
+			}
+			if (globeConfig.showAtmosphere !== undefined) {
+				globe.showAtmosphere(globeConfig.showAtmosphere);
+			}
+			if (globeConfig.atmosphereColor !== undefined) {
+				globe.atmosphereColor(globeConfig.atmosphereColor);
+			}
+			if (globeConfig.atmosphereAltitude !== undefined) {
+				globe.atmosphereAltitude(globeConfig.atmosphereAltitude);
+			}
+			if (globeConfig.globeCurvatureResolution !== undefined) {
+				globe.globeCurvatureResolution(globeConfig.globeCurvatureResolution);
+			}
+			if (globeConfig.globeMaterial !== undefined) {
+				globe.globeMaterial(globeConfig.globeMaterial);
+			}
+		};
+
+		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
+			if (!viewConfig || !viewConfig.pointOfView) {
+				return;
+			}
+			const transitionMs = viewConfig.transitionMs ?? 0;
+			globe.pointOfView(viewConfig.pointOfView, transitionMs);
+			(globalThis as { __pyglobegl_pov?: PointOfView }).__pyglobegl_pov =
+				globe.pointOfView();
+		};
+
 		const enableAutoResize = () => {
 			if (resizeObserver) {
 				return;
@@ -176,6 +260,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 		const applyConfig = (config?: GlobeConfig) => {
 			const layout = config?.layout;
+			const globeConfig = config?.globe;
+			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
 				disableAutoResize();
@@ -183,6 +269,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				enableAutoResize();
 			}
 			applyLayoutProps(layout);
+			applyGlobeProps(globeConfig);
+			applyViewProps(viewConfig);
 		};
 
 		applyConfig(initialConfig);
