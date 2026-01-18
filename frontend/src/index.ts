@@ -9,6 +9,8 @@ type AnyWidgetRenderProps = {
 	};
 };
 
+import * as THREE from "three";
+
 type GlobeInitConfig = {
 	rendererConfig?: Record<string, unknown>;
 	waitForGlobeReady?: boolean;
@@ -52,6 +54,27 @@ type PointOfView = {
 type GlobeViewConfig = {
 	pointOfView?: PointOfView;
 	transitionMs?: number;
+};
+
+const buildMaterial = (spec: unknown): unknown => {
+	if (!spec || typeof spec !== "object") {
+		return spec;
+	}
+	if (!("type" in spec)) {
+		return spec;
+	}
+	const { type, params } = spec as {
+		type: string;
+		params?: Record<string, unknown>;
+	};
+	const ctor = (THREE as Record<string, unknown>)[type];
+	if (typeof ctor !== "function") {
+		return spec;
+	}
+	const materialCtor = ctor as new (
+		params?: Record<string, unknown>,
+	) => unknown;
+	return new materialCtor(params ?? {});
 };
 
 function ensureWebGPUShaderStage(): void {
@@ -256,7 +279,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.globeCurvatureResolution(globeConfig.globeCurvatureResolution);
 			}
 			if (globeConfig.globeMaterial !== undefined) {
-				globe.globeMaterial(globeConfig.globeMaterial);
+				const material = buildMaterial(globeConfig.globeMaterial);
+				globe.globeMaterial(material);
 			}
 		};
 

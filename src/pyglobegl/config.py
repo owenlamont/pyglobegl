@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, field_serializer, PositiveInt
+from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
 
 
-class GlobeInitConfig(BaseModel):
+class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
     """Initialization settings for globe.gl."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     renderer_config: Mapping[str, object] | None = Field(
         default=None, serialization_alias="rendererConfig"
@@ -19,10 +18,8 @@ class GlobeInitConfig(BaseModel):
     animate_in: bool = Field(default=True, serialization_alias="animateIn")
 
 
-class GlobeLayoutConfig(BaseModel):
+class GlobeLayoutConfig(BaseModel, extra="forbid", frozen=True):
     """Layout settings for globe.gl rendering."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     width: PositiveInt | None = None
     height: PositiveInt | None = None
@@ -41,10 +38,15 @@ class GlobeLayoutConfig(BaseModel):
         return str(value) if value is not None else None
 
 
-class GlobeLayerConfig(BaseModel):
-    """Globe layer settings for globe.gl."""
+class GlobeMaterialSpec(BaseModel, extra="forbid", frozen=True):
+    """Specification for constructing a ThreeJS material in the frontend."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Globe layer settings for globe.gl."""
 
     globe_image_url: AnyUrl | None = Field(
         default=None, serialization_alias="globeImageUrl"
@@ -71,7 +73,7 @@ class GlobeLayerConfig(BaseModel):
     globe_curvature_resolution: float | None = Field(
         default=None, serialization_alias="globeCurvatureResolution"
     )
-    globe_material: object | None = Field(
+    globe_material: GlobeMaterialSpec | dict[str, Any] | None = Field(
         default=None, serialization_alias="globeMaterial"
     )
 
@@ -80,20 +82,16 @@ class GlobeLayerConfig(BaseModel):
         return str(value) if value is not None else None
 
 
-class PointOfView(BaseModel):
+class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     lat: float
     lng: float
     altitude: float
 
 
-class GlobeViewConfig(BaseModel):
+class GlobeViewConfig(BaseModel, extra="forbid", frozen=True):
     """View configuration for globe.gl camera."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     point_of_view: PointOfView | None = Field(
         default=None, serialization_alias="pointOfView"
@@ -101,10 +99,8 @@ class GlobeViewConfig(BaseModel):
     transition_ms: int | None = Field(default=None, serialization_alias="transitionMs")
 
 
-class GlobeConfig(BaseModel):
+class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     """Top-level configuration container for GlobeWidget."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
 
     init: GlobeInitConfig = Field(default_factory=GlobeInitConfig)
     layout: GlobeLayoutConfig = Field(default_factory=GlobeLayoutConfig)

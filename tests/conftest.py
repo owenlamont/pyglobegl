@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import base64
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 import contextlib
 from datetime import datetime, timezone
 import io
 import os
 import pathlib
 import shutil
+import socketserver
+import threading
 from typing import Any, TYPE_CHECKING
 
 from PIL import Image, ImageChops
@@ -149,7 +151,15 @@ def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
     data_url = page.evaluate(
         """
         () => {
-          const canvas = document.querySelector("canvas");
+          const canvases = Array.from(document.querySelectorAll("canvas"));
+          const canvas = canvases.reduce((best, current) => {
+            if (!best) {
+              return current;
+            }
+            const bestArea = best.width * best.height;
+            const currentArea = current.width * current.height;
+            return currentArea > bestArea ? current : best;
+          }, null);
           if (!canvas) {
             return null;
           }
@@ -202,6 +212,97 @@ def globe_flat_texture_data_url() -> str:
 
     image = _make_flat_globe_texture()
     return image_to_data_url(image)
+
+
+def _make_solid_tile(color: tuple[int, int, int]) -> Image.Image:
+    return Image.new("RGB", (64, 64), color)
+
+
+@pytest.fixture(scope="session")
+def globe_tile_red_data_url() -> str:
+    from pyglobegl.images import image_to_data_url
+
+    image = _make_solid_tile((255, 0, 0))
+    return image_to_data_url(image)
+
+
+@pytest.fixture(scope="session")
+def globe_tile_green_data_url() -> str:
+    from pyglobegl.images import image_to_data_url
+
+    image = _make_solid_tile((0, 255, 0))
+    return image_to_data_url(image)
+
+
+def _png_bytes(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def globe_tile_server() -> Generator[tuple[str, Callable[[bytes], None]], None, None]:
+    class TileData:
+        def __init__(self) -> None:
+            self._lock = threading.Lock()
+            self._data: bytes = b""
+
+        def set(self, data: bytes) -> None:
+            with self._lock:
+                self._data = data
+
+        def get(self) -> bytes:
+            with self._lock:
+                return self._data
+
+    tile_data = TileData()
+
+    class TileHandler(socketserver.BaseRequestHandler):
+        def handle(self) -> None:
+            data = self.request.recv(1024)
+            if not data:
+                return
+            request_line = data.split(b"\r\n", 1)[0]
+            if not request_line.startswith(b"GET"):
+                return
+            body = tile_data.get()
+            if not body:
+                response = (
+                    b"HTTP/1.1 404 Not Found\r\n"
+                    b"Access-Control-Allow-Origin: *\r\n"
+                    b"Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n"
+                    b"Pragma: no-cache\r\n"
+                    b"Expires: 0\r\n"
+                    b"Content-Length: 0\r\n\r\n"
+                )
+                self.request.sendall(response)
+                return
+            headers = (
+                b"HTTP/1.1 200 OK\r\n"
+                b"Content-Type: image/png\r\n"
+                b"Access-Control-Allow-Origin: *\r\n"
+                b"Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n"
+                b"Pragma: no-cache\r\n"
+                b"Expires: 0\r\n"
+                + f"Content-Length: {len(body)}\r\n".encode("ascii")
+                + b"\r\n"
+            )
+            self.request.sendall(headers + body)
+
+    server = socketserver.TCPServer(("127.0.0.1", 0), TileHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host = server.server_address[0]
+    port = server.server_address[1]
+
+    def _set_bytes(data: bytes) -> None:
+        tile_data.set(data)
+
+    try:
+        yield f"http://{host}:{port}", _set_bytes
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def _safe_name(value: str) -> str:
@@ -285,10 +386,11 @@ def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
                 f"{captured.size}."
             )
         diff = ImageChops.difference(captured, reference)
-        diff_bbox = diff.getbbox()
-        if diff_bbox is None:
+        diff_pixels = sum(
+            1 for pixel in diff.get_flattened_data() if pixel != (0, 0, 0, 0)
+        )
+        if diff_pixels == 0:
             return
-        diff_pixels = sum(1 for pixel in diff.getdata() if pixel != (0, 0, 0, 0))
         diff_path = (
             pathlib.Path("ui-artifacts")
             / f"canvas-capture-diff-{_timestamp_local()}.png"

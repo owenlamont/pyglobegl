@@ -104,6 +104,11 @@ popular Python spatial packages.
   stale captures.
 - Progress: added Pillow as a direct dependency for image inspection and
   analysis tooling.
+- Progress: tile engine tests use a local HTTP tile server with cache-busting
+  headers and a three-step cache reset capture (initial red, cached red,
+  cleared green).
+- Progress: image diffing counts non-zero pixels (avoids RGBA getbbox false
+  negatives).
 - Build a shared canvas export fixture:
   - Try multiple extraction strategies (Playwright element screenshot vs
     `toDataURL` with `preserveDrawingBuffer`).
@@ -169,15 +174,15 @@ Globe Layer
 
 - [x] `globeImageUrl` (reference image)
 - [x] `bumpImageUrl` (reference image)
-- [ ] `globeTileEngineUrl` (tile surface renders)
-- [ ] `globeTileEngineClearCache` (manual call smoke)
+- [x] `globeTileEngineUrl` (tile surface renders)
+- [x] `globeTileEngineClearCache` (manual call smoke)
 - [x] `showGlobe` (visual off/on)
 - [x] `showGraticules` (visual off/on)
 - [x] `showAtmosphere` (visual off/on)
 - [x] `atmosphereColor` (visual change)
 - [x] `atmosphereAltitude` (visual change)
 - [x] `globeCurvatureResolution` (visual change)
-- [ ] `globeMaterial` (custom material example)
+- [x] `globeMaterial` (custom material example)
 - [ ] `onGlobeReady` (callback fires)
 - [ ] `onGlobeClick` (callback fires)
 - [ ] `onGlobeRightClick` (callback fires)

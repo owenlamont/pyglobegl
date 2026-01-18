@@ -5,6 +5,7 @@ from pyglobegl.config import (
     GlobeInitConfig,
     GlobeLayerConfig,
     GlobeLayoutConfig,
+    GlobeMaterialSpec,
     GlobeViewConfig,
     PointOfView,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "GlobeInitConfig",
     "GlobeLayerConfig",
     "GlobeLayoutConfig",
+    "GlobeMaterialSpec",
     "GlobeViewConfig",
     "GlobeWidget",
     "PointOfView",

@@ -51,6 +51,9 @@ and immediately use the widget without rebuilding JupyterLab.
 
 - Use `uv add` for dependencies and `uv run` for tools.
 - When running ad-hoc Python, prefer `uv run python`.
+- If a task fails due to network, file access, dependency install, or local
+  system restrictions, request elevated permissions first rather than pivoting
+  to work-arounds. Escalation is preferred over brittle fallback solutions.
 
 ## Automated Tests
 
