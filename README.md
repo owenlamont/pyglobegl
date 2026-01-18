@@ -75,6 +75,8 @@ popular Python spatial packages.
   keyword args as the API grows.
 - Progress: added Pydantic dependency; created `GlobeConfig` models; wiring
   widget state + frontend config usage completed; rebuilt `_static` bundle.
+- Progress: added Solara-based canvas capture baseline test for visual
+  inspection of canvas vs page background.
 - Build a shared canvas export fixture:
   - Try multiple extraction strategies (Playwright element screenshot vs
     `toDataURL` with `preserveDrawingBuffer`).
