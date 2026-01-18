@@ -80,6 +80,11 @@ popular Python spatial packages.
 - Decision: use data-URL canvas capture as the single reference method (keeps
   alpha channel and is fast). Element screenshots are for debugging only.
 - Progress: added reference image workflow under `tests/reference-images/`.
+- Progress: capture uses in-memory PIL images and writes to disk only on
+  mismatches (diff + failed capture).
+- Note: parameterized image tests should use `pytest.param(..., id="...")` and
+  reference images named `{test_name}-{param_id}.png`.
+- Note: `ui-artifacts` cleanup runs only on the xdist master to avoid races.
 - Progress: added canvas capture report with capture timings + PNG dimensions
   and attempted DPR override for evaluation.
 - Findings: data-URL and readPixels require `preserveDrawingBuffer=True`.

@@ -4,11 +4,13 @@ import base64
 from collections.abc import Callable
 import contextlib
 from datetime import datetime, timezone
+import io
 import os
 import pathlib
 import shutil
 from typing import Any, TYPE_CHECKING
 
+from PIL import Image
 import pytest
 
 
@@ -126,7 +128,12 @@ def ui_artifacts_writer() -> Callable[[PlaywrightPage, str], None]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _clear_ui_artifacts_dir() -> None:
+def _clear_ui_artifacts_dir(request: pytest.FixtureRequest) -> None:
+    from xdist import get_xdist_worker_id
+
+    worker_id = get_xdist_worker_id(request)
+    if worker_id not in {"master", "gw0"}:
+        return
     artifacts_dir = pathlib.Path("ui-artifacts")
     artifacts_dir.mkdir(exist_ok=True)
     for entry in artifacts_dir.iterdir():
@@ -137,7 +144,7 @@ def _clear_ui_artifacts_dir() -> None:
                 entry.unlink()
 
 
-def _capture_canvas_data_url(page: PlaywrightPage, path: pathlib.Path) -> None:
+def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
     page.wait_for_selector("canvas", timeout=20000)
     data_url = page.evaluate(
         """
@@ -155,16 +162,14 @@ def _capture_canvas_data_url(page: PlaywrightPage, path: pathlib.Path) -> None:
     header, encoded = data_url.split(",", 1)
     if not header.startswith("data:image/png"):
         raise RuntimeError(f"Unexpected data URL header: {header}")
-    path.write_bytes(base64.b64decode(encoded))
+    return base64.b64decode(encoded)
 
 
 @pytest.fixture
-def canvas_capture() -> Callable[[PlaywrightPage, str], pathlib.Path]:
-    def _capture(page: PlaywrightPage, prefix: str) -> pathlib.Path:
-        artifacts_dir = _ui_artifacts_dir()
-        path = artifacts_dir / f"{prefix}-{_timestamp()}.png"
-        _capture_canvas_data_url(page, path)
-        return path
+def canvas_capture() -> Callable[[PlaywrightPage], Image.Image]:
+    def _capture(page: PlaywrightPage) -> Image.Image:
+        png_bytes = _capture_canvas_data_url(page)
+        return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
 
     return _capture
 
