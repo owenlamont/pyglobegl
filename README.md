@@ -167,8 +167,8 @@ Container Layout
 
 Globe Layer
 
-- [ ] `globeImageUrl` (reference image)
-- [ ] `bumpImageUrl` (reference image)
+- [x] `globeImageUrl` (reference image)
+- [x] `bumpImageUrl` (reference image)
 - [ ] `globeTileEngineUrl` (tile surface renders)
 - [ ] `globeTileEngineClearCache` (manual call smoke)
 - [x] `showGlobe` (visual off/on)

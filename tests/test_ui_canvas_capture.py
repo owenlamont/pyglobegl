@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from IPython.display import display
+import pytest
 
 from pyglobegl import GlobeConfig, GlobeInitConfig, GlobeLayoutConfig, GlobeWidget
 
@@ -11,8 +12,8 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 
+@pytest.mark.usefixtures("solara_test")
 def test_solara_canvas_capture_baseline(
-    solara_test,
     page_session: Page,
     canvas_capture,
     canvas_label,

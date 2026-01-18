@@ -34,8 +34,8 @@ if TYPE_CHECKING:
         ),
     ],
 )
+@pytest.mark.usefixtures("solara_test")
 def test_view_point_of_view(
-    solara_test,
     page_session: Page,
     canvas_capture,
     canvas_label,

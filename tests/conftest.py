@@ -175,6 +175,35 @@ def globe_background_night_sky_url() -> str:
     return "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
 
 
+def _make_bump_test_map(width: int = 360, height: int = 180) -> Image.Image:
+    image = Image.new("L", (width, height))
+    stripe_width = max(1, width // 12)
+    for x in range(width):
+        shade = 255 if (x // stripe_width) % 2 == 0 else 0
+        image.paste(shade, (x, 0, x + 1, height))
+    return image
+
+
+@pytest.fixture(scope="session")
+def globe_bump_test_data_url() -> str:
+    from pyglobegl.images import image_to_data_url
+
+    image = _make_bump_test_map()
+    return image_to_data_url(image)
+
+
+def _make_flat_globe_texture(width: int = 360, height: int = 180) -> Image.Image:
+    return Image.new("RGB", (width, height), (140, 140, 140))
+
+
+@pytest.fixture(scope="session")
+def globe_flat_texture_data_url() -> str:
+    from pyglobegl.images import image_to_data_url
+
+    image = _make_flat_globe_texture()
+    return image_to_data_url(image)
+
+
 def _safe_name(value: str) -> str:
     return (
         value.replace("/", "_")
