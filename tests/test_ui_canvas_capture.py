@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import pathlib
 from typing import TYPE_CHECKING
 
@@ -15,7 +15,18 @@ if TYPE_CHECKING:
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return _safe_name(datetime.now().astimezone().isoformat(timespec="seconds"))
+
+
+def _safe_name(value: str) -> str:
+    return (
+        value.replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "-")
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace(" ", "_")
+    )
 
 
 def _reference_image_path(test_name: str) -> pathlib.Path:
@@ -43,7 +54,7 @@ def _compare_images(captured: Image.Image, reference_path: pathlib.Path) -> None
 
 
 def test_solara_canvas_capture_baseline(
-    solara_test, page_session: Page, canvas_capture
+    solara_test, page_session: Page, canvas_capture, request
 ) -> None:
     config = GlobeConfig(
         init=GlobeInitConfig(renderer_config={"preserveDrawingBuffer": True}),
@@ -57,6 +68,10 @@ def test_solara_canvas_capture_baseline(
     )
 
     captured_image = canvas_capture(page_session)
+    test_label = _safe_name(request.node.name)
+    timestamp = _timestamp()
+    latest_path = pathlib.Path("ui-artifacts") / f"{test_label}-{timestamp}.png"
+    captured_image.save(latest_path)
 
     reference_path = _reference_image_path("test_solara_canvas_capture_baseline")
     if not reference_path.exists():
@@ -66,8 +81,8 @@ def test_solara_canvas_capture_baseline(
     try:
         _compare_images(captured_image, reference_path)
     except AssertionError:
-        capture_path = (
-            pathlib.Path("ui-artifacts") / f"canvas-capture-{_timestamp()}.png"
+        mismatch_path = (
+            pathlib.Path("ui-artifacts") / f"{test_label}-mismatch-{timestamp}.png"
         )
-        captured_image.save(capture_path)
+        captured_image.save(mismatch_path)
         raise
