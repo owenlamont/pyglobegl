@@ -170,6 +170,11 @@ def globe_earth_texture_url() -> str:
     return "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
 
 
+@pytest.fixture(scope="session")
+def globe_background_night_sky_url() -> str:
+    return "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
+
+
 def _safe_name(value: str) -> str:
     return (
         value.replace("/", "_")

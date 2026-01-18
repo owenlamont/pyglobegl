@@ -163,7 +163,7 @@ Container Layout
 - [x] `height`
 - [x] `globeOffset`
 - [x] `backgroundColor`
-- [ ] `backgroundImageUrl` (reference image)
+- [x] `backgroundImageUrl` (reference image)
 
 Globe Layer
 
