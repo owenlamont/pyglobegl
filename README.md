@@ -77,14 +77,12 @@ popular Python spatial packages.
   widget state + frontend config usage completed; rebuilt `_static` bundle.
 - Progress: added Solara-based canvas capture baseline test for visual
   inspection of canvas vs page background.
-- Progress: added shared canvas capture fixture with element-screenshot and
-  data-URL methods for side-by-side evaluation.
-- Progress: added WebGL `readPixels` capture path for a third comparison
-  method.
+- Decision: use data-URL canvas capture as the single reference method (keeps
+  alpha channel and is fast). Element screenshots are for debugging only.
+- Progress: added reference image workflow under `tests/reference-images/`.
 - Progress: added canvas capture report with capture timings + PNG dimensions
   and attempted DPR override for evaluation.
-- Findings: element screenshot yields correct output; data-URL and readPixels
-  were black until `preserveDrawingBuffer` is enabled (now under test).
+- Findings: data-URL and readPixels require `preserveDrawingBuffer=True`.
 - Progress: clear `ui-artifacts` directory once per test session to avoid
   stale captures.
 - Progress: added Pillow as a direct dependency for image inspection and

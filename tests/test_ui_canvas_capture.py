@@ -6,6 +6,7 @@ import struct
 from typing import TYPE_CHECKING
 
 from IPython.display import display
+from PIL import Image, ImageChops
 
 from pyglobegl import GlobeConfig, GlobeInitConfig, GlobeLayoutConfig, GlobeWidget
 
@@ -33,6 +34,31 @@ def _read_png_dimensions(path: str) -> tuple[int, int]:
 
 def _timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _reference_image_path(test_name: str) -> pathlib.Path:
+    return pathlib.Path("tests/reference-images") / f"{test_name}.png"
+
+
+def _compare_images(captured_path: pathlib.Path, reference_path: pathlib.Path) -> None:
+    captured = Image.open(captured_path).convert("RGBA")
+    reference = Image.open(reference_path).convert("RGBA")
+    if captured.size != reference.size:
+        raise AssertionError(
+            f"Reference size {reference.size} does not match capture size "
+            f"{captured.size}."
+        )
+    diff = ImageChops.difference(captured, reference)
+    diff_bbox = diff.getbbox()
+    if diff_bbox is None:
+        return
+    diff_pixels = sum(1 for pixel in diff.getdata() if pixel != (0, 0, 0, 0))
+    diff_path = captured_path.with_name(captured_path.stem + "-diff.png")
+    diff.save(diff_path)
+    raise AssertionError(
+        "Captured image differs from reference. "
+        f"Diff pixels: {diff_pixels}. Diff saved to {diff_path}."
+    )
 
 
 def test_solara_canvas_capture_baseline(
@@ -82,13 +108,9 @@ def test_solara_canvas_capture_baseline(
         """
     )
     ui_artifacts_writer(page_session, "canvas-capture-baseline")
-    methods = ("element", "data-url", "readpixels")
-    captures: list[tuple[str, str, float]] = []
-    for method in methods:
-        start = page_session.evaluate("() => performance.now()")
-        path = canvas_capture(page_session, "canvas-capture", method)
-        end = page_session.evaluate("() => performance.now()")
-        captures.append((method, str(path), float(end) - float(start)))
+    start = page_session.evaluate("() => performance.now()")
+    capture_path = canvas_capture(page_session, "canvas-capture")
+    end = page_session.evaluate("() => performance.now()")
 
     metrics = page_session.evaluate(
         """
@@ -117,12 +139,19 @@ def test_solara_canvas_capture_baseline(
         "",
         "method\tpng_width\tpng_height\tfile_bytes\tcapture_ms\tpath",
     ]
-    for method, path, capture_ms in captures:
-        png_width, png_height = _read_png_dimensions(path)
-        file_bytes = pathlib.Path(path).stat().st_size
-        report_lines.append(
-            f"{method}\t{png_width}\t{png_height}\t{file_bytes}\t{capture_ms:.2f}\t{path}"
-        )
+    png_width, png_height = _read_png_dimensions(str(capture_path))
+    file_bytes = capture_path.stat().st_size
+    capture_ms = float(end) - float(start)
+    report_lines.append(
+        f"data-url\t{png_width}\t{png_height}\t{file_bytes}\t{capture_ms:.2f}\t{capture_path}"
+    )
 
     report_path = f"ui-artifacts/canvas-capture-report-{_timestamp()}.txt"
     pathlib.Path(report_path).write_text("\n".join(report_lines), encoding="utf-8")
+
+    reference_path = _reference_image_path("test_solara_canvas_capture_baseline")
+    if not reference_path.exists():
+        raise AssertionError(
+            f"Reference image missing. Save the capture to {reference_path} and re-run."
+        )
+    _compare_images(capture_path, reference_path)
