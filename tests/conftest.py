@@ -165,6 +165,11 @@ def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
     return base64.b64decode(encoded)
 
 
+@pytest.fixture(scope="session")
+def globe_earth_texture_url() -> str:
+    return "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+
+
 def _safe_name(value: str) -> str:
     return (
         value.replace("/", "_")

@@ -149,6 +149,43 @@ Globe Layer
 - [x] `onGlobeRightClick` (Python callback)
 - [x] Image inputs accept `PIL.Image` objects (serialized to data URLs).
 
+### Globe.gl Test Coverage Checklist (Issue #13)
+
+Initialisation
+
+- [ ] `rendererConfig` (smoke: preserveDrawingBuffer)
+- [ ] `waitForGlobeReady` (globe renders without delays)
+- [ ] `animateIn` (disabled for snapshot stability)
+
+Container Layout
+
+- [x] `width`
+- [x] `height`
+- [x] `globeOffset`
+- [x] `backgroundColor`
+- [ ] `backgroundImageUrl` (reference image)
+
+Globe Layer
+
+- [ ] `globeImageUrl` (reference image)
+- [ ] `bumpImageUrl` (reference image)
+- [ ] `globeTileEngineUrl` (tile surface renders)
+- [ ] `globeTileEngineClearCache` (manual call smoke)
+- [x] `showGlobe` (visual off/on)
+- [x] `showGraticules` (visual off/on)
+- [ ] `showAtmosphere` (visual off/on)
+- [ ] `atmosphereColor` (visual change)
+- [ ] `atmosphereAltitude` (visual change)
+- [ ] `globeCurvatureResolution` (visual change)
+- [ ] `globeMaterial` (custom material example)
+- [ ] `onGlobeReady` (callback fires)
+- [ ] `onGlobeClick` (callback fires)
+- [ ] `onGlobeRightClick` (callback fires)
+
+View / Point of View
+
+- [x] `pointOfView` (lat/lng/altitude visual check)
+
 ## WSL2 Test Notes
 
 - WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and

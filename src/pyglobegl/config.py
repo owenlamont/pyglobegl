@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, field_serializer, PositiveInt
 
 
 class GlobeInitConfig(BaseModel):
@@ -35,6 +35,10 @@ class GlobeLayoutConfig(BaseModel):
     background_image_url: AnyUrl | None = Field(
         default=None, serialization_alias="backgroundImageUrl"
     )
+
+    @field_serializer("background_image_url", when_used="always")
+    def _serialize_background_image(self, value: AnyUrl | None) -> str | None:
+        return str(value) if value is not None else None
 
 
 class GlobeLayerConfig(BaseModel):
@@ -70,6 +74,10 @@ class GlobeLayerConfig(BaseModel):
     globe_material: object | None = Field(
         default=None, serialization_alias="globeMaterial"
     )
+
+    @field_serializer("globe_image_url", "bump_image_url", when_used="always")
+    def _serialize_globe_images(self, value: AnyUrl | None) -> str | None:
+        return str(value) if value is not None else None
 
 
 class PointOfView(BaseModel):
