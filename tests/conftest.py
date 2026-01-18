@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import base64
 from collections.abc import Callable
+from datetime import datetime, timezone
 import os
 import pathlib
+import shutil
 from typing import Any, TYPE_CHECKING
 
 import pytest
@@ -98,9 +101,18 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page as PlaywrightPage
 
 
-def _write_debug_artifacts(page: PlaywrightPage, prefix: str) -> None:
+def _ui_artifacts_dir() -> pathlib.Path:
     artifacts_dir = pathlib.Path("ui-artifacts")
     artifacts_dir.mkdir(exist_ok=True)
+    return artifacts_dir
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _write_debug_artifacts(page: PlaywrightPage, prefix: str) -> None:
+    artifacts_dir = _ui_artifacts_dir()
     page.screenshot(
         path=str(artifacts_dir / f"{prefix}-screenshot.png"), full_page=True
     )
@@ -110,6 +122,110 @@ def _write_debug_artifacts(page: PlaywrightPage, prefix: str) -> None:
 @pytest.fixture(scope="session")
 def ui_artifacts_writer() -> Callable[[PlaywrightPage, str], None]:
     return _write_debug_artifacts
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _clear_ui_artifacts_dir() -> None:
+    artifacts_dir = pathlib.Path("ui-artifacts")
+    if artifacts_dir.exists():
+        shutil.rmtree(artifacts_dir, ignore_errors=True)
+    artifacts_dir.mkdir(exist_ok=True)
+
+
+def _capture_canvas_element(page: PlaywrightPage, path: pathlib.Path) -> None:
+    page.wait_for_selector("canvas", timeout=20000)
+    canvas = page.query_selector("canvas")
+    if canvas is None:
+        raise RuntimeError("Canvas element not found.")
+    canvas.screenshot(path=str(path))
+
+
+def _capture_canvas_data_url(page: PlaywrightPage, path: pathlib.Path) -> None:
+    page.wait_for_selector("canvas", timeout=20000)
+    data_url = page.evaluate(
+        """
+        () => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) {
+            return null;
+          }
+          return canvas.toDataURL("image/png");
+        }
+        """
+    )
+    if not data_url:
+        raise RuntimeError("Canvas data URL not available.")
+    header, encoded = data_url.split(",", 1)
+    if not header.startswith("data:image/png"):
+        raise RuntimeError(f"Unexpected data URL header: {header}")
+    path.write_bytes(base64.b64decode(encoded))
+
+
+def _capture_canvas_readpixels(page: PlaywrightPage, path: pathlib.Path) -> None:
+    page.wait_for_selector("canvas", timeout=20000)
+    data_url = page.evaluate(
+        """
+        () => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) {
+            return null;
+          }
+          const gl =
+            canvas.getContext("webgl2", { preserveDrawingBuffer: true }) ||
+            canvas.getContext("webgl", { preserveDrawingBuffer: true }) ||
+            canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
+          if (!gl) {
+            return null;
+          }
+          const width = canvas.width;
+          const height = canvas.height;
+          const pixels = new Uint8Array(width * height * 4);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+          const flipped = new Uint8ClampedArray(width * height * 4);
+          for (let y = 0; y < height; y += 1) {
+            const srcRow = (height - 1 - y) * width * 4;
+            const dstRow = y * width * 4;
+            flipped.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+          }
+
+          const imageData = new ImageData(flipped, width, height);
+          const tmp = document.createElement("canvas");
+          tmp.width = width;
+          tmp.height = height;
+          const ctx2d = tmp.getContext("2d");
+          if (!ctx2d) {
+            return null;
+          }
+          ctx2d.putImageData(imageData, 0, 0);
+          return tmp.toDataURL("image/png");
+        }
+        """
+    )
+    if not data_url:
+        raise RuntimeError("Canvas readPixels data URL not available.")
+    header, encoded = data_url.split(",", 1)
+    if not header.startswith("data:image/png"):
+        raise RuntimeError(f"Unexpected data URL header: {header}")
+    path.write_bytes(base64.b64decode(encoded))
+
+
+@pytest.fixture
+def canvas_capture() -> Callable[[PlaywrightPage, str, str], pathlib.Path]:
+    def _capture(page: PlaywrightPage, prefix: str, method: str) -> pathlib.Path:
+        artifacts_dir = _ui_artifacts_dir()
+        path = artifacts_dir / f"{prefix}-{method}-{_timestamp()}.png"
+        if method == "element":
+            _capture_canvas_element(page, path)
+        elif method == "data-url":
+            _capture_canvas_data_url(page, path)
+        elif method == "readpixels":
+            _capture_canvas_readpixels(page, path)
+        else:
+            raise ValueError(f"Unknown canvas capture method: {method}")
+        return path
+
+    return _capture
 
 
 @pytest.fixture(scope="session")

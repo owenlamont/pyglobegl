@@ -2024,6 +2024,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anywidget" },
+    { name = "pillow" },
     { name = "pydantic" },
     { name = "traitlets" },
 ]
@@ -2045,6 +2046,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anywidget", specifier = ">=0.9.21" },
+    { name = "pillow", specifier = ">=12.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "traitlets", specifier = ">=5.14.3" },
 ]
