@@ -8,6 +8,7 @@ from pyglobegl.config import (
     GlobeViewConfig,
     PointOfView,
 )
+from pyglobegl.images import image_to_data_url
 from pyglobegl.widget import GlobeWidget
 
 
@@ -19,4 +20,5 @@ __all__ = [
     "GlobeViewConfig",
     "GlobeWidget",
     "PointOfView",
+    "image_to_data_url",
 ]

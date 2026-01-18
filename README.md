@@ -115,6 +115,40 @@ popular Python spatial packages.
 - Use "no-assert" snapshot tests initially, then graduate to reference images
   or histogram comparisons once stable.
 
+### Globe.gl API Inventory (Issue #13)
+
+Initialisation
+
+- [x] `rendererConfig`
+- [x] `waitForGlobeReady`
+- [x] `animateIn`
+
+Container Layout
+
+- [x] `width`
+- [x] `height`
+- [x] `globeOffset`
+- [x] `backgroundColor`
+- [x] `backgroundImageUrl`
+
+Globe Layer
+
+- [x] `globeImageUrl`
+- [x] `bumpImageUrl`
+- [x] `globeTileEngineUrl`
+- [x] `globeTileEngineClearCache` (method)
+- [x] `showGlobe`
+- [x] `showGraticules`
+- [x] `showAtmosphere`
+- [x] `atmosphereColor`
+- [x] `atmosphereAltitude`
+- [x] `globeCurvatureResolution`
+- [x] `globeMaterial`
+- [x] `onGlobeReady` (Python callback)
+- [x] `onGlobeClick` (Python callback)
+- [x] `onGlobeRightClick` (Python callback)
+- [x] Image inputs accept `PIL.Image` objects (serialized to data URLs).
+
 ## WSL2 Test Notes
 
 - WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and
@@ -136,7 +170,21 @@ popular Python spatial packages.
 ## Quickstart
 
 ```python
-from pyglobegl import GlobeWidget
+from pyglobegl import GlobeWidget, image_to_data_url
+from PIL import Image
 
 GlobeWidget()
+```
+
+## Image Inputs
+
+Globe image fields expect URLs, but you can pass a PIL image by converting it
+to a PNG data URL:
+
+```python
+from pyglobegl import GlobeLayerConfig, image_to_data_url
+from PIL import Image
+
+image = Image.open("earth.png")
+config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
 ```

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, PositiveInt
 
 
 class GlobeInitConfig(BaseModel):
@@ -32,7 +32,7 @@ class GlobeLayoutConfig(BaseModel):
     background_color: str | None = Field(
         default=None, serialization_alias="backgroundColor"
     )
-    background_image_url: str | None = Field(
+    background_image_url: AnyUrl | None = Field(
         default=None, serialization_alias="backgroundImageUrl"
     )
 
@@ -42,10 +42,15 @@ class GlobeLayerConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    globe_image_url: str | None = Field(
+    globe_image_url: AnyUrl | None = Field(
         default=None, serialization_alias="globeImageUrl"
     )
-    bump_image_url: str | None = Field(default=None, serialization_alias="bumpImageUrl")
+    bump_image_url: AnyUrl | None = Field(
+        default=None, serialization_alias="bumpImageUrl"
+    )
+    globe_tile_engine_url: str | None = Field(
+        default=None, serialization_alias="globeTileEngineUrl"
+    )
     show_globe: bool | None = Field(default=None, serialization_alias="showGlobe")
     show_graticules: bool | None = Field(
         default=None, serialization_alias="showGraticules"

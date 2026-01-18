@@ -26,6 +26,7 @@ type GlobeLayoutConfig = {
 type GlobeLayerConfig = {
 	globeImageUrl?: string | null;
 	bumpImageUrl?: string | null;
+	globeTileEngineUrl?: string | null;
 	showGlobe?: boolean;
 	showGraticules?: boolean;
 	showAtmosphere?: boolean;
@@ -107,6 +108,17 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 		globe.onGlobeRightClick((coords: { lat: number; lng: number }) => {
 			model.send({ type: "globe_right_click", payload: coords });
+		});
+
+		model.on("msg:custom", (msg: unknown) => {
+			if (
+				typeof msg === "object" &&
+				msg !== null &&
+				"type" in msg &&
+				(msg as { type: string }).type === "globe_tile_engine_clear_cache"
+			) {
+				globe.globeTileEngineClearCache();
+			}
 		});
 
 		const resize = () => {
@@ -210,6 +222,20 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (globeConfig.bumpImageUrl !== undefined) {
 				globe.bumpImageUrl(globeConfig.bumpImageUrl ?? null);
+			}
+			if (globeConfig.globeTileEngineUrl !== undefined) {
+				const template = globeConfig.globeTileEngineUrl;
+				if (template) {
+					globe.globeTileEngineUrl((x: number, y: number, l: number) =>
+						template
+							.replaceAll("{x}", String(x))
+							.replaceAll("{y}", String(y))
+							.replaceAll("{l}", String(l))
+							.replaceAll("{z}", String(l)),
+					);
+				} else {
+					globe.globeTileEngineUrl(null);
+				}
 			}
 			if (globeConfig.showGlobe !== undefined) {
 				globe.showGlobe(globeConfig.showGlobe);

@@ -49,6 +49,10 @@ class GlobeWidget(anywidget.AnyWidget):
         """Register a callback fired on globe right-clicks."""
         self._globe_right_click_handlers.append(handler)
 
+    def globe_tile_engine_clear_cache(self) -> None:
+        """Clear the globe tile engine cache."""
+        self.send({"type": "globe_tile_engine_clear_cache"})
+
     def _handle_frontend_message(
         self, _widget: "GlobeWidget", message: dict[str, Any], _buffers: list[bytes]
     ) -> None:

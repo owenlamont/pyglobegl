@@ -22,6 +22,8 @@ function N7({ el: i, model: e }) {
       e.send({ type: "globe_click", payload: S });
     }), a.onGlobeRightClick((S) => {
       e.send({ type: "globe_right_click", payload: S });
+    }), e.on("msg:custom", (S) => {
+      typeof S == "object" && S !== null && "type" in S && S.type === "globe_tile_engine_clear_cache" && a.globeTileEngineClearCache();
     });
     const u = () => {
       const { width: S } = i.getBoundingClientRect();
@@ -47,7 +49,15 @@ function N7({ el: i, model: e }) {
     }, p = (S) => {
       S && (S.globeOffset && a.globeOffset(S.globeOffset), S.backgroundColor && a.backgroundColor(S.backgroundColor), S.backgroundImageUrl && a.backgroundImageUrl(S.backgroundImageUrl));
     }, g = (S) => {
-      S && (S.globeImageUrl !== void 0 && a.globeImageUrl(S.globeImageUrl ?? null), S.bumpImageUrl !== void 0 && a.bumpImageUrl(S.bumpImageUrl ?? null), S.showGlobe !== void 0 && a.showGlobe(S.showGlobe), S.showGraticules !== void 0 && a.showGraticules(S.showGraticules), S.showAtmosphere !== void 0 && a.showAtmosphere(S.showAtmosphere), S.atmosphereColor !== void 0 && a.atmosphereColor(S.atmosphereColor), S.atmosphereAltitude !== void 0 && a.atmosphereAltitude(S.atmosphereAltitude), S.globeCurvatureResolution !== void 0 && a.globeCurvatureResolution(S.globeCurvatureResolution), S.globeMaterial !== void 0 && a.globeMaterial(S.globeMaterial));
+      if (S) {
+        if (S.globeImageUrl !== void 0 && a.globeImageUrl(S.globeImageUrl ?? null), S.bumpImageUrl !== void 0 && a.bumpImageUrl(S.bumpImageUrl ?? null), S.globeTileEngineUrl !== void 0) {
+          const R = S.globeTileEngineUrl;
+          R ? a.globeTileEngineUrl(
+            (E, N, L) => R.replaceAll("{x}", String(E)).replaceAll("{y}", String(N)).replaceAll("{l}", String(L)).replaceAll("{z}", String(L))
+          ) : a.globeTileEngineUrl(null);
+        }
+        S.showGlobe !== void 0 && a.showGlobe(S.showGlobe), S.showGraticules !== void 0 && a.showGraticules(S.showGraticules), S.showAtmosphere !== void 0 && a.showAtmosphere(S.showAtmosphere), S.atmosphereColor !== void 0 && a.atmosphereColor(S.atmosphereColor), S.atmosphereAltitude !== void 0 && a.atmosphereAltitude(S.atmosphereAltitude), S.globeCurvatureResolution !== void 0 && a.globeCurvatureResolution(S.globeCurvatureResolution), S.globeMaterial !== void 0 && a.globeMaterial(S.globeMaterial);
+      }
     }, x = (S) => {
       if (!S || !S.pointOfView)
         return;
