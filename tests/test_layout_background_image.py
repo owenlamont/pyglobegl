@@ -27,7 +27,7 @@ def test_layout_background_image(
     canvas_compare_images,
     canvas_save_capture,
     globe_earth_texture_url,
-    globe_background_night_sky_url,
+    globe_background_night_sky_data_url,
 ) -> None:
     config = GlobeConfig(
         init=GlobeInitConfig(
@@ -37,7 +37,7 @@ def test_layout_background_image(
             width=256,
             height=256,
             background_color="#ff00ff",
-            background_image_url=globe_background_night_sky_url,
+            background_image_url=globe_background_night_sky_data_url,
         ),
         globe=GlobeLayerConfig(
             globe_image_url=globe_earth_texture_url,

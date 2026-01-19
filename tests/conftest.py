@@ -16,6 +16,8 @@ from PIL import Image, ImageChops
 from pydantic import AnyUrl, TypeAdapter
 import pytest
 
+from pyglobegl.images import image_to_data_url
+
 
 def _is_wsl() -> bool:
     version = pathlib.Path("/proc/version")
@@ -177,10 +179,9 @@ def globe_earth_texture_url() -> AnyUrl:
 
 
 @pytest.fixture(scope="session")
-def globe_background_night_sky_url() -> AnyUrl:
-    return TypeAdapter(AnyUrl).validate_python(
-        "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
-    )
+def globe_background_night_sky_data_url() -> str:
+    image_path = pathlib.Path(__file__).parent / "assets" / "night-sky.png"
+    return image_to_data_url(Image.open(image_path))
 
 
 @pytest.fixture
