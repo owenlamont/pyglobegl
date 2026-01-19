@@ -109,6 +109,8 @@ popular Python spatial packages.
   cleared green).
 - Progress: image diffing counts non-zero pixels (avoids RGBA getbbox false
   negatives).
+- Progress: init config is exposed in the frontend for test assertions on init
+  options.
 - Build a shared canvas export fixture:
   - Try multiple extraction strategies (Playwright element screenshot vs
     `toDataURL` with `preserveDrawingBuffer`).
@@ -158,9 +160,9 @@ Globe Layer
 
 Initialisation
 
-- [ ] `rendererConfig` (smoke: preserveDrawingBuffer)
-- [ ] `waitForGlobeReady` (globe renders without delays)
-- [ ] `animateIn` (disabled for snapshot stability)
+- [x] `rendererConfig` (smoke: preserveDrawingBuffer)
+- [x] `waitForGlobeReady` (init config wiring)
+- [x] `animateIn` (init config wiring)
 
 Container Layout
 

@@ -33106,11 +33106,13 @@ function Cq({ el: i, model: e }) {
   return Promise.resolve().then(() => SAe).then(({ default: n }) => {
     const r = document.createElement("div");
     i.replaceChildren(r);
-    const s = () => e.get("config"), o = s(), a = new n(r, o?.init);
+    const s = () => e.get("config"), o = s();
+    globalThis.__pyglobegl_init_config = o?.init;
+    const a = new n(r, o?.init);
     a.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0), a.atmosphereAltitude(0.05);
     const l = i.closest(".output-area");
     a.onGlobeReady(() => {
-      globalThis.__pyglobegl_globe_ready = !0, e.send({ type: "globe_ready" });
+      globalThis.__pyglobegl_globe_ready = !0, globalThis.__pyglobegl_renderer_attributes = a.renderer().getContext().getContextAttributes(), e.send({ type: "globe_ready" });
     }), a.onGlobeClick((b) => {
       e.send({ type: "globe_click", payload: b });
     }), a.onGlobeRightClick((b) => {
