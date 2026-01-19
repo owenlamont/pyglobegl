@@ -183,9 +183,9 @@ Globe Layer
 - [x] `atmosphereAltitude` (visual change)
 - [x] `globeCurvatureResolution` (visual change)
 - [x] `globeMaterial` (custom material example)
-- [ ] `onGlobeReady` (callback fires)
-- [ ] `onGlobeClick` (callback fires)
-- [ ] `onGlobeRightClick` (callback fires)
+- [x] `onGlobeReady` (callback fires)
+- [x] `onGlobeClick` (callback fires)
+- [x] `onGlobeRightClick` (callback fires)
 
 View / Point of View
 

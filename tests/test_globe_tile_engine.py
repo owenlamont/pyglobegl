@@ -23,15 +23,8 @@ def _wait_for_canvas_color(page_session: Page, color: str) -> None:
     page_session.wait_for_function(
         """
         async ({ targetColor }) => {
-          const canvases = Array.from(document.querySelectorAll("canvas"));
-          const canvas = canvases.reduce((best, current) => {
-            if (!best) {
-              return current;
-            }
-            const bestArea = best.width * best.height;
-            const currentArea = current.width * current.height;
-            return currentArea > bestArea ? current : best;
-          }, null);
+          const container = document.querySelector(".scene-container");
+          const canvas = container ? container.querySelector("canvas") : null;
           if (!canvas) {
             return false;
           }

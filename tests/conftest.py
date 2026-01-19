@@ -10,9 +10,10 @@ import pathlib
 import shutil
 import socketserver
 import threading
-from typing import Any, TYPE_CHECKING
+from typing import Any, Literal, TYPE_CHECKING
 
 from PIL import Image, ImageChops
+from pydantic import AnyUrl, TypeAdapter
 import pytest
 
 
@@ -151,15 +152,8 @@ def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
     data_url = page.evaluate(
         """
         () => {
-          const canvases = Array.from(document.querySelectorAll("canvas"));
-          const canvas = canvases.reduce((best, current) => {
-            if (!best) {
-              return current;
-            }
-            const bestArea = best.width * best.height;
-            const currentArea = current.width * current.height;
-            return currentArea > bestArea ? current : best;
-          }, null);
+          const container = document.querySelector(".scene-container");
+          const canvas = container ? container.querySelector("canvas") : null;
           if (!canvas) {
             return null;
           }
@@ -176,13 +170,69 @@ def _capture_canvas_data_url(page: PlaywrightPage) -> bytes:
 
 
 @pytest.fixture(scope="session")
-def globe_earth_texture_url() -> str:
-    return "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+def globe_earth_texture_url() -> AnyUrl:
+    return TypeAdapter(AnyUrl).validate_python(
+        "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    )
 
 
 @pytest.fixture(scope="session")
-def globe_background_night_sky_url() -> str:
-    return "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
+def globe_background_night_sky_url() -> AnyUrl:
+    return TypeAdapter(AnyUrl).validate_python(
+        "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
+    )
+
+
+@pytest.fixture
+def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None]:
+    def _click(page: PlaywrightPage, button: Literal["left", "right"] = "left") -> None:
+        success = page.evaluate(
+            """
+            async ({ button }) => {
+              const target = document.querySelector(".scene-container");
+              if (!target) {
+                return false;
+              }
+              const rect = target.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+              const buttonMap = { left: 0, right: 2 };
+              const buttonCode = buttonMap[button] ?? 0;
+              const buttons = buttonCode === 2 ? 2 : 1;
+              const opts = {
+                clientX: x,
+                clientY: y,
+                pageX: x + window.scrollX,
+                pageY: y + window.scrollY,
+                button: buttonCode,
+                buttons,
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                pointerType: "mouse",
+                pointerId: 1,
+                isPrimary: true,
+              };
+              const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+              target.dispatchEvent(new PointerEvent("pointermove", opts));
+              await wait(50);
+              target.dispatchEvent(new PointerEvent("pointerdown", opts));
+              await wait(50);
+              target.dispatchEvent(new PointerEvent("pointerup", opts));
+              if (buttonCode === 2) {
+                target.dispatchEvent(new MouseEvent("contextmenu", opts));
+              } else {
+                target.dispatchEvent(new MouseEvent("click", opts));
+              }
+              return true;
+            }
+            """,
+            {"button": button},
+        )
+        if not success:
+            raise AssertionError("Failed to dispatch globe click event.")
+
+    return _click
 
 
 def _make_bump_test_map(width: int = 360, height: int = 180) -> Image.Image:
