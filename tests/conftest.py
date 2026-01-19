@@ -32,12 +32,9 @@ def _is_truthy_env(value: str | None) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _reference_diff_tolerance() -> tuple[int, float]:
-    max_pixels_env = os.environ.get("PYGLOBEGL_MAX_DIFF_PIXELS")
+def _reference_diff_tolerance() -> float:
     max_ratio_env = os.environ.get("PYGLOBEGL_MAX_DIFF_RATIO")
-    max_pixels = int(max_pixels_env) if max_pixels_env else 0
-    max_ratio = float(max_ratio_env) if max_ratio_env else 0.08
-    return max_pixels, max_ratio
+    return float(max_ratio_env) if max_ratio_env else 0.08
 
 
 def _wslg_available() -> bool:
@@ -424,10 +421,8 @@ def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
         )
         if diff_pixels == 0:
             return
-        max_pixels, max_ratio = _reference_diff_tolerance()
+        max_ratio = _reference_diff_tolerance()
         total_pixels = captured.size[0] * captured.size[1]
-        if diff_pixels <= max_pixels:
-            return
         if diff_pixels / total_pixels <= max_ratio:
             return
         diff_path = (
@@ -437,8 +432,8 @@ def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
         diff.save(diff_path)
         raise AssertionError(
             "Captured image differs from reference. "
-            f"Diff pixels: {diff_pixels} (tolerance {max_pixels} px or "
-            f"{max_ratio:.3%}). Diff saved to {diff_path}."
+            f"Diff pixels: {diff_pixels} (tolerance {max_ratio:.3%}). "
+            f"Diff saved to {diff_path}."
         )
 
     return _compare
