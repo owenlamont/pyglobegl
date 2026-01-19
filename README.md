@@ -15,11 +15,26 @@ popular Python spatial packages.
 ## Roadmap
 
 - **Near term**
-  - Expose the base globe.gl API surface in the same order as the official API
-    reference (initialisation, layout, globe layer, then the data layers).
-  - Publish low-level layer bindings for: points, arcs, polygons, paths,
-    heatmaps, hex bins, hexed polygons, tiles, particles, rings, labels, HTML
-    elements, 3D objects, custom layer, render control, and utility options.
+  - Expose globe.gl APIs in order (by section):
+    - [x] Initialisation
+    - [x] Container layout
+    - [x] Globe layer
+    - [ ] Points layer
+    - [ ] Arcs layer
+    - [ ] Polygons layer
+    - [ ] Paths layer
+    - [ ] Heatmaps layer
+    - [ ] Hex bin layer
+    - [ ] Hexed polygons layer
+    - [ ] Tiles layer
+    - [ ] Particles layer
+    - [ ] Rings layer
+    - [ ] Labels layer
+    - [ ] HTML elements layer
+    - [ ] 3D objects layer
+    - [ ] Custom layer
+    - [ ] Render control
+    - [ ] Utility options
   - Prioritize strongly typed, overload-heavy Python APIs with flexible input
     unions (e.g., accept Pillow images, NumPy arrays, or remote URLs anywhere
     globe.gl accepts textures/images).
@@ -40,25 +55,6 @@ popular Python spatial packages.
   - Raster feasibility: investigate mapping rasters to globe.gl via tiles,
     heatmaps, or sampled grids; document constraints and recommended workflows.
 
-## Development Notes / Scratchpad
-
-- Use the uv CLI for dependency and project changes. Do not edit
-  `pyproject.toml` or `uv.lock` directly.
-- Solara demo: `uv run solara run examples/solara_demo.py`.
-- Bundle globe.gl and required assets for offline-friendly installs while
-  staying under PyPI size limits.
-- Start with Python linting/tooling (ruff, ty, typos, yamllint, zizmor). Use
-  Biome for frontend linting/formatting.
-- Frontend uses TypeScript, Vite, and @anywidget/vite. HMR is useful during
-  widget iteration but not required for end users.
-- Node.js tooling is managed with mise; pnpm is the package manager for
-  frontend deps.
-- Frontend lives in `frontend/`; build output goes to
-  `src/pyglobegl/_static/`.
-- Static frontend assets are bundled into the Python package and referenced via
-  `_esm` from `src/pyglobegl/_static/index.js`.
-- Solara UI checks use `pytest-ipywidgets` in `tests/test_ui_solara.py`.
-
 ## WSL2 Test Notes
 
 - WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and
@@ -66,6 +62,9 @@ popular Python spatial packages.
 - If the UI tests are meant to enforce hardware acceleration, set
   `PYGLOBEGL_REQUIRE_HW_ACCEL=1` before running pytest so software renderers
   skip early.
+- Canvas reference comparisons allow a small pixel-diff tolerance. Override
+  with `PYGLOBEGL_MAX_DIFF_RATIO` (e.g. `0.02` for a 2% threshold) to tighten or
+  loosen comparisons across platforms.
 - On WSL2, the UI test harness retries the browser launch with the D3D12-backed
   Mesa driver if the initial WebGL probe reports a software renderer. You can
   still set `GALLIUM_DRIVER=d3d12` and `MESA_LOADER_DRIVER_OVERRIDE=d3d12`
@@ -80,7 +79,21 @@ popular Python spatial packages.
 ## Quickstart
 
 ```python
-from pyglobegl import GlobeWidget
+from pyglobegl import GlobeWidget, image_to_data_url
+from PIL import Image
 
 GlobeWidget()
+```
+
+## Image Inputs
+
+Globe image fields expect URLs, but you can pass a PIL image by converting it
+to a PNG data URL:
+
+```python
+from pyglobegl import GlobeLayerConfig, image_to_data_url
+from PIL import Image
+
+image = Image.open("earth.png")
+config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
 ```

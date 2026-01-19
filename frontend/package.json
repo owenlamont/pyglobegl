@@ -1,6 +1,7 @@
 {
 	"dependencies": {
-		"globe.gl": "^2.45.0"
+		"globe.gl": "^2.45.0",
+		"three": "^0.182.0"
 	},
 	"devDependencies": {
 		"@anywidget/vite": "^0.2.2",

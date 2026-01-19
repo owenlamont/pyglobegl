@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from IPython.display import display
+import pytest
 
 from pyglobegl import GlobeWidget
 
@@ -11,9 +12,8 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 
-def test_solara_widget_renders(
-    solara_test, page_session: Page, ui_artifacts_writer
-) -> None:
+@pytest.mark.usefixtures("solara_test")
+def test_solara_widget_renders(page_session: Page, ui_artifacts_writer) -> None:
     widget = GlobeWidget()
     display(widget)
 

@@ -11,6 +11,9 @@ importers:
       globe.gl:
         specifier: ^2.45.0
         version: 2.45.0
+      three:
+        specifier: ^0.182.0
+        version: 0.182.0
     devDependencies:
       '@anywidget/vite':
         specifier: ^0.2.2
