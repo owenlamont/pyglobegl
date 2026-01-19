@@ -9,6 +9,7 @@ import os
 import pathlib
 import shutil
 import socketserver
+import sys
 import threading
 from typing import Any, Literal, TYPE_CHECKING
 
@@ -30,6 +31,12 @@ def _is_truthy_env(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _should_compare_reference_images() -> bool:
+    if sys.platform == "linux":
+        return True
+    return _is_truthy_env(os.environ.get("PYGLOBEGL_ALLOW_NON_LINUX_REFERENCE"))
 
 
 def _wslg_available() -> bool:
@@ -404,6 +411,11 @@ def canvas_save_capture() -> Callable[[Image.Image, str], pathlib.Path]:
 @pytest.fixture
 def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
     def _compare(captured: Image.Image, reference_path: pathlib.Path) -> None:
+        if not _should_compare_reference_images():
+            pytest.skip(
+                "Reference image comparisons are Linux-only by default. "
+                "Set PYGLOBEGL_ALLOW_NON_LINUX_REFERENCE=1 to override."
+            )
         reference = Image.open(reference_path).convert("RGBA")
         if captured.size != reference.size:
             raise AssertionError(
