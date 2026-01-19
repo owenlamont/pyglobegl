@@ -343,6 +343,16 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 	return () => {
 		resizeObserver?.disconnect();
+		const globalScope = globalThis as {
+			__pyglobegl_globe_ready?: boolean;
+			__pyglobegl_renderer_attributes?: WebGLContextAttributes | null;
+			__pyglobegl_init_config?: GlobeInitConfig;
+			__pyglobegl_pov?: PointOfView;
+		};
+		delete globalScope.__pyglobegl_globe_ready;
+		delete globalScope.__pyglobegl_renderer_attributes;
+		delete globalScope.__pyglobegl_init_config;
+		delete globalScope.__pyglobegl_pov;
 	};
 }
 

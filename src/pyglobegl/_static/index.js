@@ -33174,6 +33174,8 @@ function Cq({ el: i, model: e }) {
     });
   }), () => {
     t?.disconnect();
+    const n = globalThis;
+    delete n.__pyglobegl_globe_ready, delete n.__pyglobegl_renderer_attributes, delete n.__pyglobegl_init_config, delete n.__pyglobegl_pov;
   };
 }
 const RAe = { render: Cq };

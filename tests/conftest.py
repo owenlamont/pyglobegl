@@ -264,32 +264,6 @@ def globe_flat_texture_data_url() -> str:
     return image_to_data_url(image)
 
 
-def _make_solid_tile(color: tuple[int, int, int]) -> Image.Image:
-    return Image.new("RGB", (64, 64), color)
-
-
-@pytest.fixture(scope="session")
-def globe_tile_red_data_url() -> str:
-    from pyglobegl.images import image_to_data_url
-
-    image = _make_solid_tile((255, 0, 0))
-    return image_to_data_url(image)
-
-
-@pytest.fixture(scope="session")
-def globe_tile_green_data_url() -> str:
-    from pyglobegl.images import image_to_data_url
-
-    image = _make_solid_tile((0, 255, 0))
-    return image_to_data_url(image)
-
-
-def _png_bytes(image: Image.Image) -> bytes:
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
-
-
 @pytest.fixture
 def globe_tile_server() -> Generator[tuple[str, Callable[[bytes], None]], None, None]:
     class TileData:
