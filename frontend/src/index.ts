@@ -38,10 +38,24 @@ type GlobeLayerConfig = {
 	globeMaterial?: unknown;
 };
 
+type PointsLayerConfig = {
+	pointsData?: Array<Record<string, unknown>>;
+	pointLabel?: string;
+	pointLat?: number | string;
+	pointLng?: number | string;
+	pointColor?: string;
+	pointAltitude?: number | string;
+	pointRadius?: number | string;
+	pointResolution?: number;
+	pointsMerge?: boolean;
+	pointsTransitionDuration?: number;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
 	globe?: GlobeLayerConfig;
+	points?: PointsLayerConfig;
 	view?: GlobeViewConfig;
 };
 
@@ -143,6 +157,38 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		globe.onGlobeRightClick((coords: { lat: number; lng: number }) => {
 			model.send({ type: "globe_right_click", payload: coords });
 		});
+
+		globe.onPointClick(
+			(
+				point: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "point_click", payload: { point, coords } });
+			},
+		);
+
+		globe.onPointRightClick(
+			(
+				point: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "point_right_click", payload: { point, coords } });
+			},
+		);
+
+		globe.onPointHover(
+			(
+				point: Record<string, unknown> | null,
+				prevPoint: Record<string, unknown> | null,
+			) => {
+				model.send({
+					type: "point_hover",
+					payload: { point, prev_point: prevPoint },
+				});
+			},
+		);
 
 		model.on("msg:custom", (msg: unknown) => {
 			if (
@@ -295,6 +341,42 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyPointsProps = (pointsConfig?: PointsLayerConfig): void => {
+			if (!pointsConfig) {
+				return;
+			}
+			if (pointsConfig.pointsData !== undefined) {
+				globe.pointsData(pointsConfig.pointsData ?? []);
+			}
+			if (pointsConfig.pointLabel !== undefined) {
+				globe.pointLabel(pointsConfig.pointLabel ?? null);
+			}
+			if (pointsConfig.pointLat !== undefined) {
+				globe.pointLat(pointsConfig.pointLat ?? null);
+			}
+			if (pointsConfig.pointLng !== undefined) {
+				globe.pointLng(pointsConfig.pointLng ?? null);
+			}
+			if (pointsConfig.pointColor !== undefined) {
+				globe.pointColor(pointsConfig.pointColor ?? null);
+			}
+			if (pointsConfig.pointAltitude !== undefined) {
+				globe.pointAltitude(pointsConfig.pointAltitude ?? null);
+			}
+			if (pointsConfig.pointRadius !== undefined) {
+				globe.pointRadius(pointsConfig.pointRadius ?? null);
+			}
+			if (pointsConfig.pointResolution !== undefined) {
+				globe.pointResolution(pointsConfig.pointResolution);
+			}
+			if (pointsConfig.pointsMerge !== undefined) {
+				globe.pointsMerge(pointsConfig.pointsMerge);
+			}
+			if (pointsConfig.pointsTransitionDuration !== undefined) {
+				globe.pointsTransitionDuration(pointsConfig.pointsTransitionDuration);
+			}
+		};
+
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
 			if (!viewConfig || !viewConfig.pointOfView) {
 				return;
@@ -322,6 +404,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		const applyConfig = (config?: GlobeConfig) => {
 			const layout = config?.layout;
 			const globeConfig = config?.globe;
+			const pointsConfig = config?.points;
 			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
@@ -331,6 +414,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			applyLayoutProps(layout);
 			applyGlobeProps(globeConfig);
+			applyPointsProps(pointsConfig);
 			applyViewProps(viewConfig);
 		};
 

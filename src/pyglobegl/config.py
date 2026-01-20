@@ -82,6 +82,43 @@ class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
         return str(value) if value is not None else None
 
 
+class PointDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a points layer entry."""
+
+    lat: float
+    lng: float
+    altitude: float | None = None
+    radius: float | None = None
+    color: str | None = None
+    label: str | None = None
+    size: float | None = None
+
+
+class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Points layer settings for globe.gl."""
+
+    points_data: list[PointDatum] | list[dict[str, Any]] | None = Field(
+        default=None, serialization_alias="pointsData"
+    )
+    point_label: str | None = Field(default=None, serialization_alias="pointLabel")
+    point_lat: float | str | None = Field(default=None, serialization_alias="pointLat")
+    point_lng: float | str | None = Field(default=None, serialization_alias="pointLng")
+    point_color: str | None = Field(default=None, serialization_alias="pointColor")
+    point_altitude: float | str | None = Field(
+        default=None, serialization_alias="pointAltitude"
+    )
+    point_radius: float | str | None = Field(
+        default=None, serialization_alias="pointRadius"
+    )
+    point_resolution: int | None = Field(
+        default=None, serialization_alias="pointResolution"
+    )
+    points_merge: bool | None = Field(default=None, serialization_alias="pointsMerge")
+    points_transition_duration: int | None = Field(
+        default=None, serialization_alias="pointsTransitionDuration"
+    )
+
+
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
@@ -105,4 +142,5 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     init: GlobeInitConfig = Field(default_factory=GlobeInitConfig)
     layout: GlobeLayoutConfig = Field(default_factory=GlobeLayoutConfig)
     globe: GlobeLayerConfig = Field(default_factory=GlobeLayerConfig)
+    points: PointsLayerConfig = Field(default_factory=PointsLayerConfig)
     view: GlobeViewConfig = Field(default_factory=GlobeViewConfig)

@@ -97,3 +97,34 @@ from PIL import Image
 image = Image.open("earth.png")
 config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
 ```
+
+## Points Layer
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+    PointDatum,
+    PointsLayerConfig,
+)
+
+points = [
+    PointDatum(lat=0, lng=0, size=0.25, color="#ff0000", label="Center"),
+    PointDatum(lat=15, lng=-45, size=0.12, color="#00ff00", label="West"),
+]
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    points=PointsLayerConfig(
+        points_data=points,
+        point_altitude="size",
+        point_color="color",
+        point_label="label",
+    ),
+)
+
+GlobeWidget(config=config)
+```
