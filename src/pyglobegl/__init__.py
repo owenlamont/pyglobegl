@@ -11,6 +11,7 @@ from pyglobegl.config import (
     PointOfView,
     PointsLayerConfig,
 )
+from pyglobegl.geopandas import points_from_gdf
 from pyglobegl.images import image_to_data_url
 from pyglobegl.widget import GlobeWidget
 
@@ -27,4 +28,5 @@ __all__ = [
     "PointOfView",
     "PointsLayerConfig",
     "image_to_data_url",
+    "points_from_gdf",
 ]

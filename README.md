@@ -128,3 +128,23 @@ config = GlobeConfig(
 
 GlobeWidget(config=config)
 ```
+
+## GeoPandas Helper (Optional)
+
+Install the optional GeoPandas extra:
+
+```bash
+uv add pyglobegl[geopandas]
+```
+
+Convert a GeoDataFrame of point geometries into points data. The helper
+reprojects to EPSG:4326 before extracting lat/lng.
+
+```python
+import geopandas as gpd
+
+from pyglobegl import points_from_gdf
+
+gdf = gpd.read_file("points.geojson")
+points = points_from_gdf(gdf, include_columns=["name", "population"])
+```

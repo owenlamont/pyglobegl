@@ -48,12 +48,18 @@ Repository = "https://github.com/owenlamont/pyglobegl"
 Issues = "https://github.com/owenlamont/pyglobegl/issues"
 Releases = "https://github.com/owenlamont/pyglobegl/releases"
 
+[project.optional-dependencies]
+geopandas = [
+    "geopandas>=1.1.2",
+]
+
 [build-system]
 requires = ["uv_build>=0.9.22,<0.10.0"]
 build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "geopandas>=1.1.2",
     "ipykernel>=7.1.0",
     "jupyterlab>=4.5.1",
     "marimo>=0.19.0",
