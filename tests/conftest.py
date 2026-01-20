@@ -241,6 +241,42 @@ def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None
     return _click
 
 
+@pytest.fixture
+def globe_hoverer() -> Callable[[PlaywrightPage], None]:
+    def _hover(page: PlaywrightPage) -> None:
+        success = page.evaluate(
+            """
+            async () => {
+              const target = document.querySelector(".scene-container");
+              if (!target) {
+                return false;
+              }
+              const rect = target.getBoundingClientRect();
+              const x = rect.left + rect.width / 2;
+              const y = rect.top + rect.height / 2;
+              const opts = {
+                clientX: x,
+                clientY: y,
+                pageX: x + window.scrollX,
+                pageY: y + window.scrollY,
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                pointerType: "mouse",
+                pointerId: 1,
+                isPrimary: true,
+              };
+              target.dispatchEvent(new PointerEvent("pointermove", opts));
+              return true;
+            }
+            """
+        )
+        if not success:
+            raise AssertionError("Failed to dispatch globe hover event.")
+
+    return _hover
+
+
 def _make_bump_test_map(width: int = 360, height: int = 180) -> Image.Image:
     image = Image.new("L", (width, height))
     stripe_width = max(1, width // 12)

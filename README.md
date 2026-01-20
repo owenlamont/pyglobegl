@@ -19,7 +19,7 @@ popular Python spatial packages.
     - [x] Initialisation
     - [x] Container layout
     - [x] Globe layer
-    - [ ] Points layer
+    - [x] Points layer
     - [ ] Arcs layer
     - [ ] Polygons layer
     - [ ] Paths layer
@@ -96,4 +96,55 @@ from PIL import Image
 
 image = Image.open("earth.png")
 config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
+```
+
+## Points Layer
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+    PointDatum,
+    PointsLayerConfig,
+)
+
+points = [
+    PointDatum(lat=0, lng=0, size=0.25, color="#ff0000", label="Center"),
+    PointDatum(lat=15, lng=-45, size=0.12, color="#00ff00", label="West"),
+]
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    points=PointsLayerConfig(
+        points_data=points,
+        point_altitude="size",
+        point_color="color",
+        point_label="label",
+    ),
+)
+
+GlobeWidget(config=config)
+```
+
+## GeoPandas Helper (Optional)
+
+Install the optional GeoPandas extra:
+
+```bash
+uv add pyglobegl[geopandas]
+```
+
+Convert a GeoDataFrame of point geometries into points data. The helper
+reprojects to EPSG:4326 before extracting lat/lng.
+
+```python
+import geopandas as gpd
+
+from pyglobegl import points_from_gdf
+
+gdf = gpd.read_file("points.geojson")
+points = points_from_gdf(gdf, include_columns=["name", "population"])
 ```
