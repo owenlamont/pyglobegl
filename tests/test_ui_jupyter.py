@@ -8,7 +8,10 @@ import socket
 import subprocess  # noqa: S404
 import time
 from typing import TYPE_CHECKING
+import urllib.error
+import urllib.request
 
+from playwright.sync_api import Error as PlaywrightError
 import pytest
 
 
@@ -164,6 +167,23 @@ def _dismiss_notifications(page) -> None:
         page.wait_for_timeout(200)
 
 
+def _goto_with_retry(page, url: str, timeout_s: float = 30) -> None:
+    deadline = time.monotonic() + timeout_s
+    last_exc: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            page.goto(url, wait_until="load")
+            return
+        except PlaywrightError as exc:
+            last_exc = exc
+            if "ERR_CONNECTION_FAILED" not in str(exc):
+                raise
+        page.wait_for_timeout(200)
+    if last_exc is not None:
+        raise last_exc
+    raise TimeoutError(f"Timed out waiting to load {url}.")
+
+
 def _tail_log(log_path: Path, max_chars: int = 4000) -> str:
     if not log_path.exists():
         return ""
@@ -211,7 +231,12 @@ def _wait_for_jupyter(
             )
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             if sock.connect_ex(("127.0.0.1", port)) == 0:
-                return url
+                try:
+                    with urllib.request.urlopen(url, timeout=1) as response:
+                        if response.status == 200:
+                            return url
+                except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+                    pass
         time.sleep(0.1)
     tail = _tail_log(log_path)
     raise RuntimeError(f"Timed out waiting for JupyterLab. Log tail:\n{tail}")
@@ -249,7 +274,7 @@ def _jupyterlab_server() -> Iterator[str]:
 def test_jupyter_widget_renders(page: "Page", ui_artifacts_writer) -> None:
     with _jupyterlab_server() as url:
         try:
-            page.goto(url)
+            _goto_with_retry(page, url)
             page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
             _dismiss_notifications(page)
             _ensure_webgl_available(page)
