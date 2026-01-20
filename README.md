@@ -19,7 +19,7 @@ popular Python spatial packages.
     - [x] Initialisation
     - [x] Container layout
     - [x] Globe layer
-    - [ ] Points layer
+    - [x] Points layer
     - [ ] Arcs layer
     - [ ] Polygons layer
     - [ ] Paths layer
