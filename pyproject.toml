@@ -70,4 +70,5 @@ dev = [
     "pytest-playwright>=0.7.2",
     "pytest-randomly>=4.0.1",
     "pytest-xdist>=3.8.0",
+    "scikit-image>=0.25.2",
 ]

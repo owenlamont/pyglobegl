@@ -12,11 +12,16 @@ import socketserver
 import threading
 from typing import Any, Literal, TYPE_CHECKING
 
+import numpy as np
 from PIL import Image, ImageChops
 from pydantic import AnyUrl, TypeAdapter
 import pytest
+from skimage.metrics import structural_similarity
 
 from pyglobegl.images import image_to_data_url
+
+
+_SSIM_THRESHOLD = 0.87
 
 
 def _is_wsl() -> bool:
@@ -26,15 +31,14 @@ def _is_wsl() -> bool:
     return "microsoft" in version.read_text().lower()
 
 
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
 def _is_truthy_env(value: str | None) -> bool:
     if value is None:
         return False
     return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _reference_diff_tolerance() -> float:
-    max_ratio_env = os.environ.get("PYGLOBEGL_MAX_DIFF_RATIO")
-    return float(max_ratio_env) if max_ratio_env else 0.08
 
 
 def _wslg_available() -> bool:
@@ -50,6 +54,15 @@ def _wsl_browser_args() -> list[str]:
     if os.environ.get("WAYLAND_DISPLAY"):
         args.extend(["--enable-features=UseOzonePlatform", "--ozone-platform=wayland"])
     return args
+
+
+def _windows_browser_args() -> list[str]:
+    return [
+        "--enable-gpu",
+        "--ignore-gpu-blocklist",
+        "--use-gl=angle",
+        "--use-angle=d3d11",
+    ]
 
 
 def _wsl_env_overrides() -> dict[str, str]:
@@ -432,9 +445,10 @@ def canvas_reference_path() -> Callable[[str], pathlib.Path]:
 
 
 @pytest.fixture
-def canvas_save_capture() -> Callable[[Image.Image, str], pathlib.Path]:
-    def _save(image: Image.Image, label: str) -> pathlib.Path:
-        filename = f"{_safe_name(label)}-{_timestamp_local()}.png"
+def canvas_save_capture() -> Callable[[Image.Image, str, bool], pathlib.Path]:
+    def _save(image: Image.Image, label: str, passed: bool) -> pathlib.Path:
+        status = "pass" if passed else "fail"
+        filename = f"{_safe_name(label)}-{status}-{_timestamp_local()}.png"
         path = pathlib.Path("ui-artifacts") / filename
         image.save(path)
         return path
@@ -443,34 +457,25 @@ def canvas_save_capture() -> Callable[[Image.Image, str], pathlib.Path]:
 
 
 @pytest.fixture
-def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], None]:
-    def _compare(captured: Image.Image, reference_path: pathlib.Path) -> None:
-        reference = Image.open(reference_path).convert("RGBA")
+def canvas_similarity_threshold() -> float:
+    return _SSIM_THRESHOLD
+
+
+@pytest.fixture
+def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], float]:
+    def _compare(captured: Image.Image, reference_path: pathlib.Path) -> float:
+        reference = Image.open(reference_path).convert("RGB")
         if captured.size != reference.size:
             raise AssertionError(
                 f"Reference size {reference.size} does not match capture size "
                 f"{captured.size}."
             )
-        diff = ImageChops.difference(captured, reference)
-        diff_pixels = sum(
-            1 for pixel in diff.get_flattened_data() if pixel != (0, 0, 0, 0)
+        captured_array = np.asarray(captured.convert("RGB"))
+        reference_array = np.asarray(reference)
+        score = structural_similarity(
+            captured_array, reference_array, channel_axis=2, data_range=255
         )
-        if diff_pixels == 0:
-            return
-        max_ratio = _reference_diff_tolerance()
-        total_pixels = captured.size[0] * captured.size[1]
-        if diff_pixels / total_pixels <= max_ratio:
-            return
-        diff_path = (
-            pathlib.Path("ui-artifacts")
-            / f"canvas-capture-diff-{_timestamp_local()}.png"
-        )
-        diff.save(diff_path)
-        raise AssertionError(
-            "Captured image differs from reference. "
-            f"Diff pixels: {diff_pixels} (tolerance {max_ratio:.3%}). "
-            f"Diff saved to {diff_path}."
-        )
+        return float(score)
 
     return _compare
 
@@ -499,6 +504,8 @@ def browser_type_launch_args(pytestconfig: pytest.Config) -> dict:
     ]
     if _is_wsl():
         launch_options["args"].extend(_wsl_browser_args())
+    elif _is_windows():
+        launch_options["args"].extend(_windows_browser_args())
     return launch_options
 
 
