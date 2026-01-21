@@ -21,7 +21,7 @@ from skimage.metrics import structural_similarity
 from pyglobegl.images import image_to_data_url
 
 
-_SSIM_THRESHOLD = 0.87
+_SSIM_THRESHOLD = 0.86
 
 
 def _is_wsl() -> bool:

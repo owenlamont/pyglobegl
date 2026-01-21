@@ -79,7 +79,7 @@ popular Python spatial packages.
 - Canvas captures are saved under `ui-artifacts` as
   `{test-name}-pass-<timestamp>.png` or `{test-name}-fail-<timestamp>.png`.
 - Canvas comparisons use SSIM (structural similarity) with a fixed threshold
-  (currently `0.87`).
+  (currently `0.86`).
 
 ## Build Assets (Release Checklist)
 
