@@ -464,13 +464,13 @@ def canvas_similarity_threshold() -> float:
 @pytest.fixture
 def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], float]:
     def _compare(captured: Image.Image, reference_path: pathlib.Path) -> float:
-        reference = Image.open(reference_path).convert("RGB")
+        reference = Image.open(reference_path).convert("RGBA")
         if captured.size != reference.size:
             raise AssertionError(
                 f"Reference size {reference.size} does not match capture size "
                 f"{captured.size}."
             )
-        captured_array = np.asarray(captured.convert("RGB"))
+        captured_array = np.asarray(captured.convert("RGBA"))
         reference_array = np.asarray(reference)
         score = structural_similarity(
             captured_array, reference_array, channel_axis=2, data_range=255
