@@ -29,6 +29,7 @@ def test_points_accessors(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
+    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
     points_data = [
@@ -83,18 +84,22 @@ def test_points_accessors(
 
     captured_image = canvas_capture(page_session)
     test_label = canvas_label
-    canvas_save_capture(captured_image, test_label)
-
     reference_path = canvas_reference_path(test_label)
     if not reference_path.exists():
         raise AssertionError(
             f"Reference image missing. Save the capture to {reference_path} and re-run."
         )
     try:
-        canvas_compare_images(captured_image, reference_path)
-    except AssertionError:
-        canvas_save_capture(captured_image, f"{test_label}-mismatch")
+        score = canvas_compare_images(captured_image, reference_path)
+        passed = score >= canvas_similarity_threshold
+    except Exception:
+        canvas_save_capture(captured_image, test_label, False)
         raise
+    canvas_save_capture(captured_image, test_label, passed)
+    assert passed, (
+        "Captured image similarity below threshold. "
+        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+    )
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -112,6 +117,7 @@ def test_point_resolution(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
+    canvas_similarity_threshold,
     globe_earth_texture_url,
     resolution: int,
     radius: float,
@@ -152,18 +158,22 @@ def test_point_resolution(
 
     captured_image = canvas_capture(page_session)
     test_label = canvas_label
-    canvas_save_capture(captured_image, test_label)
-
     reference_path = canvas_reference_path(test_label)
     if not reference_path.exists():
         raise AssertionError(
             f"Reference image missing. Save the capture to {reference_path} and re-run."
         )
     try:
-        canvas_compare_images(captured_image, reference_path)
-    except AssertionError:
-        canvas_save_capture(captured_image, f"{test_label}-mismatch")
+        score = canvas_compare_images(captured_image, reference_path)
+        passed = score >= canvas_similarity_threshold
+    except Exception:
+        canvas_save_capture(captured_image, test_label, False)
         raise
+    canvas_save_capture(captured_image, test_label, passed)
+    assert passed, (
+        "Captured image similarity below threshold. "
+        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+    )
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -224,6 +234,7 @@ def test_points_transition_duration(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
+    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
     initial_points = [
@@ -262,7 +273,7 @@ def test_points_transition_duration(
     )
 
     initial_image = canvas_capture(page_session)
-    canvas_save_capture(initial_image, "test_points_transition_duration-initial")
+    canvas_save_capture(initial_image, "test_points_transition_duration-initial", True)
     initial_ref = canvas_reference_path("test_points_transition_duration-initial")
     if not initial_ref.exists():
         raise AssertionError(
@@ -294,7 +305,7 @@ def test_points_transition_duration(
     )
 
     updated_image = canvas_capture(page_session)
-    canvas_save_capture(updated_image, "test_points_transition_duration-updated")
+    canvas_save_capture(updated_image, "test_points_transition_duration-updated", True)
     updated_ref = canvas_reference_path("test_points_transition_duration-updated")
     if not updated_ref.exists():
         raise AssertionError(

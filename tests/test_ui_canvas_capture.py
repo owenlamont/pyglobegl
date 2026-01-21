@@ -20,6 +20,7 @@ def test_solara_canvas_capture_baseline(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
+    canvas_similarity_threshold,
 ) -> None:
     config = GlobeConfig(
         init=GlobeInitConfig(
@@ -39,15 +40,19 @@ def test_solara_canvas_capture_baseline(
 
     captured_image = canvas_capture(page_session)
     test_label = canvas_label
-    canvas_save_capture(captured_image, test_label)
-
     reference_path = canvas_reference_path(test_label)
     if not reference_path.exists():
         raise AssertionError(
             f"Reference image missing. Save the capture to {reference_path} and re-run."
         )
     try:
-        canvas_compare_images(captured_image, reference_path)
-    except AssertionError:
-        canvas_save_capture(captured_image, f"{test_label}-mismatch")
+        score = canvas_compare_images(captured_image, reference_path)
+        passed = score >= canvas_similarity_threshold
+    except Exception:
+        canvas_save_capture(captured_image, test_label, False)
         raise
+    canvas_save_capture(captured_image, test_label, passed)
+    assert passed, (
+        "Captured image similarity below threshold. "
+        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+    )

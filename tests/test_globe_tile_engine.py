@@ -101,7 +101,9 @@ def test_globe_tile_engine_cache_reset(
     _wait_for_canvas_color(page_session, "#ff0000")
 
     initial_image = canvas_capture(page_session)
-    canvas_save_capture(initial_image, "test_globe_tile_engine_cache_reset-initial")
+    canvas_save_capture(
+        initial_image, "test_globe_tile_engine_cache_reset-initial", True
+    )
     initial_ref = canvas_reference_path("test_globe_tile_engine_cache_reset-initial")
     if not initial_ref.exists():
         raise AssertionError(
@@ -112,7 +114,7 @@ def test_globe_tile_engine_cache_reset(
     set_tile_bytes(_make_tile_bytes((0, 255, 0)))
 
     cached_image = canvas_capture(page_session)
-    canvas_save_capture(cached_image, "test_globe_tile_engine_cache_reset-cached")
+    canvas_save_capture(cached_image, "test_globe_tile_engine_cache_reset-cached", True)
     cached_ref = canvas_reference_path("test_globe_tile_engine_cache_reset-cached")
     if not cached_ref.exists():
         raise AssertionError(
@@ -134,7 +136,9 @@ def test_globe_tile_engine_cache_reset(
     _wait_for_canvas_color(page_session, "#00ff00")
 
     cleared_image = canvas_capture(page_session)
-    canvas_save_capture(cleared_image, "test_globe_tile_engine_cache_reset-cleared")
+    canvas_save_capture(
+        cleared_image, "test_globe_tile_engine_cache_reset-cleared", True
+    )
     cleared_ref = canvas_reference_path("test_globe_tile_engine_cache_reset-cleared")
     if not cleared_ref.exists():
         raise AssertionError(
