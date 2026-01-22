@@ -1,6 +1,8 @@
 """pyglobegl public API."""
 
 from pyglobegl.config import (
+    ArcDatum,
+    ArcsLayerConfig,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -17,6 +19,8 @@ from pyglobegl.widget import GlobeWidget
 
 
 __all__ = [
+    "ArcDatum",
+    "ArcsLayerConfig",
     "GlobeConfig",
     "GlobeInitConfig",
     "GlobeLayerConfig",

@@ -51,11 +51,34 @@ type PointsLayerConfig = {
 	pointsTransitionDuration?: number;
 };
 
+type ArcsLayerConfig = {
+	arcsData?: Array<Record<string, unknown>>;
+	arcLabel?: string;
+	arcStartLat?: number | string;
+	arcStartLng?: number | string;
+	arcStartAltitude?: number | string;
+	arcEndLat?: number | string;
+	arcEndLng?: number | string;
+	arcEndAltitude?: number | string;
+	arcColor?: string | Array<string>;
+	arcAltitude?: number | string | null;
+	arcAltitudeAutoScale?: number | string;
+	arcStroke?: number | string;
+	arcCurveResolution?: number;
+	arcCircularResolution?: number;
+	arcDashLength?: number | string;
+	arcDashGap?: number | string;
+	arcDashInitialGap?: number | string;
+	arcDashAnimateTime?: number | string;
+	arcsTransitionDuration?: number;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
 	globe?: GlobeLayerConfig;
 	points?: PointsLayerConfig;
+	arcs?: ArcsLayerConfig;
 	view?: GlobeViewConfig;
 };
 
@@ -186,6 +209,38 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				model.send({
 					type: "point_hover",
 					payload: { point, prev_point: prevPoint },
+				});
+			},
+		);
+
+		globe.onArcClick(
+			(
+				arc: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "arc_click", payload: { arc, coords } });
+			},
+		);
+
+		globe.onArcRightClick(
+			(
+				arc: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "arc_right_click", payload: { arc, coords } });
+			},
+		);
+
+		globe.onArcHover(
+			(
+				arc: Record<string, unknown> | null,
+				prevArc: Record<string, unknown> | null,
+			) => {
+				model.send({
+					type: "arc_hover",
+					payload: { arc, prev_arc: prevArc },
 				});
 			},
 		);
@@ -377,6 +432,69 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyArcsProps = (arcsConfig?: ArcsLayerConfig): void => {
+			if (!arcsConfig) {
+				return;
+			}
+			if (arcsConfig.arcsData !== undefined) {
+				globe.arcsData(arcsConfig.arcsData ?? []);
+			}
+			if (arcsConfig.arcLabel !== undefined) {
+				globe.arcLabel(arcsConfig.arcLabel ?? null);
+			}
+			if (arcsConfig.arcStartLat !== undefined) {
+				globe.arcStartLat(arcsConfig.arcStartLat ?? null);
+			}
+			if (arcsConfig.arcStartLng !== undefined) {
+				globe.arcStartLng(arcsConfig.arcStartLng ?? null);
+			}
+			if (arcsConfig.arcStartAltitude !== undefined) {
+				globe.arcStartAltitude(arcsConfig.arcStartAltitude ?? null);
+			}
+			if (arcsConfig.arcEndLat !== undefined) {
+				globe.arcEndLat(arcsConfig.arcEndLat ?? null);
+			}
+			if (arcsConfig.arcEndLng !== undefined) {
+				globe.arcEndLng(arcsConfig.arcEndLng ?? null);
+			}
+			if (arcsConfig.arcEndAltitude !== undefined) {
+				globe.arcEndAltitude(arcsConfig.arcEndAltitude ?? null);
+			}
+			if (arcsConfig.arcColor !== undefined) {
+				globe.arcColor(arcsConfig.arcColor ?? null);
+			}
+			if (arcsConfig.arcAltitude !== undefined) {
+				globe.arcAltitude(arcsConfig.arcAltitude ?? null);
+			}
+			if (arcsConfig.arcAltitudeAutoScale !== undefined) {
+				globe.arcAltitudeAutoScale(arcsConfig.arcAltitudeAutoScale ?? null);
+			}
+			if (arcsConfig.arcStroke !== undefined) {
+				globe.arcStroke(arcsConfig.arcStroke ?? null);
+			}
+			if (arcsConfig.arcCurveResolution !== undefined) {
+				globe.arcCurveResolution(arcsConfig.arcCurveResolution);
+			}
+			if (arcsConfig.arcCircularResolution !== undefined) {
+				globe.arcCircularResolution(arcsConfig.arcCircularResolution);
+			}
+			if (arcsConfig.arcDashLength !== undefined) {
+				globe.arcDashLength(arcsConfig.arcDashLength ?? null);
+			}
+			if (arcsConfig.arcDashGap !== undefined) {
+				globe.arcDashGap(arcsConfig.arcDashGap ?? null);
+			}
+			if (arcsConfig.arcDashInitialGap !== undefined) {
+				globe.arcDashInitialGap(arcsConfig.arcDashInitialGap ?? null);
+			}
+			if (arcsConfig.arcDashAnimateTime !== undefined) {
+				globe.arcDashAnimateTime(arcsConfig.arcDashAnimateTime ?? null);
+			}
+			if (arcsConfig.arcsTransitionDuration !== undefined) {
+				globe.arcsTransitionDuration(arcsConfig.arcsTransitionDuration);
+			}
+		};
+
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
 			if (!viewConfig || !viewConfig.pointOfView) {
 				return;
@@ -405,6 +523,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			const layout = config?.layout;
 			const globeConfig = config?.globe;
 			const pointsConfig = config?.points;
+			const arcsConfig = config?.arcs;
 			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
@@ -415,6 +534,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyLayoutProps(layout);
 			applyGlobeProps(globeConfig);
 			applyPointsProps(pointsConfig);
+			applyArcsProps(arcsConfig);
 			applyViewProps(viewConfig);
 		};
 

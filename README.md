@@ -109,7 +109,7 @@ points = points_from_gdf(gdf, include_columns=["name", "population"])
     - [x] Container layout
     - [x] Globe layer
     - [x] Points layer
-    - [ ] Arcs layer
+    - [x] Arcs layer
     - [ ] Polygons layer
     - [ ] Paths layer
     - [ ] Heatmaps layer

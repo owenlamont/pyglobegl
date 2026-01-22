@@ -1,6 +1,6 @@
 [project]
 name = "pyglobegl"
-version = "0.3.1"
+version = "0.4.0"
 description = "AnyWidget wrapper for globe.gl"
 readme = "README.md"
 authors = [
