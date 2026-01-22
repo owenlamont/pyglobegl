@@ -98,7 +98,7 @@ def test_points_from_gdf_missing_columns() -> None:
         pytest.param("altitude", "high", "must be numeric", id="altitude-string"),
         pytest.param("radius", "wide", "must be numeric", id="radius-string"),
         pytest.param("size", "large", "must be numeric", id="size-string"),
-        pytest.param("altitude", -1.0, "must be positive", id="altitude-negative"),
+        pytest.param("altitude", -1.0, "must be non-negative", id="altitude-negative"),
         pytest.param("radius", -2.0, "must be positive", id="radius-negative"),
         pytest.param("size", -0.5, "must be positive", id="size-negative"),
         pytest.param("color", 123, "must be strings", id="color-non-string"),

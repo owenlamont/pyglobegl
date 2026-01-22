@@ -100,9 +100,12 @@ def test_arcs_from_gdf_include_columns() -> None:
             "must be numeric",
             id="dash-animate-time-string",
         ),
-        pytest.param("altitude", -0.2, "must be positive", id="altitude-negative"),
+        pytest.param("altitude", -0.2, "must be non-negative", id="altitude-negative"),
         pytest.param(
-            "altitude_auto_scale", -0.1, "must be positive", id="auto-scale-negative"
+            "altitude_auto_scale",
+            -0.1,
+            "must be non-negative",
+            id="auto-scale-negative",
         ),
         pytest.param("stroke", -0.3, "must be positive", id="stroke-negative"),
         pytest.param(

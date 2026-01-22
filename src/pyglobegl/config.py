@@ -122,19 +122,27 @@ class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
 class ArcDatum(BaseModel, extra="allow", frozen=True):
     """Data model for an arcs layer entry."""
 
-    start_lat: float
-    start_lng: float
-    end_lat: float
-    end_lng: float
-    start_altitude: float | None = None
-    end_altitude: float | None = None
-    altitude: float | None = None
-    altitude_auto_scale: float | None = None
-    stroke: float | None = None
-    dash_length: float | None = None
-    dash_gap: float | None = None
-    dash_initial_gap: float | None = None
-    dash_animate_time: float | None = None
+    start_lat: float = Field(serialization_alias="startLat")
+    start_lng: float = Field(serialization_alias="startLng")
+    end_lat: float = Field(serialization_alias="endLat")
+    end_lng: float = Field(serialization_alias="endLng")
+    start_altitude: float | None = Field(
+        default=None, serialization_alias="startAltitude"
+    )
+    end_altitude: float | None = Field(default=None, serialization_alias="endAltitude")
+    altitude: float | None = Field(default=None, serialization_alias="altitude")
+    altitude_auto_scale: float | None = Field(
+        default=None, serialization_alias="altitudeAutoScale"
+    )
+    stroke: float | None = Field(default=None, serialization_alias="stroke")
+    dash_length: float | None = Field(default=None, serialization_alias="dashLength")
+    dash_gap: float | None = Field(default=None, serialization_alias="dashGap")
+    dash_initial_gap: float | None = Field(
+        default=None, serialization_alias="dashInitialGap"
+    )
+    dash_animate_time: float | None = Field(
+        default=None, serialization_alias="dashAnimateTime"
+    )
     color: str | None = None
     label: str | None = None
 

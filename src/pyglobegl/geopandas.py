@@ -127,6 +127,14 @@ def _ensure_positive(df: pd.DataFrame, column: str, context: str) -> None:
         raise ValueError(f"{context} column '{column}' must be positive.")
 
 
+def _ensure_nonnegative(df: pd.DataFrame, column: str, context: str) -> None:
+    import pandas as pd
+
+    series = pd.to_numeric(df[column], errors="coerce")
+    if series.dropna().lt(0).any():
+        raise ValueError(f"{context} column '{column}' must be non-negative.")
+
+
 def _ensure_strings(df: pd.DataFrame, column: str, context: str) -> None:
     series = df[column].dropna()
     if not series.map(type).eq(str).all():
@@ -163,6 +171,7 @@ def _validate_optional_columns(
     *,
     numeric_columns: Iterable[str],
     positive_columns: Iterable[str],
+    nonnegative_columns: Iterable[str],
     color_columns: Iterable[str],
     string_columns: Iterable[str],
     context: str,
@@ -173,6 +182,9 @@ def _validate_optional_columns(
     for column in positive_columns:
         if column in df.columns:
             _ensure_positive(df, column, context)
+    for column in nonnegative_columns:
+        if column in df.columns:
+            _ensure_nonnegative(df, column, context)
     for column in color_columns:
         if column in df.columns:
             _ensure_css_colors(df, column, context)
@@ -229,7 +241,8 @@ def points_from_gdf(
     _validate_optional_columns(
         gdf,
         numeric_columns=("altitude", "radius", "size"),
-        positive_columns=("altitude", "radius", "size"),
+        positive_columns=("radius", "size"),
+        nonnegative_columns=("altitude",),
         color_columns=("color",),
         string_columns=("label",),
         context="points_from_gdf",
@@ -314,14 +327,13 @@ def arcs_from_gdf(
             "dash_animate_time",
         ),
         positive_columns=(
-            "altitude",
-            "altitude_auto_scale",
             "stroke",
             "dash_length",
             "dash_gap",
             "dash_initial_gap",
             "dash_animate_time",
         ),
+        nonnegative_columns=("altitude", "altitude_auto_scale"),
         color_columns=("color",),
         string_columns=("label",),
         context="arcs_from_gdf",
