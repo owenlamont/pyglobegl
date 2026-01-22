@@ -52,6 +52,7 @@ Releases = "https://github.com/owenlamont/pyglobegl/releases"
 geopandas = [
     "geopandas>=1.1.2",
     "pandera>=0.28.1",
+    "webcolors",
 ]
 
 [build-system]

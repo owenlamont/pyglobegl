@@ -9,7 +9,7 @@ from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
     """Initialization settings for globe.gl."""
 
-    renderer_config: Mapping[str, object] | None = Field(
+    renderer_config: Mapping[str, Any] | None = Field(
         default=None, serialization_alias="rendererConfig"
     )
     wait_for_globe_ready: bool = Field(

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from threading import Event
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
 import pytest
@@ -27,9 +27,9 @@ def test_on_arc_click_callback(
     page_session: Page, globe_clicker, globe_earth_texture_url
 ) -> None:
     click_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_click(arc: dict[str, object], coords: dict[str, float]) -> None:
+    def _on_click(arc: dict[str, Any], coords: dict[str, float]) -> None:
         payload["arc"] = arc
         payload["coords"] = coords
         click_event.set()
@@ -95,9 +95,9 @@ def test_on_arc_right_click_callback(
     page_session: Page, globe_clicker, globe_earth_texture_url
 ) -> None:
     click_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_click(arc: dict[str, object], coords: dict[str, float]) -> None:
+    def _on_click(arc: dict[str, Any], coords: dict[str, float]) -> None:
         payload["arc"] = arc
         payload["coords"] = coords
         click_event.set()
@@ -163,11 +163,9 @@ def test_on_arc_hover_callback(
     page_session: Page, globe_hoverer, globe_earth_texture_url
 ) -> None:
     hover_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_hover(
-        arc: dict[str, object] | None, prev: dict[str, object] | None
-    ) -> None:
+    def _on_hover(arc: dict[str, Any] | None, prev: dict[str, Any] | None) -> None:
         payload["arc"] = arc
         payload["prev"] = prev
         hover_event.set()

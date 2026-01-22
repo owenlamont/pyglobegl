@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from itertools import starmap
+from typing import Any
 
 import pytest
 
@@ -36,7 +37,7 @@ from pyglobegl import points_from_gdf
     ],
 )
 def test_points_from_gdf_validates_schema(
-    crs: str, geometry: list[tuple[float, float]], expected: list[dict[str, object]]
+    crs: str, geometry: list[tuple[float, float]], expected: list[dict[str, Any]]
 ) -> None:
     geopandas = pytest.importorskip("geopandas")
     from shapely.geometry import Point
@@ -99,11 +100,12 @@ def test_points_from_gdf_missing_columns() -> None:
         pytest.param("radius", -2.0, "must be positive", id="radius-negative"),
         pytest.param("size", -0.5, "must be positive", id="size-negative"),
         pytest.param("color", 123, "must be strings", id="color-non-string"),
+        pytest.param("color", "notacolor", "valid CSS colors", id="color-invalid"),
         pytest.param("label", 456, "must be strings", id="label-non-string"),
     ],
 )
 def test_points_from_gdf_invalid_optional_column_types(
-    column: str, value: object, match: str
+    column: str, value: Any, match: str
 ) -> None:
     geopandas = pytest.importorskip("geopandas")
     from shapely.geometry import Point

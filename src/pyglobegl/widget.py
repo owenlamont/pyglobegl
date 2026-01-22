@@ -19,7 +19,7 @@ class GlobeWidget(anywidget.AnyWidget):
         self,
         config: GlobeConfig | None = None,
         layout: Layout | None = None,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         if layout is None:
             layout = Layout(width="100%", height="auto")

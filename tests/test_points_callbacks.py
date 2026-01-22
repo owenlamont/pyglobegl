@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from threading import Event
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
 import pytest
@@ -27,9 +27,9 @@ def test_on_point_click_callback(
     page_session: Page, globe_clicker, globe_earth_texture_url
 ) -> None:
     click_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_click(point: dict[str, object], coords: dict[str, float]) -> None:
+    def _on_click(point: dict[str, Any], coords: dict[str, float]) -> None:
         payload["point"] = point
         payload["coords"] = coords
         click_event.set()
@@ -87,9 +87,9 @@ def test_on_point_right_click_callback(
     page_session: Page, globe_clicker, globe_earth_texture_url
 ) -> None:
     click_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_click(point: dict[str, object], coords: dict[str, float]) -> None:
+    def _on_click(point: dict[str, Any], coords: dict[str, float]) -> None:
         payload["point"] = point
         payload["coords"] = coords
         click_event.set()
@@ -147,11 +147,9 @@ def test_on_point_hover_callback(
     page_session: Page, globe_hoverer, globe_earth_texture_url
 ) -> None:
     hover_event = Event()
-    payload: dict[str, object] = {}
+    payload: dict[str, Any] = {}
 
-    def _on_hover(
-        point: dict[str, object] | None, prev: dict[str, object] | None
-    ) -> None:
+    def _on_hover(point: dict[str, Any] | None, prev: dict[str, Any] | None) -> None:
         payload["point"] = point
         payload["prev"] = prev
         hover_event.set()
@@ -196,7 +194,7 @@ def test_points_merge_disables_click(
 ) -> None:
     click_event = Event()
 
-    def _on_click(_: dict[str, object], __: dict[str, float]) -> None:
+    def _on_click(_: dict[str, Any], __: dict[str, float]) -> None:
         click_event.set()
 
     config = GlobeConfig(
