@@ -29,10 +29,11 @@ uv add pyglobegl[geopandas]
 ## Quickstart
 
 ```python
-from pyglobegl import GlobeWidget, image_to_data_url
-from PIL import Image
+from IPython.display import display
 
-GlobeWidget()
+from pyglobegl import GlobeWidget
+
+display(GlobeWidget())
 ```
 
 ## Image Inputs
@@ -41,8 +42,9 @@ Globe image fields expect URLs, but you can pass a PIL image by converting it
 to a PNG data URL:
 
 ```python
-from pyglobegl import GlobeLayerConfig, image_to_data_url
 from PIL import Image
+
+from pyglobegl import GlobeLayerConfig, image_to_data_url
 
 image = Image.open("earth.png")
 config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
@@ -51,6 +53,8 @@ config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
 ## Points Layer
 
 ```python
+from IPython.display import display
+
 from pyglobegl import (
     GlobeConfig,
     GlobeLayerConfig,
@@ -76,12 +80,14 @@ config = GlobeConfig(
     ),
 )
 
-GlobeWidget(config=config)
+display(GlobeWidget(config=config))
 ```
 
 ## Arcs Layer
 
 ```python
+from IPython.display import display
+
 from pyglobegl import (
     ArcDatum,
     ArcsLayerConfig,
@@ -119,7 +125,7 @@ config = GlobeConfig(
     ),
 )
 
-GlobeWidget(config=config)
+display(GlobeWidget(config=config))
 ```
 
 ## GeoPandas Helpers (Optional)
@@ -129,19 +135,38 @@ Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 
 ```python
 import geopandas as gpd
+from shapely.geometry import Point
 
 from pyglobegl import points_from_gdf
 
-gdf = gpd.read_file("points.geojson")
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["A", "B"],
+        "population": [1000, 2000],
+        "point": [Point(0, 0), Point(5, 5)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
 points = points_from_gdf(gdf, include_columns=["name", "population"])
 ```
 
 ```python
 import geopandas as gpd
+from shapely.geometry import Point
 
 from pyglobegl import arcs_from_gdf
 
-gdf = gpd.read_file("arcs.geojson")
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Route A", "Route B"],
+        "value": [1, 2],
+        "start": [Point(0, 0), Point(10, 5)],
+        "end": [Point(20, 10), Point(-5, -5)],
+    },
+    geometry="start",
+    crs="EPSG:4326",
+)
 arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
 
