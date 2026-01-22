@@ -190,14 +190,14 @@ def points_from_gdf(
     gdf: gpd.GeoDataFrame,
     *,
     include_columns: Iterable[str] | None = None,
-    geometry_column: str | None = None,
+    point_geometry: str | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a GeoDataFrame of point geometries into globe.gl point data.
 
     Args:
         gdf: GeoDataFrame containing point geometries.
         include_columns: Optional iterable of column names to copy onto each point.
-        geometry_column: Optional name of the geometry column to use.
+        point_geometry: Optional name of the point geometry column to use.
 
     Returns:
         A list of point dictionaries with ``lat`` and ``lng`` keys plus any
@@ -213,15 +213,18 @@ def points_from_gdf(
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
 
-    resolved_geometry = (
-        geometry_column if geometry_column is not None else gdf.geometry.name
-    )
+    if point_geometry is None and "point" in gdf.columns:
+        resolved_geometry = "point"
+    else:
+        resolved_geometry = point_geometry or gdf.geometry.name
     geometry_name = str(resolved_geometry)
     gdf = gdf.set_geometry(geometry_name, inplace=False)
     if geometry_name != "geometry":
         gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
             "geometry", inplace=False
         )
+    if not gdf.geometry.geom_type.eq("Point").all():
+        raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
     _validate_optional_columns(
         gdf,
@@ -250,22 +253,18 @@ def points_from_gdf(
 def arcs_from_gdf(
     gdf: gpd.GeoDataFrame,
     *,
-    start_lat: str = "start_lat",
-    start_lng: str = "start_lng",
-    end_lat: str = "end_lat",
-    end_lng: str = "end_lng",
+    start_geometry: str = "start",
+    end_geometry: str = "end",
     include_columns: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a GeoDataFrame into globe.gl arcs data.
 
-    The start/end latitude/longitude columns are assumed to be in EPSG:4326.
+    Geometry columns are reprojected to EPSG:4326 before extracting lat/lng.
 
     Args:
         gdf: GeoDataFrame containing arc columns.
-        start_lat: Column name for start latitude.
-        start_lng: Column name for start longitude.
-        end_lat: Column name for end latitude.
-        end_lng: Column name for end longitude.
+        start_geometry: Column name for start point geometries.
+        end_geometry: Column name for end point geometries.
         include_columns: Optional iterable of column names to copy onto each arc.
 
     Returns:
@@ -278,20 +277,31 @@ def arcs_from_gdf(
     _require_geopandas()
     _require_pandas()
     _require_pandera()
+    import geopandas as gpd
 
-    required_columns = {start_lat, start_lng, end_lat, end_lng}
+    if gdf.crs is None:
+        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
+
+    required_columns = {start_geometry, end_geometry}
     missing = [col for col in required_columns if col not in gdf.columns]
     if missing:
         raise ValueError(f"GeoDataFrame missing columns: {sorted(missing)}")
 
-    renamed = gdf.rename(
-        columns={
-            start_lat: "start_lat",
-            start_lng: "start_lng",
-            end_lat: "end_lat",
-            end_lng: "end_lng",
-        }
-    )
+    start_series = gpd.GeoSeries(gdf[start_geometry], crs=gdf.crs)
+    end_series = gpd.GeoSeries(gdf[end_geometry], crs=gdf.crs)
+    if not start_series.geom_type.eq("Point").all():
+        raise ValueError("start_geometry column must contain Point geometries.")
+    if not end_series.geom_type.eq("Point").all():
+        raise ValueError("end_geometry column must contain Point geometries.")
+
+    start_series = start_series.to_crs(4326)
+    end_series = end_series.to_crs(4326)
+
+    renamed = gdf.copy()
+    renamed["start_lat"] = start_series.y
+    renamed["start_lng"] = start_series.x
+    renamed["end_lat"] = end_series.y
+    renamed["end_lng"] = end_series.x
     _validate_optional_columns(
         renamed,
         numeric_columns=(

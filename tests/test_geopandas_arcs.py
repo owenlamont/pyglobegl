@@ -12,24 +12,31 @@ from pyglobegl import arcs_from_gdf
     [
         pytest.param(
             [
-                {"start_lat": 0, "start_lng": -10, "end_lat": 5, "end_lng": 20},
-                {"start_lat": -10, "start_lng": 30, "end_lat": 0, "end_lng": -30},
+                {"start": (0, -10), "end": (5, 20)},
+                {"start": (-10, 30), "end": (0, -30)},
             ],
             [
-                {"startLat": 0, "startLng": -10, "endLat": 5, "endLng": 20},
-                {"startLat": -10, "startLng": 30, "endLat": 0, "endLng": -30},
+                {"startLat": -10, "startLng": 0, "endLat": 20, "endLng": 5},
+                {"startLat": 30, "startLng": -10, "endLat": -30, "endLng": 0},
             ],
             id="basic",
         )
     ],
 )
 def test_arcs_from_gdf_valid(
-    rows: list[dict[str, float]], expected: list[dict]
+    rows: list[dict[str, tuple[float, float]]], expected: list[dict]
 ) -> None:
     geopandas = pytest.importorskip("geopandas")
     from shapely.geometry import Point
 
-    gdf = geopandas.GeoDataFrame(rows, geometry=[Point(0, 0)] * len(rows), crs=4326)
+    gdf = geopandas.GeoDataFrame(
+        {
+            "start": [Point(*row["start"]) for row in rows],
+            "end": [Point(*row["end"]) for row in rows],
+        },
+        geometry="start",
+        crs=4326,
+    )
     arcs = arcs_from_gdf(gdf)
     assert arcs == expected
 
@@ -38,11 +45,7 @@ def test_arcs_from_gdf_missing_columns() -> None:
     geopandas = pytest.importorskip("geopandas")
     from shapely.geometry import Point
 
-    gdf = geopandas.GeoDataFrame(
-        {"start_lat": [0], "start_lng": [0], "end_lat": [0]},
-        geometry=[Point(0, 0)],
-        crs=4326,
-    )
+    gdf = geopandas.GeoDataFrame({"start": [Point(0, 0)]}, geometry="start", crs=4326)
 
     with pytest.raises(ValueError, match="missing columns"):
         arcs_from_gdf(gdf)
@@ -53,9 +56,7 @@ def test_arcs_from_gdf_invalid_ranges() -> None:
     from shapely.geometry import Point
 
     gdf = geopandas.GeoDataFrame(
-        {"start_lat": [100], "start_lng": [0], "end_lat": [0], "end_lng": [0]},
-        geometry=[Point(0, 0)],
-        crs=4326,
+        {"start": [Point(0, 100)], "end": [Point(0, 0)]}, geometry="start", crs=4326
     )
 
     with pytest.raises(ValueError, match="invalid arc coordinates"):
@@ -67,14 +68,8 @@ def test_arcs_from_gdf_include_columns() -> None:
     from shapely.geometry import Point
 
     gdf = geopandas.GeoDataFrame(
-        {
-            "start_lat": [0],
-            "start_lng": [0],
-            "end_lat": [0],
-            "end_lng": [10],
-            "name": ["Arc"],
-        },
-        geometry=[Point(0, 0)],
+        {"start": [Point(0, 0)], "end": [Point(10, 0)], "name": ["Arc"]},
+        geometry="start",
         crs=4326,
     )
 
@@ -135,14 +130,8 @@ def test_arcs_from_gdf_invalid_optional_column_types(
     from shapely.geometry import Point
 
     gdf = geopandas.GeoDataFrame(
-        {
-            "start_lat": [0],
-            "start_lng": [0],
-            "end_lat": [0],
-            "end_lng": [10],
-            column: [value],
-        },
-        geometry=[Point(0, 0)],
+        {"start": [Point(0, 0)], "end": [Point(10, 0)], column: [value]},
+        geometry="start",
         crs=4326,
     )
 

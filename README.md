@@ -79,6 +79,49 @@ config = GlobeConfig(
 GlobeWidget(config=config)
 ```
 
+## Arcs Layer
+
+```python
+from pyglobegl import (
+    ArcDatum,
+    ArcsLayerConfig,
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+)
+
+arcs = [
+    ArcDatum(
+        start_lat=0,
+        start_lng=-30,
+        end_lat=10,
+        end_lng=40,
+        altitude=0.2,
+    ),
+    ArcDatum(
+        start_lat=20,
+        start_lng=10,
+        end_lat=-10,
+        end_lng=-50,
+        altitude=0.1,
+    ),
+]
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    arcs=ArcsLayerConfig(
+        arcs_data=arcs,
+        arc_altitude="altitude",
+        arc_color="#ffcc00",
+        arc_stroke=1.2,
+    ),
+)
+
+GlobeWidget(config=config)
+```
+
 ## GeoPandas Helpers (Optional)
 
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
@@ -101,6 +144,11 @@ from pyglobegl import arcs_from_gdf
 gdf = gpd.read_file("arcs.geojson")
 arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
+
+`points_from_gdf` defaults to a point geometry column named `point` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`point_geometry=`). `arcs_from_gdf` expects point geometry columns named
+`start` and `end` (override with `start_geometry=` and `end_geometry=`).
 
 ## Goals
 
