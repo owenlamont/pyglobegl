@@ -16,7 +16,7 @@ Or with uv:
 uv add pyglobegl
 ```
 
-Optional GeoPandas extra:
+Optional GeoPandas + Pandera extra:
 
 ```bash
 pip install pyglobegl[geopandas]
@@ -79,10 +79,10 @@ config = GlobeConfig(
 GlobeWidget(config=config)
 ```
 
-## GeoPandas Helper (Optional)
+## GeoPandas Helpers (Optional)
 
-Convert a GeoDataFrame of point geometries into points data. The helper
-reprojects to EPSG:4326 before extracting lat/lng.
+Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
+Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 
 ```python
 import geopandas as gpd
@@ -91,6 +91,15 @@ from pyglobegl import points_from_gdf
 
 gdf = gpd.read_file("points.geojson")
 points = points_from_gdf(gdf, include_columns=["name", "population"])
+```
+
+```python
+import geopandas as gpd
+
+from pyglobegl import arcs_from_gdf
+
+gdf = gpd.read_file("arcs.geojson")
+arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
 
 ## Goals

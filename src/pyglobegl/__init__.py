@@ -13,7 +13,7 @@ from pyglobegl.config import (
     PointOfView,
     PointsLayerConfig,
 )
-from pyglobegl.geopandas import points_from_gdf
+from pyglobegl.geopandas import arcs_from_gdf, points_from_gdf
 from pyglobegl.images import image_to_data_url
 from pyglobegl.widget import GlobeWidget
 
@@ -31,6 +31,7 @@ __all__ = [
     "PointDatum",
     "PointOfView",
     "PointsLayerConfig",
+    "arcs_from_gdf",
     "image_to_data_url",
     "points_from_gdf",
 ]

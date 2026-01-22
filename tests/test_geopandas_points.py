@@ -35,7 +35,7 @@ from pyglobegl import points_from_gdf
         ),
     ],
 )
-def test_points_from_gdf_requires_geopandas(
+def test_points_from_gdf_validates_schema(
     crs: str, geometry: list[tuple[float, float]], expected: list[dict[str, object]]
 ) -> None:
     geopandas = pytest.importorskip("geopandas")
@@ -61,3 +61,56 @@ def test_points_from_gdf_requires_crs() -> None:
 
     with pytest.raises(ValueError, match="CRS"):
         points_from_gdf(gdf, include_columns=["name", "value"])
+
+
+def test_points_from_gdf_rejects_non_point_geometry() -> None:
+    geopandas = pytest.importorskip("geopandas")
+    from shapely.geometry import LineString
+
+    gdf = geopandas.GeoDataFrame(
+        {"name": ["A"], "value": [1]},
+        geometry=[LineString([(0, 0), (1, 1)])],
+        crs="EPSG:4326",
+    )
+
+    with pytest.raises(ValueError, match="point schema validation"):
+        points_from_gdf(gdf, include_columns=["name", "value"])
+
+
+def test_points_from_gdf_missing_columns() -> None:
+    geopandas = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    gdf = geopandas.GeoDataFrame(
+        {"name": ["A"]}, geometry=[Point(10, 5)], crs="EPSG:4326"
+    )
+
+    with pytest.raises(ValueError, match="missing columns"):
+        points_from_gdf(gdf, include_columns=["name", "value"])
+
+
+@pytest.mark.parametrize(
+    ("column", "value", "match"),
+    [
+        pytest.param("altitude", "high", "must be numeric", id="altitude-string"),
+        pytest.param("radius", "wide", "must be numeric", id="radius-string"),
+        pytest.param("size", "large", "must be numeric", id="size-string"),
+        pytest.param("altitude", -1.0, "must be positive", id="altitude-negative"),
+        pytest.param("radius", -2.0, "must be positive", id="radius-negative"),
+        pytest.param("size", -0.5, "must be positive", id="size-negative"),
+        pytest.param("color", 123, "must be strings", id="color-non-string"),
+        pytest.param("label", 456, "must be strings", id="label-non-string"),
+    ],
+)
+def test_points_from_gdf_invalid_optional_column_types(
+    column: str, value: object, match: str
+) -> None:
+    geopandas = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    gdf = geopandas.GeoDataFrame(
+        {column: [value]}, geometry=[Point(10, 5)], crs="EPSG:4326"
+    )
+
+    with pytest.raises(ValueError, match=match):
+        points_from_gdf(gdf)
