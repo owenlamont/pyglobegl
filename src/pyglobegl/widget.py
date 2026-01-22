@@ -19,7 +19,7 @@ class GlobeWidget(anywidget.AnyWidget):
         self,
         config: GlobeConfig | None = None,
         layout: Layout | None = None,
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         if layout is None:
             layout = Layout(width="100%", height="auto")
@@ -41,6 +41,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._point_hover_handlers: list[
             Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
         ] = []
+        self._arc_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._arc_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._arc_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
         self._message_handlers: dict[str, Callable[[Any], None]] = {
             "globe_ready": lambda _payload: self._dispatch_globe_ready(),
             "globe_click": self._dispatch_globe_click,
@@ -48,6 +57,9 @@ class GlobeWidget(anywidget.AnyWidget):
             "point_click": self._dispatch_point_click,
             "point_right_click": self._dispatch_point_right_click,
             "point_hover": self._dispatch_point_hover,
+            "arc_click": self._dispatch_arc_click,
+            "arc_right_click": self._dispatch_arc_right_click,
+            "arc_hover": self._dispatch_arc_hover,
         }
         self.on_msg(self._handle_frontend_message)
         self.config = config.model_dump(
@@ -83,6 +95,24 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on point hover events."""
         self._point_hover_handlers.append(handler)
+
+    def on_arc_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on arc left-clicks."""
+        self._arc_click_handlers.append(handler)
+
+    def on_arc_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on arc right-clicks."""
+        self._arc_right_click_handlers.append(handler)
+
+    def on_arc_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on arc hover events."""
+        self._arc_hover_handlers.append(handler)
 
     def globe_tile_engine_clear_cache(self) -> None:
         """Clear the globe tile engine cache."""
@@ -144,3 +174,33 @@ class GlobeWidget(anywidget.AnyWidget):
             return
         for handler in self._point_hover_handlers:
             handler(point, prev_point)
+
+    def _dispatch_arc_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        arc = payload.get("arc")
+        coords = payload.get("coords")
+        if isinstance(arc, dict) and isinstance(coords, dict):
+            for handler in self._arc_click_handlers:
+                handler(arc, coords)
+
+    def _dispatch_arc_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        arc = payload.get("arc")
+        coords = payload.get("coords")
+        if isinstance(arc, dict) and isinstance(coords, dict):
+            for handler in self._arc_right_click_handlers:
+                handler(arc, coords)
+
+    def _dispatch_arc_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        arc = payload.get("arc")
+        prev_arc = payload.get("prev_arc")
+        if arc is not None and not isinstance(arc, dict):
+            return
+        if prev_arc is not None and not isinstance(prev_arc, dict):
+            return
+        for handler in self._arc_hover_handlers:
+            handler(arc, prev_arc)

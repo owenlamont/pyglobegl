@@ -16,7 +16,7 @@ Or with uv:
 uv add pyglobegl
 ```
 
-Optional GeoPandas extra:
+Optional GeoPandas + Pandera extra:
 
 ```bash
 pip install pyglobegl[geopandas]
@@ -29,10 +29,11 @@ uv add pyglobegl[geopandas]
 ## Quickstart
 
 ```python
-from pyglobegl import GlobeWidget, image_to_data_url
-from PIL import Image
+from IPython.display import display
 
-GlobeWidget()
+from pyglobegl import GlobeWidget
+
+display(GlobeWidget())
 ```
 
 ## Image Inputs
@@ -41,8 +42,9 @@ Globe image fields expect URLs, but you can pass a PIL image by converting it
 to a PNG data URL:
 
 ```python
-from pyglobegl import GlobeLayerConfig, image_to_data_url
 from PIL import Image
+
+from pyglobegl import GlobeLayerConfig, image_to_data_url
 
 image = Image.open("earth.png")
 config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
@@ -51,6 +53,8 @@ config = GlobeLayerConfig(globe_image_url=image_to_data_url(image))
 ## Points Layer
 
 ```python
+from IPython.display import display
+
 from pyglobegl import (
     GlobeConfig,
     GlobeLayerConfig,
@@ -76,22 +80,100 @@ config = GlobeConfig(
     ),
 )
 
-GlobeWidget(config=config)
+display(GlobeWidget(config=config))
 ```
 
-## GeoPandas Helper (Optional)
+## Arcs Layer
 
-Convert a GeoDataFrame of point geometries into points data. The helper
-reprojects to EPSG:4326 before extracting lat/lng.
+```python
+from IPython.display import display
+
+from pyglobegl import (
+    ArcDatum,
+    ArcsLayerConfig,
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+)
+
+arcs = [
+    ArcDatum(
+        start_lat=0,
+        start_lng=-30,
+        end_lat=10,
+        end_lng=40,
+        altitude=0.2,
+    ),
+    ArcDatum(
+        start_lat=20,
+        start_lng=10,
+        end_lat=-10,
+        end_lng=-50,
+        altitude=0.1,
+    ),
+]
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    arcs=ArcsLayerConfig(
+        arcs_data=arcs,
+        arc_altitude="altitude",
+        arc_color="#ffcc00",
+        arc_stroke=1.2,
+    ),
+)
+
+display(GlobeWidget(config=config))
+```
+
+## GeoPandas Helpers (Optional)
+
+Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
+Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 
 ```python
 import geopandas as gpd
+from shapely.geometry import Point
 
 from pyglobegl import points_from_gdf
 
-gdf = gpd.read_file("points.geojson")
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["A", "B"],
+        "population": [1000, 2000],
+        "point": [Point(0, 0), Point(5, 5)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
 points = points_from_gdf(gdf, include_columns=["name", "population"])
 ```
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import arcs_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Route A", "Route B"],
+        "value": [1, 2],
+        "start": [Point(0, 0), Point(10, 5)],
+        "end": [Point(20, 10), Point(-5, -5)],
+    },
+    geometry="start",
+    crs="EPSG:4326",
+)
+arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
+```
+
+`points_from_gdf` defaults to a point geometry column named `point` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`point_geometry=`). `arcs_from_gdf` expects point geometry columns named
+`start` and `end` (override with `start_geometry=` and `end_geometry=`).
 
 ## Goals
 
@@ -109,7 +191,7 @@ points = points_from_gdf(gdf, include_columns=["name", "population"])
     - [x] Container layout
     - [x] Globe layer
     - [x] Points layer
-    - [ ] Arcs layer
+    - [x] Arcs layer
     - [ ] Polygons layer
     - [ ] Paths layer
     - [ ] Heatmaps layer

@@ -9,7 +9,7 @@ from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
     """Initialization settings for globe.gl."""
 
-    renderer_config: Mapping[str, object] | None = Field(
+    renderer_config: Mapping[str, Any] | None = Field(
         default=None, serialization_alias="rendererConfig"
     )
     wait_for_globe_ready: bool = Field(
@@ -119,6 +119,94 @@ class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
     )
 
 
+class ArcDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for an arcs layer entry."""
+
+    start_lat: float = Field(serialization_alias="startLat")
+    start_lng: float = Field(serialization_alias="startLng")
+    end_lat: float = Field(serialization_alias="endLat")
+    end_lng: float = Field(serialization_alias="endLng")
+    start_altitude: float | None = Field(
+        default=None, serialization_alias="startAltitude"
+    )
+    end_altitude: float | None = Field(default=None, serialization_alias="endAltitude")
+    altitude: float | None = Field(default=None, serialization_alias="altitude")
+    altitude_auto_scale: float | None = Field(
+        default=None, serialization_alias="altitudeAutoScale"
+    )
+    stroke: float | None = Field(default=None, serialization_alias="stroke")
+    dash_length: float | None = Field(default=None, serialization_alias="dashLength")
+    dash_gap: float | None = Field(default=None, serialization_alias="dashGap")
+    dash_initial_gap: float | None = Field(
+        default=None, serialization_alias="dashInitialGap"
+    )
+    dash_animate_time: float | None = Field(
+        default=None, serialization_alias="dashAnimateTime"
+    )
+    color: str | None = None
+    label: str | None = None
+
+
+class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Arcs layer settings for globe.gl."""
+
+    arcs_data: list[ArcDatum] | list[dict[str, Any]] | None = Field(
+        default=None, serialization_alias="arcsData"
+    )
+    arc_label: str | None = Field(default=None, serialization_alias="arcLabel")
+    arc_start_lat: float | str | None = Field(
+        default=None, serialization_alias="arcStartLat"
+    )
+    arc_start_lng: float | str | None = Field(
+        default=None, serialization_alias="arcStartLng"
+    )
+    arc_start_altitude: float | str | None = Field(
+        default=None, serialization_alias="arcStartAltitude"
+    )
+    arc_end_lat: float | str | None = Field(
+        default=None, serialization_alias="arcEndLat"
+    )
+    arc_end_lng: float | str | None = Field(
+        default=None, serialization_alias="arcEndLng"
+    )
+    arc_end_altitude: float | str | None = Field(
+        default=None, serialization_alias="arcEndAltitude"
+    )
+    arc_color: str | list[str] | None = Field(
+        default=None, serialization_alias="arcColor"
+    )
+    arc_altitude: float | str | None = Field(
+        default=None, serialization_alias="arcAltitude"
+    )
+    arc_altitude_auto_scale: float | str | None = Field(
+        default=None, serialization_alias="arcAltitudeAutoScale"
+    )
+    arc_stroke: float | str | None = Field(
+        default=None, serialization_alias="arcStroke"
+    )
+    arc_curve_resolution: int | None = Field(
+        default=None, serialization_alias="arcCurveResolution"
+    )
+    arc_circular_resolution: int | None = Field(
+        default=None, serialization_alias="arcCircularResolution"
+    )
+    arc_dash_length: float | str | None = Field(
+        default=None, serialization_alias="arcDashLength"
+    )
+    arc_dash_gap: float | str | None = Field(
+        default=None, serialization_alias="arcDashGap"
+    )
+    arc_dash_initial_gap: float | str | None = Field(
+        default=None, serialization_alias="arcDashInitialGap"
+    )
+    arc_dash_animate_time: float | str | None = Field(
+        default=None, serialization_alias="arcDashAnimateTime"
+    )
+    arcs_transition_duration: int | None = Field(
+        default=None, serialization_alias="arcsTransitionDuration"
+    )
+
+
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
@@ -143,4 +231,5 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     layout: GlobeLayoutConfig = Field(default_factory=GlobeLayoutConfig)
     globe: GlobeLayerConfig = Field(default_factory=GlobeLayerConfig)
     points: PointsLayerConfig = Field(default_factory=PointsLayerConfig)
+    arcs: ArcsLayerConfig = Field(default_factory=ArcsLayerConfig)
     view: GlobeViewConfig = Field(default_factory=GlobeViewConfig)

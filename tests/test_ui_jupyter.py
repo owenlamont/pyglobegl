@@ -7,7 +7,7 @@ import shutil
 import socket
 import subprocess  # noqa: S404
 import time
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 import urllib.error
 import urllib.request
 
@@ -190,7 +190,7 @@ def _tail_log(log_path: Path, max_chars: int = 4000) -> str:
     return log_path.read_text(encoding="utf-8")[-max_chars:]
 
 
-def _open_jupyter_log(port: int) -> tuple[Path, object]:
+def _open_jupyter_log(port: int) -> tuple[Path, Any]:
     artifacts_dir = Path("ui-artifacts")
     artifacts_dir.mkdir(exist_ok=True)
     log_path = artifacts_dir / f"jupyterlab-{port}.log"
