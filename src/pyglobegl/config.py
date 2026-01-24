@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from geojson_pydantic import MultiPolygon, Polygon
 from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
 
 
@@ -207,6 +208,55 @@ class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
     )
 
 
+class PolygonDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a polygons layer entry."""
+
+    geometry: Polygon | MultiPolygon
+    name: str | None = None
+    label: str | None = None
+    cap_color: str | None = None
+    side_color: str | None = None
+    stroke_color: str | None = None
+    altitude: float | None = None
+    cap_curvature_resolution: float | None = None
+
+
+class PolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Polygons layer settings for globe.gl."""
+
+    polygons_data: list[PolygonDatum] | list[dict[str, Any]] | None = Field(
+        default=None, serialization_alias="polygonsData"
+    )
+    polygon_label: str | None = Field(default=None, serialization_alias="polygonLabel")
+    polygon_geojson_geometry: str | None = Field(
+        default=None, serialization_alias="polygonGeoJsonGeometry"
+    )
+    polygon_cap_color: str | None = Field(
+        default=None, serialization_alias="polygonCapColor"
+    )
+    polygon_cap_material: GlobeMaterialSpec | dict[str, Any] | None = Field(
+        default=None, serialization_alias="polygonCapMaterial"
+    )
+    polygon_side_color: str | None = Field(
+        default=None, serialization_alias="polygonSideColor"
+    )
+    polygon_side_material: GlobeMaterialSpec | dict[str, Any] | None = Field(
+        default=None, serialization_alias="polygonSideMaterial"
+    )
+    polygon_stroke_color: str | None = Field(
+        default=None, serialization_alias="polygonStrokeColor"
+    )
+    polygon_altitude: float | str | None = Field(
+        default=None, serialization_alias="polygonAltitude"
+    )
+    polygon_cap_curvature_resolution: float | str | None = Field(
+        default=None, serialization_alias="polygonCapCurvatureResolution"
+    )
+    polygons_transition_duration: int | None = Field(
+        default=None, serialization_alias="polygonsTransitionDuration"
+    )
+
+
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
@@ -232,4 +282,5 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     globe: GlobeLayerConfig = Field(default_factory=GlobeLayerConfig)
     points: PointsLayerConfig = Field(default_factory=PointsLayerConfig)
     arcs: ArcsLayerConfig = Field(default_factory=ArcsLayerConfig)
+    polygons: PolygonsLayerConfig = Field(default_factory=PolygonsLayerConfig)
     view: GlobeViewConfig = Field(default_factory=GlobeViewConfig)

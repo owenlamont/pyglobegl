@@ -50,6 +50,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._arc_hover_handlers: list[
             Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
         ] = []
+        self._polygon_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._polygon_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._polygon_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
         self._message_handlers: dict[str, Callable[[Any], None]] = {
             "globe_ready": lambda _payload: self._dispatch_globe_ready(),
             "globe_click": self._dispatch_globe_click,
@@ -60,10 +69,13 @@ class GlobeWidget(anywidget.AnyWidget):
             "arc_click": self._dispatch_arc_click,
             "arc_right_click": self._dispatch_arc_right_click,
             "arc_hover": self._dispatch_arc_hover,
+            "polygon_click": self._dispatch_polygon_click,
+            "polygon_right_click": self._dispatch_polygon_right_click,
+            "polygon_hover": self._dispatch_polygon_hover,
         }
         self.on_msg(self._handle_frontend_message)
         self.config = config.model_dump(
-            by_alias=True, exclude_none=True, exclude_defaults=True
+            by_alias=True, exclude_none=True, exclude_defaults=True, mode="json"
         )
 
     def on_globe_ready(self, handler: Callable[[], None]) -> None:
@@ -113,6 +125,24 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on arc hover events."""
         self._arc_hover_handlers.append(handler)
+
+    def on_polygon_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on polygon left-clicks."""
+        self._polygon_click_handlers.append(handler)
+
+    def on_polygon_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on polygon right-clicks."""
+        self._polygon_right_click_handlers.append(handler)
+
+    def on_polygon_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on polygon hover events."""
+        self._polygon_hover_handlers.append(handler)
 
     def globe_tile_engine_clear_cache(self) -> None:
         """Clear the globe tile engine cache."""
@@ -204,3 +234,33 @@ class GlobeWidget(anywidget.AnyWidget):
             return
         for handler in self._arc_hover_handlers:
             handler(arc, prev_arc)
+
+    def _dispatch_polygon_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        polygon = payload.get("polygon")
+        coords = payload.get("coords")
+        if isinstance(polygon, dict) and isinstance(coords, dict):
+            for handler in self._polygon_click_handlers:
+                handler(polygon, coords)
+
+    def _dispatch_polygon_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        polygon = payload.get("polygon")
+        coords = payload.get("coords")
+        if isinstance(polygon, dict) and isinstance(coords, dict):
+            for handler in self._polygon_right_click_handlers:
+                handler(polygon, coords)
+
+    def _dispatch_polygon_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        polygon = payload.get("polygon")
+        prev_polygon = payload.get("prev_polygon")
+        if polygon is not None and not isinstance(polygon, dict):
+            return
+        if prev_polygon is not None and not isinstance(prev_polygon, dict):
+            return
+        for handler in self._polygon_hover_handlers:
+            handler(polygon, prev_polygon)

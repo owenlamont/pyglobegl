@@ -73,12 +73,27 @@ type ArcsLayerConfig = {
 	arcsTransitionDuration?: number;
 };
 
+type PolygonsLayerConfig = {
+	polygonsData?: Array<Record<string, unknown>>;
+	polygonLabel?: string;
+	polygonGeoJsonGeometry?: string;
+	polygonCapColor?: string;
+	polygonCapMaterial?: unknown;
+	polygonSideColor?: string;
+	polygonSideMaterial?: unknown;
+	polygonStrokeColor?: string;
+	polygonAltitude?: number | string;
+	polygonCapCurvatureResolution?: number | string;
+	polygonsTransitionDuration?: number;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
 	globe?: GlobeLayerConfig;
 	points?: PointsLayerConfig;
 	arcs?: ArcsLayerConfig;
+	polygons?: PolygonsLayerConfig;
 	view?: GlobeViewConfig;
 };
 
@@ -241,6 +256,41 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				model.send({
 					type: "arc_hover",
 					payload: { arc, prev_arc: prevArc },
+				});
+			},
+		);
+
+		globe.onPolygonClick(
+			(
+				polygon: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "polygon_click", payload: { polygon, coords } });
+			},
+		);
+
+		globe.onPolygonRightClick(
+			(
+				polygon: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({
+					type: "polygon_right_click",
+					payload: { polygon, coords },
+				});
+			},
+		);
+
+		globe.onPolygonHover(
+			(
+				polygon: Record<string, unknown> | null,
+				prevPolygon: Record<string, unknown> | null,
+			) => {
+				model.send({
+					type: "polygon_hover",
+					payload: { polygon, prev_polygon: prevPolygon },
 				});
 			},
 		);
@@ -495,6 +545,55 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyPolygonsProps = (polygonsConfig?: PolygonsLayerConfig): void => {
+			if (!polygonsConfig) {
+				return;
+			}
+			if (polygonsConfig.polygonsData !== undefined) {
+				globe.polygonsData(polygonsConfig.polygonsData ?? []);
+			}
+			if (polygonsConfig.polygonLabel !== undefined) {
+				globe.polygonLabel(polygonsConfig.polygonLabel ?? null);
+			}
+			if (polygonsConfig.polygonGeoJsonGeometry !== undefined) {
+				globe.polygonGeoJsonGeometry(
+					polygonsConfig.polygonGeoJsonGeometry ?? null,
+				);
+			}
+			if (polygonsConfig.polygonCapColor !== undefined) {
+				globe.polygonCapColor(polygonsConfig.polygonCapColor ?? null);
+			}
+			if (polygonsConfig.polygonCapMaterial !== undefined) {
+				globe.polygonCapMaterial(
+					buildMaterial(polygonsConfig.polygonCapMaterial),
+				);
+			}
+			if (polygonsConfig.polygonSideColor !== undefined) {
+				globe.polygonSideColor(polygonsConfig.polygonSideColor ?? null);
+			}
+			if (polygonsConfig.polygonSideMaterial !== undefined) {
+				globe.polygonSideMaterial(
+					buildMaterial(polygonsConfig.polygonSideMaterial),
+				);
+			}
+			if (polygonsConfig.polygonStrokeColor !== undefined) {
+				globe.polygonStrokeColor(polygonsConfig.polygonStrokeColor ?? null);
+			}
+			if (polygonsConfig.polygonAltitude !== undefined) {
+				globe.polygonAltitude(polygonsConfig.polygonAltitude ?? null);
+			}
+			if (polygonsConfig.polygonCapCurvatureResolution !== undefined) {
+				globe.polygonCapCurvatureResolution(
+					polygonsConfig.polygonCapCurvatureResolution ?? null,
+				);
+			}
+			if (polygonsConfig.polygonsTransitionDuration !== undefined) {
+				globe.polygonsTransitionDuration(
+					polygonsConfig.polygonsTransitionDuration,
+				);
+			}
+		};
+
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
 			if (!viewConfig || !viewConfig.pointOfView) {
 				return;
@@ -524,6 +623,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			const globeConfig = config?.globe;
 			const pointsConfig = config?.points;
 			const arcsConfig = config?.arcs;
+			const polygonsConfig = config?.polygons;
 			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
@@ -535,6 +635,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyGlobeProps(globeConfig);
 			applyPointsProps(pointsConfig);
 			applyArcsProps(arcsConfig);
+			applyPolygonsProps(polygonsConfig);
 			applyViewProps(viewConfig);
 		};
 

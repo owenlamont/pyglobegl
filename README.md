@@ -128,6 +128,50 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
+## Polygons Layer
+
+```python
+from IPython.display import display
+from geojson_pydantic import Polygon
+
+from pyglobegl import (
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+    PolygonDatum,
+    PolygonsLayerConfig,
+)
+
+polygon = Polygon(
+    type="Polygon",
+    coordinates=[
+        [
+            (-10, 0),
+            (-10, 10),
+            (10, 10),
+            (10, 0),
+            (-10, 0),
+        ]
+    ],
+)
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    polygons=PolygonsLayerConfig(
+        polygons_data=[
+            PolygonDatum(geometry=polygon, cap_color="#ffcc00", altitude=0.05)
+        ],
+        polygon_geojson_geometry="geometry",
+        polygon_cap_color="cap_color",
+        polygon_altitude="altitude",
+    ),
+)
+
+display(GlobeWidget(config=config))
+```
+
 ## GeoPandas Helpers (Optional)
 
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
@@ -170,10 +214,32 @@ gdf = gpd.GeoDataFrame(
 arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
 
+```python
+import geopandas as gpd
+from shapely.geometry import Polygon
+
+from pyglobegl import polygons_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Zone A"],
+        "polygons": [
+            Polygon([(-10, 0), (-10, 10), (10, 10), (10, 0), (-10, 0)]),
+        ],
+    },
+    geometry="polygons",
+    crs="EPSG:4326",
+)
+polygons = polygons_from_gdf(gdf, include_columns=["name"])
+```
+
 `points_from_gdf` defaults to a point geometry column named `point` if present,
 otherwise it uses the active GeoDataFrame geometry column (override with
 `point_geometry=`). `arcs_from_gdf` expects point geometry columns named
 `start` and `end` (override with `start_geometry=` and `end_geometry=`).
+`polygons_from_gdf` defaults to a geometry column named `polygons` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`geometry_column=`).
 
 ## Goals
 
@@ -192,7 +258,7 @@ otherwise it uses the active GeoDataFrame geometry column (override with
     - [x] Globe layer
     - [x] Points layer
     - [x] Arcs layer
-    - [ ] Polygons layer
+    - [x] Polygons layer
     - [ ] Paths layer
     - [ ] Heatmaps layer
     - [ ] Hex bin layer

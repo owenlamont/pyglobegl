@@ -612,6 +612,18 @@ wheels = [
 ]
 
 [[package]]
+name = "geojson-pydantic"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/52/961c8f7c51067f5d853a732cd4abc09b4d15c742384406dda8348b98071e/geojson_pydantic-2.1.0.tar.gz", hash = "sha256:78a52b2a7cd9c113bac4898a81ce00c146c7927dd2804f1c7e9fd05c2515073f", size = 9398, upload-time = "2025-10-08T13:31:12.474Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/18/8a9dca353e605b344408114f6b045b11d14082d19f4668b073259d3ed1a9/geojson_pydantic-2.1.0-py3-none-any.whl", hash = "sha256:f9091bed334ab9fbb1bef113674edc1212a3737f374a0b13b1aa493f57964c1d", size = 8819, upload-time = "2025-10-08T13:31:11.646Z" },
+]
+
+[[package]]
 name = "geopandas"
 version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2333,6 +2345,7 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "anywidget" },
+    { name = "geojson-pydantic" },
     { name = "pillow" },
     { name = "pydantic" },
     { name = "traitlets" },
@@ -2366,6 +2379,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anywidget", specifier = ">=0.9.21" },
+    { name = "geojson-pydantic", specifier = ">=2.1.0" },
     { name = "geopandas", marker = "extra == 'geopandas'", specifier = ">=1.1.2" },
     { name = "pandera", marker = "extra == 'geopandas'", specifier = ">=0.28.1" },
     { name = "pillow", specifier = ">=12.1.0" },

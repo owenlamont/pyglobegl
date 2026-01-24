@@ -110,6 +110,31 @@ def _build_arcs_schema() -> type[pa.DataFrameModel]:
     return ArcsGeoDataFrameModel
 
 
+def _build_polygons_schema() -> type[pa.DataFrameModel]:
+    import pandera.pandas as pa
+    from pandera.typing import Series
+    from pandera.typing.geopandas import Geometry, GeoSeries
+
+    globals().update({"Series": Series, "GeoSeries": GeoSeries, "Geometry": Geometry})
+
+    class PolygonsGeoDataFrameModel(pa.DataFrameModel):
+        """Pandera schema for polygon geometries."""
+
+        geometry: GeoSeries[Geometry] = pa.Field(
+            nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
+        )
+
+        class Config:
+            coerce = True
+            strict = False
+
+        @pa.check("geometry", error="Geometry must be Polygon or MultiPolygon.")
+        def _polygon_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
+            return series.geom_type.isin(["Polygon", "MultiPolygon"])
+
+    return PolygonsGeoDataFrameModel
+
+
 def _ensure_numeric(df: pd.DataFrame, column: str, context: str) -> None:
     import pandas as pd
 
@@ -191,6 +216,80 @@ def _validate_optional_columns(
     for column in string_columns:
         if column in df.columns:
             _ensure_strings(df, column, context)
+
+
+def polygons_from_gdf(
+    gdf: gpd.GeoDataFrame,
+    *,
+    geometry_column: str | None = None,
+    include_columns: Iterable[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert a GeoDataFrame of polygon geometries into globe.gl polygon data.
+
+    Args:
+        gdf: GeoDataFrame containing polygon geometries.
+        geometry_column: Optional name of the geometry column to use.
+        include_columns: Optional iterable of column names to copy onto each polygon.
+
+    Returns:
+        A list of polygon dictionaries with a GeoJSON geometry plus any requested
+        attributes.
+
+    Raises:
+        ValueError: If the GeoDataFrame has no CRS or contains non-polygon geometries.
+    """
+    _require_geopandas()
+    _require_pandas()
+    _require_pandera()
+    from geojson_pydantic import MultiPolygon, Polygon
+
+    if gdf.crs is None:
+        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
+
+    if geometry_column is None and "polygons" in gdf.columns:
+        resolved_geometry = "polygons"
+    else:
+        resolved_geometry = geometry_column or gdf.geometry.name
+    gdf = gdf.set_geometry(resolved_geometry, inplace=False)
+    if resolved_geometry != "geometry":
+        gdf = gdf.rename(columns={resolved_geometry: "geometry"}).set_geometry(
+            "geometry", inplace=False
+        )
+    if not gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).all():
+        raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
+
+    gdf = gdf.to_crs(4326)
+    _validate_optional_columns(
+        gdf,
+        numeric_columns=("altitude", "cap_curvature_resolution"),
+        positive_columns=("cap_curvature_resolution",),
+        nonnegative_columns=("altitude",),
+        color_columns=("cap_color", "side_color", "stroke_color"),
+        string_columns=("label", "name"),
+        context="polygons_from_gdf",
+    )
+    try:
+        gdf = _build_polygons_schema().validate(gdf)
+    except Exception as exc:
+        _handle_schema_error(exc, "GeoDataFrame failed polygon schema validation.")
+
+    columns = list(include_columns) if include_columns is not None else []
+    missing = [col for col in columns if col not in gdf.columns]
+    if missing:
+        raise ValueError(f"GeoDataFrame missing columns: {missing}")
+
+    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    geometries: list[Polygon | MultiPolygon] = []
+    for geom in gdf.geometry:
+        mapping = geom.__geo_interface__
+        if mapping.get("type") == "Polygon":
+            geometries.append(Polygon.model_validate(mapping))
+        elif mapping.get("type") == "MultiPolygon":
+            geometries.append(MultiPolygon.model_validate(mapping))
+        else:
+            raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
+    data["geometry"] = geometries
+    return data.to_dict("records")
 
 
 def _handle_schema_error(exc: Exception, message: str) -> None:
