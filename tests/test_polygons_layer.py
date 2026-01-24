@@ -45,6 +45,8 @@ def _polygon_coords(
 
 
 def _polygon(west: float, south: float, east: float, north: float) -> Polygon:
+    if west > east or (east - west) > 180:
+        raise ValueError("Polygon bounds must not cross the antimeridian.")
     return Polygon(
         type="Polygon", coordinates=_polygon_coords(west, south, east, north)
     )
