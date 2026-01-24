@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 from geojson_pydantic import Polygon
@@ -47,6 +48,31 @@ def _polygon(west: float, south: float, east: float, north: float) -> Polygon:
     return Polygon(
         type="Polygon", coordinates=_polygon_coords(west, south, east, north)
     )
+
+
+def _circle_polygon(
+    lng: float, lat: float, radius_deg: float, *, steps: int = 72
+) -> Polygon:
+    """Return a CCW GeoJSON polygon ring for use with three-globe caps."""
+    coords: list[Position2D | Position3D] = []
+    for i in range(steps):
+        angle = 2 * math.pi * (i / steps)
+        lat_offset = radius_deg * math.sin(angle)
+        lng_offset = (
+            radius_deg * math.cos(angle) / max(1e-6, math.cos(math.radians(lat)))
+        )
+        coords.append(_pos(lng + lng_offset, lat + lat_offset))
+    coords.append(coords[0])
+    area = 0.0
+    for i in range(len(coords) - 1):
+        x1 = coords[i][0]
+        y1 = coords[i][1]
+        x2 = coords[i + 1][0]
+        y2 = coords[i + 1][1]
+        area += (x1 * y2) - (x2 * y1)
+    if area > 0:
+        coords.reverse()
+    return Polygon(type="Polygon", coordinates=[coords])
 
 
 _URL_ADAPTER = TypeAdapter(AnyUrl)
@@ -397,8 +423,8 @@ def test_polygon_altitude(
 @pytest.mark.parametrize(
     ("curvature", "label"),
     [
-        pytest.param(1.0, "curvature-1", id="curvature-1"),
-        pytest.param(20.0, "curvature-20", id="curvature-20"),
+        pytest.param(2.0, "curvature-2", id="curvature-2"),
+        pytest.param(12.0, "curvature-12", id="curvature-12"),
     ],
 )
 def test_polygon_cap_curvature_resolution(
@@ -412,17 +438,17 @@ def test_polygon_cap_curvature_resolution(
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
-    polygon = _polygon(-60, -15, 60, 15)
+    polygon = _circle_polygon(0, 0, 37.5, steps=96)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
                     geometry=polygon,
-                    cap_color="#ffcc66",
-                    side_color="#ffcc66",
+                    cap_color="#f7d97b",
+                    side_color="#1f3b52",
                     stroke_color=None,
-                    altitude=0.2,
+                    altitude=0.06,
                 )
             ],
             polygon_cap_color="cap_color",
@@ -433,7 +459,8 @@ def test_polygon_cap_curvature_resolution(
             polygons_transition_duration=0,
         ),
         lat=0,
-        altitude=1.1,
+        lng=75,
+        altitude=2.2,
         width=512,
         height=512,
     )

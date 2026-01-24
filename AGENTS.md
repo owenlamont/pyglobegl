@@ -36,6 +36,9 @@ and immediately use the widget without rebuilding JupyterLab.
 - Use precise type hints and avoid `Any` unless unavoidable.
 - Keep comments minimal; prefer clear names and docstrings.
 - Keep imports at module top unless avoiding circular imports.
+- For GeoJSON polygons, ensure exterior rings are counter-clockwise (right-hand
+  rule) so three.js cap triangulation renders correctly; holes should be
+  clockwise.
 - Stage new files before running prek so they are included in checks. If prek
   applies fixes, rerun it to confirm a clean pass.
 
