@@ -172,32 +172,32 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
-## Runtime Updates
+## Runtime Updates and Callbacks
 
 Use `GlobeWidget` setters to update data and accessors after the widget is
 rendered. Each datum includes an auto-generated UUID4 `id` unless provided.
+Callback payloads include the datum (and its `id`) so you can update visuals in
+response to user input.
 
 ```python
 widget = GlobeWidget(config=config)
+display(widget)
 
-# Replace layer data at runtime.
-widget.set_points_data(points)
-widget.set_arcs_data(arcs)
-widget.set_polygons_data(polygons)
+def on_polygon_hover(current, previous):
+    if previous:
+        widget.update_polygon(
+            previous["id"],
+            cap_color=previous["base_color"],
+            altitude=previous["altitude"],
+        )
+    if current:
+        widget.update_polygon(
+            current["id"],
+            cap_color="#2f80ff",
+            altitude=current["altitude"] + 0.03,
+        )
 
-# Update a single datum by id.
-widget.update_point(point_id, color="#ffcc00", altitude=0.03)
-widget.update_arc(arc_id, stroke=0.4, dash_animate_time=1600)
-widget.update_polygon(polygon_id, color="#2f80ff", altitude=0.12)
-
-# Update layer accessors.
-widget.set_point_color("color")
-widget.set_arc_color("color")
-widget.set_polygon_cap_color("color")
-
-# Update globe layer properties.
-widget.set_globe_image_url("https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-dark.jpg")
-widget.set_show_atmosphere(False)
+widget.on_polygon_hover(on_polygon_hover)
 ```
 
 ## GeoPandas Helpers (Optional)
