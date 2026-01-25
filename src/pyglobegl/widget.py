@@ -1,4 +1,5 @@
 from collections.abc import Callable, Mapping, Sequence
+import copy
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -272,7 +273,7 @@ class GlobeWidget(anywidget.AnyWidget):
         self._set_layer_prop("globe", self._globe_props, "globeMaterial", value)
 
     def get_points_data(self) -> list[dict[str, Any]] | None:
-        """Return the cached points data."""
+        """Return a copy of the cached points data."""
         return self._clone_data(self._points_data)
 
     def set_points_data(self, data: Sequence[Any]) -> None:
@@ -369,7 +370,7 @@ class GlobeWidget(anywidget.AnyWidget):
         )
 
     def get_arcs_data(self) -> list[dict[str, Any]] | None:
-        """Return the cached arcs data."""
+        """Return a copy of the cached arcs data."""
         return self._clone_data(self._arcs_data)
 
     def set_arcs_data(self, data: Sequence[Any]) -> None:
@@ -630,7 +631,7 @@ class GlobeWidget(anywidget.AnyWidget):
         )
 
     def get_polygons_data(self) -> list[dict[str, Any]] | None:
-        """Return the cached polygons data."""
+        """Return a copy of the cached polygons data."""
         return self._clone_data(self._polygons_data)
 
     def set_polygons_data(self, data: Sequence[Any]) -> None:
@@ -668,7 +669,7 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> list[dict[str, Any]] | None:
         if data is None:
             return None
-        return [dict(item) for item in data]
+        return copy.deepcopy(data)
 
     def _normalize_layer_data(
         self, data: Sequence[Any] | None
