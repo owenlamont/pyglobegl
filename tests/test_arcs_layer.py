@@ -927,6 +927,171 @@ def test_arc_dash_animation_changes(
 
 
 @pytest.mark.usefixtures("solara_test")
+def test_arc_dash_animate_time_setter(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_earth_texture_url,
+) -> None:
+    arcs_data = [
+        {"startLat": 0, "startLng": -60, "endLat": 0, "endLng": 60, "color": "#ffcc00"}
+    ]
+
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=globe_earth_texture_url,
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+        arcs=ArcsLayerConfig(
+            arcs_data=arcs_data,
+            arc_start_lat="startLat",
+            arc_start_lng="startLng",
+            arc_end_lat="endLat",
+            arc_end_lng="endLng",
+            arc_color="color",
+            arc_stroke=2.6,
+            arc_dash_length=0.1,
+            arc_dash_gap=0.2,
+            arc_dash_animate_time=0,
+            arcs_transition_duration=0,
+        ),
+        view=GlobeViewConfig(
+            point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    page_session.wait_for_function(
+        "document.querySelector('canvas, .jupyter-widgets') !== null", timeout=20000
+    )
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+        )
+
+    _assert_capture("test_arc_dash_animate_time-off")
+    widget.set_arc_dash_animate_time(2000)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_arc_dash_animate_time-on")
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_arcs_transition_duration(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_earth_texture_url,
+) -> None:
+    initial_arcs = [
+        {"startLat": 0, "startLng": -40, "endLat": 0, "endLng": 40, "color": "#ffcc00"}
+    ]
+    updated_arcs = [
+        {
+            "startLat": 20,
+            "startLng": -20,
+            "endLat": -10,
+            "endLng": 30,
+            "color": "#00ccff",
+        }
+    ]
+
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=globe_earth_texture_url,
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+        arcs=ArcsLayerConfig(
+            arcs_data=initial_arcs,
+            arc_start_lat="startLat",
+            arc_start_lng="startLng",
+            arc_end_lat="endLat",
+            arc_end_lng="endLng",
+            arc_color="color",
+            arc_stroke=2.0,
+            arcs_transition_duration=0,
+        ),
+        view=GlobeViewConfig(
+            point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    page_session.wait_for_function(
+        "document.querySelector('canvas, .jupyter-widgets') !== null", timeout=20000
+    )
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+        )
+
+    _assert_capture("test_arcs_transition_duration-initial")
+    widget.set_arcs_transition_duration(0)
+    widget.set_arcs_data(updated_arcs)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_arcs_transition_duration-updated")
+
+
+@pytest.mark.usefixtures("solara_test")
 def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
     arcs_data = [
         {

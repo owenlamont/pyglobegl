@@ -313,6 +313,74 @@ def test_polygon_label_tooltip(
 
 
 @pytest.mark.usefixtures("solara_test")
+def test_polygons_transition_duration(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_flat_texture_data_url,
+) -> None:
+    initial_polygons = [
+        {
+            "geom": _polygon(-30, -10, -10, 10),
+            "cap_color": "#ffcc00",
+            "side_color": "#ffcc00",
+            "stroke_color": None,
+            "altitude": 0.08,
+        }
+    ]
+    updated_polygons = [
+        {
+            "geom": _polygon(10, -10, 30, 10),
+            "cap_color": "#66ccff",
+            "side_color": "#66ccff",
+            "stroke_color": None,
+            "altitude": 0.08,
+        }
+    ]
+
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=initial_polygons,
+            polygon_geojson_geometry="geom",
+            polygon_cap_color="cap_color",
+            polygon_side_color="side_color",
+            polygon_stroke_color="stroke_color",
+            polygon_altitude="altitude",
+            polygons_transition_duration=1200,
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygons_transition_duration-initial",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.set_polygons_transition_duration(0)
+    widget.set_polygons_data(updated_polygons)
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygons_transition_duration-updated",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
 def test_polygon_cap_material(
     page_session: Page,
     canvas_capture,

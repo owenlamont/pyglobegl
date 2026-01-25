@@ -336,3 +336,76 @@ def test_points_transition_duration(
     widget.set_points_data(updated_points)
     page_session.wait_for_timeout(100)
     _assert_capture("test_points_transition_duration-updated")
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_points_merge(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_earth_texture_url,
+) -> None:
+    points_data = [
+        {"lat": 0, "lng": 0, "altitude": 0.2, "radius": 1.6, "color": "#ffcc00"},
+        {"lat": 10, "lng": 20, "altitude": 0.25, "radius": 1.2, "color": "#00ccff"},
+    ]
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=globe_earth_texture_url,
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+        points=PointsLayerConfig(
+            points_data=points_data,
+            point_altitude="altitude",
+            point_radius="radius",
+            point_color="color",
+            points_merge=False,
+        ),
+        view=GlobeViewConfig(
+            point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    page_session.wait_for_function(
+        "document.querySelector('canvas, .jupyter-widgets') !== null", timeout=20000
+    )
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+        )
+
+    _assert_capture("test_points_merge-off")
+    widget.set_points_merge(True)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_points_merge-on")
