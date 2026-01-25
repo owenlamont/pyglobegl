@@ -97,6 +97,19 @@ def test_arcs_accessors(
     page_session.wait_for_function(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
+    page_session.wait_for_function(
+        """
+        () => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) {
+            return false;
+          }
+          const dataUrl = canvas.toDataURL("image/png");
+          return dataUrl && dataUrl.length > 2000;
+        }
+        """,
+        timeout=20000,
+    )
 
     def _assert_capture(label: str) -> None:
         captured_image = canvas_capture(page_session)
@@ -888,23 +901,144 @@ def test_arc_dash_animation_changes(
     )
 
     first = canvas_capture(page_session)
-    page_session.wait_for_timeout(500)
-    second = canvas_capture(page_session)
-
     first_array = np.asarray(first.convert("RGBA"))
-    second_array = np.asarray(second.convert("RGBA"))
-    score = structural_similarity(
-        first_array, second_array, channel_axis=2, data_range=255
-    )
-    diff = np.abs(first_array.astype(int) - second_array.astype(int))
-    changed = (diff.max(axis=2) > 5).mean()
-    passed = changed > 0.002
+    passed = False
+    score = 1.0
+    changed = 0.0
+    second = first
+    for _attempt in range(3):
+        page_session.wait_for_timeout(500)
+        second = canvas_capture(page_session)
+        second_array = np.asarray(second.convert("RGBA"))
+        score = structural_similarity(
+            first_array, second_array, channel_axis=2, data_range=255
+        )
+        diff = np.abs(first_array.astype(int) - second_array.astype(int))
+        changed = (diff.max(axis=2) > 5).mean()
+        passed = changed > 0.002
+        if passed:
+            break
     canvas_save_capture(first, f"{canvas_label}-t0", passed)
     canvas_save_capture(second, f"{canvas_label}-t1", passed)
     assert passed, (
         "Expected animation frames to differ "
         f"(changed={changed:.4f}, ssim={score:.4f})."
     )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
+    arcs_data = [
+        {
+            "startLat": 0,
+            "startLng": -20,
+            "endLat": 0,
+            "endLng": 20,
+            "color": "#ff00cc",
+            "label": "Initial arc",
+        }
+    ]
+    updated_arcs = [
+        {
+            "startLat": 0,
+            "startLng": -20,
+            "endLat": 0,
+            "endLng": 20,
+            "color": "#ff00cc",
+            "label2": "Updated arc",
+        }
+    ]
+
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=globe_earth_texture_url,
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+        arcs=ArcsLayerConfig(
+            arcs_data=arcs_data,
+            arc_start_lat="startLat",
+            arc_start_lng="startLng",
+            arc_end_lat="endLat",
+            arc_end_lng="endLng",
+            arc_label="label",
+            arc_color="color",
+            arc_altitude=0.2,
+            arc_stroke=1.2,
+            arcs_transition_duration=0,
+        ),
+        view=GlobeViewConfig(
+            point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+    canvas = page_session.locator("canvas")
+    box = canvas.bounding_box()
+    if box is None:
+        raise AssertionError("Canvas bounding box not found.")
+
+    def _assert_tooltip(expected: str) -> None:
+        page_session.mouse.move(box["x"] - 50, box["y"] - 50)
+        page_session.wait_for_timeout(100)
+        tooltip_ready = False
+        for _ in range(25):
+            tooltip_ready = page_session.evaluate(
+                """
+                (text) => {
+                  const target = document.querySelector(".scene-container");
+                  if (!target) {
+                    return false;
+                  }
+                  const rect = target.getBoundingClientRect();
+                  const x = rect.left + rect.width / 2;
+                  const y = rect.top + rect.height / 2;
+                  const opts = {
+                    clientX: x,
+                    clientY: y,
+                    pageX: x + window.scrollX,
+                    pageY: y + window.scrollY,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    pointerType: "mouse",
+                    pointerId: 1,
+                    isPrimary: true,
+                  };
+                  target.dispatchEvent(new PointerEvent("pointermove", opts));
+                  target.dispatchEvent(new MouseEvent("mousemove", opts));
+                  const tooltip = document.querySelector(".float-tooltip-kap");
+                  if (!tooltip) {
+                    return false;
+                  }
+                  const style = window.getComputedStyle(tooltip);
+                  if (style.display === "none") {
+                    return false;
+                  }
+                  return (tooltip.textContent || "").includes(text);
+                }
+                """,
+                expected,
+            )
+            if tooltip_ready:
+                break
+            page_session.wait_for_timeout(80)
+        assert tooltip_ready, f"Expected tooltip text to include: {expected}"
+
+    _assert_tooltip("Initial arc")
+
+    widget.set_arc_label("label2")
+    widget.set_arcs_data(updated_arcs)
+    page_session.wait_for_timeout(200)
+    _assert_tooltip("Updated arc")
 
 
 @pytest.mark.usefixtures("solara_test")
