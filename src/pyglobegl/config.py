@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import uuid4
 
 from geojson_pydantic import MultiPolygon, Polygon
-from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
+from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt, UUID4
 
 
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
@@ -86,8 +87,22 @@ class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
 class PointDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a points layer entry."""
 
+    id: UUID4 = Field(default_factory=uuid4)
     lat: float
     lng: float
+    altitude: float | None = None
+    radius: float | None = None
+    color: str | None = None
+    label: str | None = None
+    size: float | None = None
+
+
+class PointDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a points layer entry."""
+
+    id: UUID4
+    lat: float | None = None
+    lng: float | None = None
     altitude: float | None = None
     radius: float | None = None
     color: str | None = None
@@ -123,10 +138,40 @@ class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
 class ArcDatum(BaseModel, extra="allow", frozen=True):
     """Data model for an arcs layer entry."""
 
+    id: UUID4 = Field(default_factory=uuid4)
     start_lat: float = Field(serialization_alias="startLat")
     start_lng: float = Field(serialization_alias="startLng")
     end_lat: float = Field(serialization_alias="endLat")
     end_lng: float = Field(serialization_alias="endLng")
+    start_altitude: float | None = Field(
+        default=None, serialization_alias="startAltitude"
+    )
+    end_altitude: float | None = Field(default=None, serialization_alias="endAltitude")
+    altitude: float | None = Field(default=None, serialization_alias="altitude")
+    altitude_auto_scale: float | None = Field(
+        default=None, serialization_alias="altitudeAutoScale"
+    )
+    stroke: float | None = Field(default=None, serialization_alias="stroke")
+    dash_length: float | None = Field(default=None, serialization_alias="dashLength")
+    dash_gap: float | None = Field(default=None, serialization_alias="dashGap")
+    dash_initial_gap: float | None = Field(
+        default=None, serialization_alias="dashInitialGap"
+    )
+    dash_animate_time: float | None = Field(
+        default=None, serialization_alias="dashAnimateTime"
+    )
+    color: str | None = None
+    label: str | None = None
+
+
+class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for an arcs layer entry."""
+
+    id: UUID4
+    start_lat: float | None = Field(default=None, serialization_alias="startLat")
+    start_lng: float | None = Field(default=None, serialization_alias="startLng")
+    end_lat: float | None = Field(default=None, serialization_alias="endLat")
+    end_lng: float | None = Field(default=None, serialization_alias="endLng")
     start_altitude: float | None = Field(
         default=None, serialization_alias="startAltitude"
     )
@@ -211,7 +256,22 @@ class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
 class PolygonDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a polygons layer entry."""
 
+    id: UUID4 = Field(default_factory=uuid4)
     geometry: Polygon | MultiPolygon
+    name: str | None = None
+    label: str | None = None
+    cap_color: str | None = None
+    side_color: str | None = None
+    stroke_color: str | None = None
+    altitude: float | None = None
+    cap_curvature_resolution: float | None = None
+
+
+class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a polygons layer entry."""
+
+    id: UUID4
+    geometry: Polygon | MultiPolygon | None = None
     name: str | None = None
     label: str | None = None
     cap_color: str | None = None

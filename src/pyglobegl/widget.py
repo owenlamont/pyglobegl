@@ -1,12 +1,19 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import anywidget
 from ipywidgets import Layout
+from pydantic import BaseModel, UUID4
 import traitlets
 
-from pyglobegl.config import GlobeConfig
+from pyglobegl.config import (
+    ArcDatumPatch,
+    GlobeConfig,
+    PointDatumPatch,
+    PolygonDatumPatch,
+)
 
 
 class GlobeWidget(anywidget.AnyWidget):
@@ -74,9 +81,43 @@ class GlobeWidget(anywidget.AnyWidget):
             "polygon_hover": self._dispatch_polygon_hover,
         }
         self.on_msg(self._handle_frontend_message)
-        self.config = config.model_dump(
+        self._points_data = self._normalize_layer_data(config.points.points_data)
+        self._arcs_data = self._normalize_layer_data(config.arcs.arcs_data)
+        self._polygons_data = self._normalize_layer_data(config.polygons.polygons_data)
+        self._globe_props = config.globe.model_dump(
+            by_alias=True, exclude_none=True, exclude_unset=True, mode="json"
+        )
+        self._points_props = config.points.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"points_data"},
+            mode="json",
+        )
+        self._arcs_props = config.arcs.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"arcs_data"},
+            mode="json",
+        )
+        self._polygons_props = config.polygons.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"polygons_data"},
+            mode="json",
+        )
+        config_dict = config.model_dump(
             by_alias=True, exclude_none=True, exclude_defaults=True, mode="json"
         )
+        if self._points_data is not None:
+            config_dict.setdefault("points", {})["pointsData"] = self._points_data
+        if self._arcs_data is not None:
+            config_dict.setdefault("arcs", {})["arcsData"] = self._arcs_data
+        if self._polygons_data is not None:
+            config_dict.setdefault("polygons", {})["polygonsData"] = self._polygons_data
+        self.config = config_dict
 
     def on_globe_ready(self, handler: Callable[[], None]) -> None:
         """Register a callback fired when the globe is ready."""
@@ -148,6 +189,469 @@ class GlobeWidget(anywidget.AnyWidget):
         """Clear the globe tile engine cache."""
         self.send({"type": "globe_tile_engine_clear_cache"})
 
+    def get_globe_image_url(self) -> str | None:
+        """Return the globe image URL."""
+        return self._globe_props.get("globeImageUrl")
+
+    def set_globe_image_url(self, value: str | None) -> None:
+        """Set the globe image URL."""
+        self._set_layer_prop("globe", self._globe_props, "globeImageUrl", value)
+
+    def get_bump_image_url(self) -> str | None:
+        """Return the bump image URL."""
+        return self._globe_props.get("bumpImageUrl")
+
+    def set_bump_image_url(self, value: str | None) -> None:
+        """Set the bump image URL."""
+        self._set_layer_prop("globe", self._globe_props, "bumpImageUrl", value)
+
+    def get_globe_tile_engine_url(self) -> str | None:
+        """Return the globe tile engine URL."""
+        return self._globe_props.get("globeTileEngineUrl")
+
+    def set_globe_tile_engine_url(self, value: str | None) -> None:
+        """Set the globe tile engine URL."""
+        self._set_layer_prop("globe", self._globe_props, "globeTileEngineUrl", value)
+
+    def get_show_globe(self) -> bool | None:
+        """Return whether the globe mesh is visible."""
+        return self._globe_props.get("showGlobe")
+
+    def set_show_globe(self, value: bool | None) -> None:
+        """Set whether the globe mesh is visible."""
+        self._set_layer_prop("globe", self._globe_props, "showGlobe", value)
+
+    def get_show_graticules(self) -> bool | None:
+        """Return whether graticules are visible."""
+        return self._globe_props.get("showGraticules")
+
+    def set_show_graticules(self, value: bool | None) -> None:
+        """Set whether graticules are visible."""
+        self._set_layer_prop("globe", self._globe_props, "showGraticules", value)
+
+    def get_show_atmosphere(self) -> bool | None:
+        """Return whether the atmosphere is visible."""
+        return self._globe_props.get("showAtmosphere")
+
+    def set_show_atmosphere(self, value: bool | None) -> None:
+        """Set whether the atmosphere is visible."""
+        self._set_layer_prop("globe", self._globe_props, "showAtmosphere", value)
+
+    def get_atmosphere_color(self) -> str | None:
+        """Return the atmosphere color."""
+        return self._globe_props.get("atmosphereColor")
+
+    def set_atmosphere_color(self, value: str | None) -> None:
+        """Set the atmosphere color."""
+        self._set_layer_prop("globe", self._globe_props, "atmosphereColor", value)
+
+    def get_atmosphere_altitude(self) -> float | None:
+        """Return the atmosphere altitude."""
+        return self._globe_props.get("atmosphereAltitude")
+
+    def set_atmosphere_altitude(self, value: float | None) -> None:
+        """Set the atmosphere altitude."""
+        self._set_layer_prop("globe", self._globe_props, "atmosphereAltitude", value)
+
+    def get_globe_curvature_resolution(self) -> float | None:
+        """Return the globe curvature resolution."""
+        return self._globe_props.get("globeCurvatureResolution")
+
+    def set_globe_curvature_resolution(self, value: float | None) -> None:
+        """Set the globe curvature resolution."""
+        self._set_layer_prop(
+            "globe", self._globe_props, "globeCurvatureResolution", value
+        )
+
+    def get_globe_material(self) -> dict[str, Any] | None:
+        """Return the globe material spec."""
+        return self._globe_props.get("globeMaterial")
+
+    def set_globe_material(self, value: dict[str, Any] | None) -> None:
+        """Set the globe material spec."""
+        self._set_layer_prop("globe", self._globe_props, "globeMaterial", value)
+
+    def get_points_data(self) -> list[dict[str, Any]] | None:
+        """Return the cached points data."""
+        return self._clone_data(self._points_data)
+
+    def set_points_data(self, data: Sequence[Any]) -> None:
+        """Replace the points data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._points_data = normalized
+        self.send({"type": "points_set_data", "payload": {"data": normalized}})
+
+    def patch_points_data(
+        self, patches: Sequence[PointDatumPatch | Mapping[str, Any]]
+    ) -> None:
+        """Patch points data by id."""
+        normalized = self._normalize_patches(patches)
+        self._apply_patches(self._points_data, normalized, "points")
+        self.send({"type": "points_patch_data", "payload": {"patches": normalized}})
+
+    def update_point(self, point_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single point by id."""
+        patch = {"id": point_id, **changes}
+        self.patch_points_data([patch])
+
+    def get_point_label(self) -> str | None:
+        """Return the point label accessor."""
+        return self._points_props.get("pointLabel")
+
+    def set_point_label(self, value: str | None) -> None:
+        """Set the point label accessor."""
+        self._set_layer_prop("points", self._points_props, "pointLabel", value)
+
+    def get_point_lat(self) -> float | str | None:
+        """Return the point latitude accessor."""
+        return self._points_props.get("pointLat")
+
+    def set_point_lat(self, value: float | str | None) -> None:
+        """Set the point latitude accessor."""
+        self._set_layer_prop("points", self._points_props, "pointLat", value)
+
+    def get_point_lng(self) -> float | str | None:
+        """Return the point longitude accessor."""
+        return self._points_props.get("pointLng")
+
+    def set_point_lng(self, value: float | str | None) -> None:
+        """Set the point longitude accessor."""
+        self._set_layer_prop("points", self._points_props, "pointLng", value)
+
+    def get_point_color(self) -> str | None:
+        """Return the point color accessor."""
+        return self._points_props.get("pointColor")
+
+    def set_point_color(self, value: str | None) -> None:
+        """Set the point color accessor."""
+        self._set_layer_prop("points", self._points_props, "pointColor", value)
+
+    def get_point_altitude(self) -> float | str | None:
+        """Return the point altitude accessor."""
+        return self._points_props.get("pointAltitude")
+
+    def set_point_altitude(self, value: float | str | None) -> None:
+        """Set the point altitude accessor."""
+        self._set_layer_prop("points", self._points_props, "pointAltitude", value)
+
+    def get_point_radius(self) -> float | str | None:
+        """Return the point radius accessor."""
+        return self._points_props.get("pointRadius")
+
+    def set_point_radius(self, value: float | str | None) -> None:
+        """Set the point radius accessor."""
+        self._set_layer_prop("points", self._points_props, "pointRadius", value)
+
+    def get_point_resolution(self) -> int | None:
+        """Return the point resolution."""
+        return self._points_props.get("pointResolution")
+
+    def set_point_resolution(self, value: int | None) -> None:
+        """Set the point resolution."""
+        self._set_layer_prop("points", self._points_props, "pointResolution", value)
+
+    def get_points_merge(self) -> bool | None:
+        """Return whether points are merged."""
+        return self._points_props.get("pointsMerge")
+
+    def set_points_merge(self, value: bool | None) -> None:
+        """Set whether points are merged."""
+        self._set_layer_prop("points", self._points_props, "pointsMerge", value)
+
+    def get_points_transition_duration(self) -> int | None:
+        """Return the points transition duration."""
+        return self._points_props.get("pointsTransitionDuration")
+
+    def set_points_transition_duration(self, value: int | None) -> None:
+        """Set the points transition duration."""
+        self._set_layer_prop(
+            "points", self._points_props, "pointsTransitionDuration", value
+        )
+
+    def get_arcs_data(self) -> list[dict[str, Any]] | None:
+        """Return the cached arcs data."""
+        return self._clone_data(self._arcs_data)
+
+    def set_arcs_data(self, data: Sequence[Any]) -> None:
+        """Replace the arcs data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._arcs_data = normalized
+        self.send({"type": "arcs_set_data", "payload": {"data": normalized}})
+
+    def patch_arcs_data(
+        self, patches: Sequence[ArcDatumPatch | Mapping[str, Any]]
+    ) -> None:
+        """Patch arcs data by id."""
+        normalized = self._normalize_patches(patches)
+        self._apply_patches(self._arcs_data, normalized, "arcs")
+        self.send({"type": "arcs_patch_data", "payload": {"patches": normalized}})
+
+    def update_arc(self, arc_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single arc by id."""
+        patch = {"id": arc_id, **changes}
+        self.patch_arcs_data([patch])
+
+    def get_arc_start_lat(self) -> float | str | None:
+        """Return the arc start latitude accessor."""
+        return self._arcs_props.get("arcStartLat")
+
+    def set_arc_start_lat(self, value: float | str | None) -> None:
+        """Set the arc start latitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcStartLat", value)
+
+    def get_arc_start_lng(self) -> float | str | None:
+        """Return the arc start longitude accessor."""
+        return self._arcs_props.get("arcStartLng")
+
+    def set_arc_start_lng(self, value: float | str | None) -> None:
+        """Set the arc start longitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcStartLng", value)
+
+    def get_arc_end_lat(self) -> float | str | None:
+        """Return the arc end latitude accessor."""
+        return self._arcs_props.get("arcEndLat")
+
+    def set_arc_end_lat(self, value: float | str | None) -> None:
+        """Set the arc end latitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcEndLat", value)
+
+    def get_arc_end_lng(self) -> float | str | None:
+        """Return the arc end longitude accessor."""
+        return self._arcs_props.get("arcEndLng")
+
+    def set_arc_end_lng(self, value: float | str | None) -> None:
+        """Set the arc end longitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcEndLng", value)
+
+    def get_arc_start_altitude(self) -> float | str | None:
+        """Return the arc start altitude accessor."""
+        return self._arcs_props.get("arcStartAltitude")
+
+    def set_arc_start_altitude(self, value: float | str | None) -> None:
+        """Set the arc start altitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcStartAltitude", value)
+
+    def get_arc_end_altitude(self) -> float | str | None:
+        """Return the arc end altitude accessor."""
+        return self._arcs_props.get("arcEndAltitude")
+
+    def set_arc_end_altitude(self, value: float | str | None) -> None:
+        """Set the arc end altitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcEndAltitude", value)
+
+    def get_arc_color(self) -> str | None:
+        """Return the arc color accessor."""
+        return self._arcs_props.get("arcColor")
+
+    def set_arc_color(self, value: str | None) -> None:
+        """Set the arc color accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcColor", value)
+
+    def get_arc_altitude(self) -> float | str | None:
+        """Return the arc altitude accessor."""
+        return self._arcs_props.get("arcAltitude")
+
+    def set_arc_altitude(self, value: float | str | None) -> None:
+        """Set the arc altitude accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcAltitude", value)
+
+    def get_arc_altitude_auto_scale(self) -> float | str | None:
+        """Return the arc altitude auto scale accessor."""
+        return self._arcs_props.get("arcAltitudeAutoScale")
+
+    def set_arc_altitude_auto_scale(self, value: float | str | None) -> None:
+        """Set the arc altitude auto scale accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcAltitudeAutoScale", value)
+
+    def get_arc_stroke(self) -> float | str | None:
+        """Return the arc stroke accessor."""
+        return self._arcs_props.get("arcStroke")
+
+    def set_arc_stroke(self, value: float | str | None) -> None:
+        """Set the arc stroke accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcStroke", value)
+
+    def get_arc_curve_resolution(self) -> float | str | None:
+        """Return the arc curve resolution accessor."""
+        return self._arcs_props.get("arcCurveResolution")
+
+    def set_arc_curve_resolution(self, value: float | str | None) -> None:
+        """Set the arc curve resolution accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcCurveResolution", value)
+
+    def get_arc_circular_resolution(self) -> float | str | None:
+        """Return the arc circular resolution accessor."""
+        return self._arcs_props.get("arcCircularResolution")
+
+    def set_arc_circular_resolution(self, value: float | str | None) -> None:
+        """Set the arc circular resolution accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcCircularResolution", value)
+
+    def get_arc_dash_length(self) -> float | str | None:
+        """Return the arc dash length accessor."""
+        return self._arcs_props.get("arcDashLength")
+
+    def set_arc_dash_length(self, value: float | str | None) -> None:
+        """Set the arc dash length accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcDashLength", value)
+
+    def get_arc_dash_gap(self) -> float | str | None:
+        """Return the arc dash gap accessor."""
+        return self._arcs_props.get("arcDashGap")
+
+    def set_arc_dash_gap(self, value: float | str | None) -> None:
+        """Set the arc dash gap accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcDashGap", value)
+
+    def get_arc_dash_initial_gap(self) -> float | str | None:
+        """Return the arc dash initial gap accessor."""
+        return self._arcs_props.get("arcDashInitialGap")
+
+    def set_arc_dash_initial_gap(self, value: float | str | None) -> None:
+        """Set the arc dash initial gap accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcDashInitialGap", value)
+
+    def get_arc_dash_animate_time(self) -> float | str | None:
+        """Return the arc dash animate time accessor."""
+        return self._arcs_props.get("arcDashAnimateTime")
+
+    def set_arc_dash_animate_time(self, value: float | str | None) -> None:
+        """Set the arc dash animate time accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcDashAnimateTime", value)
+
+    def get_arcs_transition_duration(self) -> int | None:
+        """Return the arcs transition duration."""
+        return self._arcs_props.get("arcsTransitionDuration")
+
+    def set_arcs_transition_duration(self, value: int | None) -> None:
+        """Set the arcs transition duration."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcsTransitionDuration", value)
+
+    def get_arc_label(self) -> str | None:
+        """Return the arc label accessor."""
+        return self._arcs_props.get("arcLabel")
+
+    def set_arc_label(self, value: str | None) -> None:
+        """Set the arc label accessor."""
+        self._set_layer_prop("arcs", self._arcs_props, "arcLabel", value)
+
+    def get_polygon_label(self) -> str | None:
+        """Return the polygon label accessor."""
+        return self._polygons_props.get("polygonLabel")
+
+    def set_polygon_label(self, value: str | None) -> None:
+        """Set the polygon label accessor."""
+        self._set_layer_prop("polygons", self._polygons_props, "polygonLabel", value)
+
+    def get_polygon_geojson_geometry(self) -> str | None:
+        """Return the polygon GeoJSON geometry accessor."""
+        return self._polygons_props.get("polygonGeoJsonGeometry")
+
+    def set_polygon_geojson_geometry(self, value: str | None) -> None:
+        """Set the polygon GeoJSON geometry accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonGeoJsonGeometry", value
+        )
+
+    def get_polygon_cap_color(self) -> str | None:
+        """Return the polygon cap color accessor."""
+        return self._polygons_props.get("polygonCapColor")
+
+    def set_polygon_cap_color(self, value: str | None) -> None:
+        """Set the polygon cap color accessor."""
+        self._set_layer_prop("polygons", self._polygons_props, "polygonCapColor", value)
+
+    def get_polygon_cap_material(self) -> dict[str, Any] | None:
+        """Return the polygon cap material accessor."""
+        return self._polygons_props.get("polygonCapMaterial")
+
+    def set_polygon_cap_material(self, value: dict[str, Any] | None) -> None:
+        """Set the polygon cap material accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonCapMaterial", value
+        )
+
+    def get_polygon_side_color(self) -> str | None:
+        """Return the polygon side color accessor."""
+        return self._polygons_props.get("polygonSideColor")
+
+    def set_polygon_side_color(self, value: str | None) -> None:
+        """Set the polygon side color accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonSideColor", value
+        )
+
+    def get_polygon_side_material(self) -> dict[str, Any] | None:
+        """Return the polygon side material accessor."""
+        return self._polygons_props.get("polygonSideMaterial")
+
+    def set_polygon_side_material(self, value: dict[str, Any] | None) -> None:
+        """Set the polygon side material accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonSideMaterial", value
+        )
+
+    def get_polygon_stroke_color(self) -> str | None:
+        """Return the polygon stroke color accessor."""
+        return self._polygons_props.get("polygonStrokeColor")
+
+    def set_polygon_stroke_color(self, value: str | None) -> None:
+        """Set the polygon stroke color accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonStrokeColor", value
+        )
+
+    def get_polygon_altitude(self) -> float | str | None:
+        """Return the polygon altitude accessor."""
+        return self._polygons_props.get("polygonAltitude")
+
+    def set_polygon_altitude(self, value: float | str | None) -> None:
+        """Set the polygon altitude accessor."""
+        self._set_layer_prop("polygons", self._polygons_props, "polygonAltitude", value)
+
+    def get_polygon_cap_curvature_resolution(self) -> float | str | None:
+        """Return the polygon cap curvature resolution accessor."""
+        return self._polygons_props.get("polygonCapCurvatureResolution")
+
+    def set_polygon_cap_curvature_resolution(self, value: float | str | None) -> None:
+        """Set the polygon cap curvature resolution accessor."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonCapCurvatureResolution", value
+        )
+
+    def get_polygons_transition_duration(self) -> int | None:
+        """Return the polygons transition duration."""
+        return self._polygons_props.get("polygonsTransitionDuration")
+
+    def set_polygons_transition_duration(self, value: int | None) -> None:
+        """Set the polygons transition duration."""
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonsTransitionDuration", value
+        )
+
+    def get_polygons_data(self) -> list[dict[str, Any]] | None:
+        """Return the cached polygons data."""
+        return self._clone_data(self._polygons_data)
+
+    def set_polygons_data(self, data: Sequence[Any]) -> None:
+        """Replace the polygons data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._polygons_data = normalized
+        self.send({"type": "polygons_set_data", "payload": {"data": normalized}})
+
+    def patch_polygons_data(
+        self, patches: Sequence[PolygonDatumPatch | Mapping[str, Any]]
+    ) -> None:
+        """Patch polygons data by id."""
+        normalized = self._normalize_patches(patches)
+        self._apply_patches(self._polygons_data, normalized, "polygons")
+        self.send({"type": "polygons_patch_data", "payload": {"patches": normalized}})
+
+    def update_polygon(self, polygon_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single polygon by id."""
+        patch = {"id": polygon_id, **changes}
+        self.patch_polygons_data([patch])
+
     def _handle_frontend_message(
         self, _widget: "GlobeWidget", message: dict[str, Any], _buffers: list[bytes]
     ) -> None:
@@ -158,6 +662,77 @@ class GlobeWidget(anywidget.AnyWidget):
         if handler is None:
             return
         handler(message.get("payload"))
+
+    def _clone_data(
+        self, data: list[dict[str, Any]] | None
+    ) -> list[dict[str, Any]] | None:
+        if data is None:
+            return None
+        return [dict(item) for item in data]
+
+    def _normalize_layer_data(
+        self, data: Sequence[Any] | None
+    ) -> list[dict[str, Any]] | None:
+        if data is None:
+            return None
+        normalized: list[dict[str, Any]] = []
+        for item in data:
+            if isinstance(item, BaseModel):
+                entry = item.model_dump(by_alias=True, exclude_none=True, mode="json")
+            elif isinstance(item, Mapping):
+                entry = dict(item)
+            else:
+                raise TypeError("Layer data must be mappings or Pydantic models.")
+            if entry.get("id") is None:
+                entry["id"] = str(uuid4())
+            else:
+                entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_patches(
+        self, patches: Sequence[BaseModel | Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if isinstance(patch, BaseModel):
+                entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
+            elif isinstance(patch, Mapping):
+                entry = dict(patch)
+            else:
+                raise TypeError("Patch entries must be mappings or Pydantic models.")
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _apply_patches(
+        self,
+        data: list[dict[str, Any]] | None,
+        patches: list[dict[str, Any]],
+        layer_name: str,
+    ) -> None:
+        if data is None:
+            raise ValueError(f"{layer_name} data is not initialized.")
+        index = {
+            str(item.get("id")): item for item in data if item.get("id") is not None
+        }
+        for patch in patches:
+            patch_id = str(patch.get("id"))
+            target = index.get(patch_id)
+            if target is None:
+                raise ValueError(f"{layer_name} id not found: {patch_id}")
+            for key, value in patch.items():
+                if key == "id":
+                    continue
+                target[key] = value
+
+    def _set_layer_prop(
+        self, layer: str, props: dict[str, Any], prop: str, value: Any
+    ) -> None:
+        props[prop] = value
+        self.send({"type": f"{layer}_prop", "payload": {"prop": prop, "value": value}})
 
     def _dispatch_globe_ready(self) -> None:
         for handler in self._globe_ready_handlers:

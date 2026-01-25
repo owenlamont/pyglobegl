@@ -295,6 +295,116 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			},
 		);
 
+		const globeProps = new Set([
+			"globeImageUrl",
+			"bumpImageUrl",
+			"globeTileEngineUrl",
+			"showGlobe",
+			"showGraticules",
+			"showAtmosphere",
+			"atmosphereColor",
+			"atmosphereAltitude",
+			"globeCurvatureResolution",
+			"globeMaterial",
+		]);
+
+		const pointProps = new Set([
+			"pointLabel",
+			"pointLat",
+			"pointLng",
+			"pointColor",
+			"pointAltitude",
+			"pointRadius",
+			"pointResolution",
+			"pointsMerge",
+			"pointsTransitionDuration",
+		]);
+
+		const arcProps = new Set([
+			"arcStartLat",
+			"arcStartLng",
+			"arcStartAltitude",
+			"arcEndLat",
+			"arcEndLng",
+			"arcEndAltitude",
+			"arcColor",
+			"arcAltitude",
+			"arcAltitudeAutoScale",
+			"arcStroke",
+			"arcCurveResolution",
+			"arcCircularResolution",
+			"arcDashLength",
+			"arcDashGap",
+			"arcDashInitialGap",
+			"arcDashAnimateTime",
+			"arcsTransitionDuration",
+			"arcLabel",
+		]);
+
+		const polygonProps = new Set([
+			"polygonLabel",
+			"polygonGeoJsonGeometry",
+			"polygonCapColor",
+			"polygonCapMaterial",
+			"polygonSideColor",
+			"polygonSideMaterial",
+			"polygonStrokeColor",
+			"polygonAltitude",
+			"polygonCapCurvatureResolution",
+			"polygonsTransitionDuration",
+		]);
+
+		const applyLayerProp = (
+			props: Set<string>,
+			prop: unknown,
+			value: unknown,
+		): void => {
+			if (typeof prop !== "string" || !props.has(prop)) {
+				return;
+			}
+			const setter = (globe as Record<string, unknown>)[prop];
+			if (typeof setter === "function") {
+				(setter as (arg: unknown) => void)(value);
+			}
+		};
+
+		const patchLayerData = (
+			getter: () => Array<Record<string, unknown>> | undefined,
+			setter: (data: Array<Record<string, unknown>>) => void,
+			patches: Array<Record<string, unknown>>,
+		): void => {
+			const data = getter() ?? [];
+			const index = new Map(
+				data
+					.map((datum) => {
+						const id = datum.id;
+						if (id === undefined || id === null) {
+							return null;
+						}
+						return [String(id), datum] as const;
+					})
+					.filter(
+						(entry): entry is [string, Record<string, unknown>] =>
+							entry !== null,
+					),
+			);
+			for (const patch of patches) {
+				if (!patch || typeof patch !== "object") {
+					continue;
+				}
+				const patchId = patch.id;
+				if (patchId === undefined || patchId === null) {
+					continue;
+				}
+				const target = index.get(String(patchId));
+				if (!target) {
+					continue;
+				}
+				Object.assign(target, patch);
+			}
+			setter(data);
+		};
+
 		model.on("msg:custom", (msg: unknown) => {
 			if (
 				typeof msg === "object" &&
@@ -303,6 +413,55 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				(msg as { type: string }).type === "globe_tile_engine_clear_cache"
 			) {
 				globe.globeTileEngineClearCache();
+			}
+			if (
+				typeof msg === "object" &&
+				msg !== null &&
+				"type" in msg &&
+				"payload" in msg
+			) {
+				const { type, payload } = msg as {
+					type: string;
+					payload?: {
+						data?: Array<Record<string, unknown>>;
+						patches?: Array<Record<string, unknown>>;
+						prop?: unknown;
+						value?: unknown;
+					};
+				};
+				if (type === "points_set_data") {
+					globe.pointsData(payload?.data ?? []);
+				} else if (type === "arcs_set_data") {
+					globe.arcsData(payload?.data ?? []);
+				} else if (type === "polygons_set_data") {
+					globe.polygonsData(payload?.data ?? []);
+				} else if (type === "points_patch_data") {
+					patchLayerData(
+						() => globe.pointsData() ?? [],
+						(data) => globe.pointsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "arcs_patch_data") {
+					patchLayerData(
+						() => globe.arcsData() ?? [],
+						(data) => globe.arcsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "polygons_patch_data") {
+					patchLayerData(
+						() => globe.polygonsData() ?? [],
+						(data) => globe.polygonsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "points_prop") {
+					applyLayerProp(pointProps, payload?.prop, payload?.value);
+				} else if (type === "arcs_prop") {
+					applyLayerProp(arcProps, payload?.prop, payload?.value);
+				} else if (type === "polygons_prop") {
+					applyLayerProp(polygonProps, payload?.prop, payload?.value);
+				} else if (type === "globe_prop") {
+					applyLayerProp(globeProps, payload?.prop, payload?.value);
+				}
 			}
 		});
 

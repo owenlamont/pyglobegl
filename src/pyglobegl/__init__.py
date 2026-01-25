@@ -2,6 +2,7 @@
 
 from pyglobegl.config import (
     ArcDatum,
+    ArcDatumPatch,
     ArcsLayerConfig,
     GlobeConfig,
     GlobeInitConfig,
@@ -10,9 +11,11 @@ from pyglobegl.config import (
     GlobeMaterialSpec,
     GlobeViewConfig,
     PointDatum,
+    PointDatumPatch,
     PointOfView,
     PointsLayerConfig,
     PolygonDatum,
+    PolygonDatumPatch,
     PolygonsLayerConfig,
 )
 from pyglobegl.geopandas import arcs_from_gdf, points_from_gdf, polygons_from_gdf
@@ -22,6 +25,7 @@ from pyglobegl.widget import GlobeWidget
 
 __all__ = [
     "ArcDatum",
+    "ArcDatumPatch",
     "ArcsLayerConfig",
     "GlobeConfig",
     "GlobeInitConfig",
@@ -31,9 +35,11 @@ __all__ = [
     "GlobeViewConfig",
     "GlobeWidget",
     "PointDatum",
+    "PointDatumPatch",
     "PointOfView",
     "PointsLayerConfig",
     "PolygonDatum",
+    "PolygonDatumPatch",
     "PolygonsLayerConfig",
     "arcs_from_gdf",
     "image_to_data_url",
