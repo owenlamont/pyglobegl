@@ -675,12 +675,22 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> list[dict[str, Any]] | None:
         if data is None:
             return None
+
+        def _normalize_value(value: Any) -> Any:
+            if isinstance(value, BaseModel):
+                return value.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if isinstance(value, Mapping):
+                return {key: _normalize_value(item) for key, item in value.items()}
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                return [_normalize_value(item) for item in value]
+            return value
+
         normalized: list[dict[str, Any]] = []
         for item in data:
             if isinstance(item, BaseModel):
                 entry = item.model_dump(by_alias=True, exclude_none=True, mode="json")
             elif isinstance(item, Mapping):
-                entry = dict(item)
+                entry = {key: _normalize_value(value) for key, value in item.items()}
             else:
                 raise TypeError("Layer data must be mappings or Pydantic models.")
             if entry.get("id") is None:

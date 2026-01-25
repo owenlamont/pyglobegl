@@ -18,22 +18,18 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 
-@pytest.mark.parametrize(
-    "altitude",
-    [pytest.param(0.05, id="altitude-low"), pytest.param(0.25, id="altitude-high")],
-)
 @pytest.mark.usefixtures("solara_test")
 def test_globe_atmosphere_altitude(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_earth_texture_url,
-    altitude,
 ) -> None:
+    initial_altitude = 0.05
+    updated_altitude = 0.25
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -43,7 +39,7 @@ def test_globe_atmosphere_altitude(
             globe_image_url=globe_earth_texture_url,
             show_atmosphere=True,
             atmosphere_color="#00ffff",
-            atmosphere_altitude=altitude,
+            atmosphere_altitude=initial_altitude,
             show_graticules=False,
         ),
     )
@@ -57,21 +53,27 @@ def test_globe_atmosphere_altitude(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            raise AssertionError(
+                "Reference image missing. Save the capture to "
+                f"{reference_path} and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_globe_atmosphere_altitude-altitude-low")
+    widget.set_atmosphere_altitude(updated_altitude)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_globe_atmosphere_altitude-altitude-high")

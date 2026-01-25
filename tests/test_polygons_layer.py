@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from geojson_pydantic import Polygon
 from geojson_pydantic.types import Position2D, Position3D
@@ -203,33 +204,28 @@ def test_polygons_accessors(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    "cap_color",
-    [
-        pytest.param("#ff66cc", id="cap-ff66cc"),
-        pytest.param("#66ccff", id="cap-66ccff"),
-    ],
-)
 def test_polygon_cap_color(
     page_session: Page,
-    cap_color: str,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    initial_cap_color = "#ff66cc"
+    updated_cap_color = "#66ccff"
+    polygon_id = uuid4()
     polygon = _polygon(-20, -5, 20, 5)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
+                    id=polygon_id,
                     geometry=polygon,
-                    cap_color=cap_color,
-                    side_color=cap_color,
+                    cap_color=initial_cap_color,
+                    side_color=initial_cap_color,
                     stroke_color=None,
                     altitude=0.3,
                 )
@@ -249,7 +245,20 @@ def test_polygon_cap_color(
     _assert_canvas_matches(
         page_session,
         canvas_capture,
-        canvas_label,
+        "test_polygon_cap_color-cap-ff66cc",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.update_polygon(
+        polygon_id, cap_color=updated_cap_color, side_color=updated_cap_color
+    )
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_cap_color-cap-66ccff",
         canvas_reference_path,
         canvas_compare_images,
         canvas_save_capture,
@@ -258,33 +267,28 @@ def test_polygon_cap_color(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    "side_color",
-    [
-        pytest.param("#66ccff", id="side-66ccff"),
-        pytest.param("#ffcc66", id="side-ffcc66"),
-    ],
-)
 def test_polygon_side_color(
     page_session: Page,
-    side_color: str,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    initial_side_color = "#66ccff"
+    updated_side_color = "#ffcc66"
+    polygon_id = uuid4()
     polygon = _polygon(-15, 5, 15, 20)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
+                    id=polygon_id,
                     geometry=polygon,
                     cap_color="#f0f0f0",
-                    side_color=side_color,
+                    side_color=initial_side_color,
                     stroke_color=None,
                     altitude=0.4,
                 )
@@ -306,7 +310,18 @@ def test_polygon_side_color(
     _assert_canvas_matches(
         page_session,
         canvas_capture,
-        canvas_label,
+        "test_polygon_side_color-side-66ccff",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.update_polygon(polygon_id, side_color=updated_side_color)
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_side_color-side-ffcc66",
         canvas_reference_path,
         canvas_compare_images,
         canvas_save_capture,
@@ -315,34 +330,29 @@ def test_polygon_side_color(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    "stroke_color",
-    [
-        pytest.param("#ffffff", id="stroke-ffffff"),
-        pytest.param("#00ffcc", id="stroke-00ffcc"),
-    ],
-)
 def test_polygon_stroke_color(
     page_session: Page,
-    stroke_color: str,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    initial_stroke_color = "#ffffff"
+    updated_stroke_color = "#00ffcc"
+    polygon_id = uuid4()
     polygon = _polygon(-20, -5, 20, 5)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
+                    id=polygon_id,
                     geometry=polygon,
                     cap_color="#ffcc66",
                     side_color="#ffcc66",
-                    stroke_color=stroke_color,
+                    stroke_color=initial_stroke_color,
                     altitude=0.3,
                 )
             ],
@@ -361,7 +371,18 @@ def test_polygon_stroke_color(
     _assert_canvas_matches(
         page_session,
         canvas_capture,
-        canvas_label,
+        "test_polygon_stroke_color-stroke-ffffff",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.update_polygon(polygon_id, stroke_color=updated_stroke_color)
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_stroke_color-stroke-00ffcc",
         canvas_reference_path,
         canvas_compare_images,
         canvas_save_capture,
@@ -370,32 +391,30 @@ def test_polygon_stroke_color(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    "altitude",
-    [pytest.param(0.02, id="altitude-0_02"), pytest.param(0.12, id="altitude-0_12")],
-)
 def test_polygon_altitude(
     page_session: Page,
-    altitude: float,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    initial_altitude = 0.02
+    updated_altitude = 0.12
+    polygon_id = uuid4()
     polygon = _polygon(-20, -5, 20, 5)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
+                    id=polygon_id,
                     geometry=polygon,
                     cap_color="#66ccff",
                     side_color="#66ccff",
                     stroke_color=None,
-                    altitude=altitude,
+                    altitude=initial_altitude,
                 )
             ],
             polygon_cap_color="cap_color",
@@ -413,7 +432,18 @@ def test_polygon_altitude(
     _assert_canvas_matches(
         page_session,
         canvas_capture,
-        canvas_label,
+        "test_polygon_altitude-altitude-0_02",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.update_polygon(polygon_id, altitude=updated_altitude)
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_altitude-altitude-0_12",
         canvas_reference_path,
         canvas_compare_images,
         canvas_save_capture,
@@ -422,17 +452,8 @@ def test_polygon_altitude(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    ("curvature", "label"),
-    [
-        pytest.param(2.0, "curvature-2", id="curvature-2"),
-        pytest.param(12.0, "curvature-12", id="curvature-12"),
-    ],
-)
 def test_polygon_cap_curvature_resolution(
     page_session: Page,
-    curvature: float,
-    label: str,
     canvas_capture,
     canvas_reference_path,
     canvas_compare_images,
@@ -440,12 +461,16 @@ def test_polygon_cap_curvature_resolution(
     canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    initial_curvature = 2.0
+    updated_curvature = 12.0
+    polygon_id = uuid4()
     polygon = _circle_polygon(0, 0, 37.5, steps=96)
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
             polygons_data=[
                 PolygonDatum(
+                    id=polygon_id,
                     geometry=polygon,
                     cap_color="#f7d97b",
                     side_color="#1f3b52",
@@ -457,7 +482,7 @@ def test_polygon_cap_curvature_resolution(
             polygon_side_color="side_color",
             polygon_stroke_color="stroke_color",
             polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=curvature,
+            polygon_cap_curvature_resolution=initial_curvature,
             polygons_transition_duration=0,
         ),
         lat=0,
@@ -470,23 +495,31 @@ def test_polygon_cap_curvature_resolution(
     display(widget)
 
     _await_globe_ready(page_session)
-    captured = canvas_capture(page_session)
-    reference_path = canvas_reference_path(
-        f"test_polygon_cap_curvature_resolution-{label}"
-    )
-    if not reference_path.exists():
+
+    def _assert_capture(label: str) -> None:
+        captured = canvas_capture(page_session)
+        reference_path = canvas_reference_path(
+            f"test_polygon_cap_curvature_resolution-{label}"
+        )
+        if not reference_path.exists():
+            canvas_save_capture(
+                captured, f"test_polygon_cap_curvature_resolution-{label}", False
+            )
+            raise AssertionError(
+                "Reference image missing. Save the capture to "
+                f"{reference_path} and re-run."
+            )
+        score = canvas_compare_images(captured, reference_path)
+        passed = score >= canvas_similarity_threshold
         canvas_save_capture(
-            captured, f"test_polygon_cap_curvature_resolution-{label}", False
+            captured, f"test_polygon_cap_curvature_resolution-{label}", passed
         )
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    score = canvas_compare_images(captured, reference_path)
-    passed = score >= canvas_similarity_threshold
-    canvas_save_capture(
-        captured, f"test_polygon_cap_curvature_resolution-{label}", passed
-    )
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("curvature-2")
+    widget.update_polygon(polygon_id, cap_curvature_resolution=updated_curvature)
+    page_session.wait_for_timeout(100)
+    _assert_capture("curvature-12")

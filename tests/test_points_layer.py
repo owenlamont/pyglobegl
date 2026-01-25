@@ -103,25 +103,18 @@ def test_points_accessors(
 
 
 @pytest.mark.usefixtures("solara_test")
-@pytest.mark.parametrize(
-    ("resolution", "radius"),
-    [
-        pytest.param(3, 5.0, id="resolution-3"),
-        pytest.param(18, 5.0, id="resolution-18"),
-    ],
-)
 def test_point_resolution(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_earth_texture_url,
-    resolution: int,
-    radius: float,
 ) -> None:
+    initial_resolution = 3
+    updated_resolution = 18
+    radius = 5.0
     points_data = [
         {"lat": 0, "lng": 0, "altitude": 0.25, "radius": radius, "color": "#ffcc00"}
     ]
@@ -140,7 +133,7 @@ def test_point_resolution(
             point_altitude="altitude",
             point_radius="radius",
             point_color="color",
-            point_resolution=resolution,
+            point_resolution=initial_resolution,
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -156,24 +149,30 @@ def test_point_resolution(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            raise AssertionError(
+                "Reference image missing. Save the capture to "
+                f"{reference_path} and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_point_resolution-resolution-3")
+    widget.set_point_resolution(updated_resolution)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_point_resolution-resolution-18")
 
 
 @pytest.mark.usefixtures("solara_test")

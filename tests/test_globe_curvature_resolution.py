@@ -18,22 +18,18 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 
-@pytest.mark.parametrize(
-    "resolution",
-    [pytest.param(24, id="resolution-low"), pytest.param(2, id="resolution-high")],
-)
 @pytest.mark.usefixtures("solara_test")
 def test_globe_curvature_resolution(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
     globe_earth_texture_url,
-    resolution,
 ) -> None:
+    initial_resolution = 24
+    updated_resolution = 2
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -43,7 +39,7 @@ def test_globe_curvature_resolution(
             globe_image_url=globe_earth_texture_url,
             show_atmosphere=False,
             show_graticules=False,
-            globe_curvature_resolution=resolution,
+            globe_curvature_resolution=initial_resolution,
         ),
     )
     widget = GlobeWidget(config=config)
@@ -56,21 +52,27 @@ def test_globe_curvature_resolution(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            raise AssertionError(
+                "Reference image missing. Save the capture to "
+                f"{reference_path} and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_globe_curvature_resolution-resolution-low")
+    widget.set_globe_curvature_resolution(updated_resolution)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_globe_curvature_resolution-resolution-high")

@@ -20,31 +20,24 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 
-@pytest.mark.parametrize(
-    "globe_kwargs",
-    [
-        pytest.param({"show_graticules": False}, id="graticules-off"),
-        pytest.param({"show_graticules": True}, id="graticules-on"),
-    ],
-)
 @pytest.mark.usefixtures("solara_test")
 def test_globe_layer_graticules(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold,
-    globe_kwargs,
 ) -> None:
+    initial_show_graticules = False
+    updated_show_graticules = True
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
         ),
         layout=GlobeLayoutConfig(width=256, height=256, background_color="#00ff00"),
         view=GlobeViewConfig(point_of_view=PointOfView(lat=0, lng=0, altitude=1.4)),
-        globe=GlobeLayerConfig(**globe_kwargs),
+        globe=GlobeLayerConfig(show_graticules=initial_show_graticules),
     )
     widget = GlobeWidget(config=config)
     display(widget)
@@ -63,21 +56,27 @@ def test_globe_layer_graticules(
         timeout=20000,
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            raise AssertionError(
+                "Reference image missing. Save the capture to "
+                f"{reference_path} and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_globe_layer_graticules-graticules-off")
+    widget.set_show_graticules(updated_show_graticules)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_globe_layer_graticules-graticules-on")
