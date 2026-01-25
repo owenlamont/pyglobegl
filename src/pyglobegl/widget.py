@@ -703,12 +703,21 @@ class GlobeWidget(anywidget.AnyWidget):
     def _normalize_patches(
         self, patches: Sequence[BaseModel | Mapping[str, Any]]
     ) -> list[dict[str, Any]]:
+        def _normalize_value(value: Any) -> Any:
+            if isinstance(value, BaseModel):
+                return value.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if isinstance(value, Mapping):
+                return {key: _normalize_value(item) for key, item in value.items()}
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                return [_normalize_value(item) for item in value]
+            return value
+
         normalized: list[dict[str, Any]] = []
         for patch in patches:
             if isinstance(patch, BaseModel):
                 entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
             elif isinstance(patch, Mapping):
-                entry = dict(patch)
+                entry = {key: _normalize_value(value) for key, value in patch.items()}
             else:
                 raise TypeError("Patch entries must be mappings or Pydantic models.")
             if entry.get("id") is None:

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     import pandera.pandas as pa
     from pandera.typing import Series
     from pandera.typing.geopandas import Geometry, GeoSeries
+    from shapely.geometry.base import BaseGeometry
 
 
 def _require_geopandas() -> None:
@@ -241,7 +242,6 @@ def polygons_from_gdf(
     _require_geopandas()
     _require_pandas()
     _require_pandera()
-    from geojson_pydantic import MultiPolygon, Polygon
 
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
@@ -279,22 +279,30 @@ def polygons_from_gdf(
         raise ValueError(f"GeoDataFrame missing columns: {missing}")
 
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
-    geometries: list[Polygon | MultiPolygon] = []
-    for geom in gdf.geometry:
-        mapping = geom.__geo_interface__
-        if mapping.get("type") == "Polygon":
-            geometries.append(Polygon.model_validate(mapping))
-        elif mapping.get("type") == "MultiPolygon":
-            geometries.append(MultiPolygon.model_validate(mapping))
-        else:
-            raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
-    data["geometry"] = geometries
+    data["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
     return data.to_dict("records")
 
 
 def _handle_schema_error(exc: Exception, message: str) -> None:
     details = str(exc)
     raise ValueError(f"{message} ({details})") from exc
+
+
+def _to_geojson_polygon_model(geom: BaseGeometry):
+    from geojson_pydantic import MultiPolygon, Polygon
+    from shapely.geometry import MultiPolygon as ShapelyMultiPolygon
+    from shapely.ops import orient
+
+    if geom.geom_type == "Polygon":
+        geom = orient(geom, sign=1.0)
+    elif geom.geom_type == "MultiPolygon":
+        geom = ShapelyMultiPolygon([orient(part, sign=1.0) for part in geom.geoms])
+    mapping = geom.__geo_interface__
+    if mapping.get("type") == "Polygon":
+        return Polygon.model_validate(mapping)
+    if mapping.get("type") == "MultiPolygon":
+        return MultiPolygon.model_validate(mapping)
+    raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
 
 
 def points_from_gdf(
