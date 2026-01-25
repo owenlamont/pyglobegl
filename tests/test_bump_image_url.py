@@ -30,6 +30,7 @@ def test_bump_image_url(
     globe_bump_test_data_url,
     globe_flat_texture_data_url,
 ) -> None:
+    updated_bump_image_url = None
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -52,21 +53,29 @@ def test_bump_image_url(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_bump_image_url")
+    widget.set_bump_image_url(updated_bump_image_url)
+    page_session.wait_for_timeout(200)
+    _assert_capture("test_bump_image_url-updated")

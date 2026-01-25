@@ -354,6 +354,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"polygonsTransitionDuration",
 		]);
 
+		const materialProps = new Set([
+			"globeMaterial",
+			"polygonCapMaterial",
+			"polygonSideMaterial",
+		]);
+
 		const applyLayerProp = (
 			props: Set<string>,
 			prop: unknown,
@@ -364,7 +370,10 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			const setter = (globe as Record<string, unknown>)[prop];
 			if (typeof setter === "function") {
-				(setter as (arg: unknown) => void)(value);
+				const nextValue = materialProps.has(prop)
+					? buildMaterial(value)
+					: value;
+				(setter as (arg: unknown) => void)(nextValue);
 			}
 		};
 

@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 def test_points_accessors(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
@@ -48,6 +47,10 @@ def test_points_accessors(
             "radius": 1.0,
             "color": "#00ffff",
         },
+    ]
+    updated_points = [
+        {"lat2": 10, "lng2": 10, "alt2": 0.05, "radius2": 0.7, "color2": "#00ff00"},
+        {"lat2": -25, "lng2": 40, "alt2": 0.22, "radius2": 1.3, "color2": "#ff00ff"},
     ]
 
     config = GlobeConfig(
@@ -82,24 +85,37 @@ def test_points_accessors(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+
+    _assert_capture("test_points_accessors")
+    widget.set_point_lat("lat2")
+    widget.set_point_lng("lng2")
+    widget.set_point_altitude("alt2")
+    widget.set_point_radius("radius2")
+    widget.set_point_color("color2")
+    widget.set_points_data(updated_points)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_points_accessors-updated")
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -180,6 +196,7 @@ def test_point_label_tooltip(
     page_session: Page, globe_hoverer, globe_earth_texture_url
 ) -> None:
     points_data = [{"lat": 0, "lng": 0, "label": "Center point"}]
+    updated_points = [{"lat": 0, "lng": 0, "label2": "Updated point"}]
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -220,6 +237,27 @@ def test_point_label_tooltip(
             return false;
           }
           return (tooltip.textContent || "").includes("Center point");
+        }
+        """,
+        timeout=20000,
+    )
+
+    widget.set_point_label("label2")
+    widget.set_points_data(updated_points)
+    page_session.wait_for_timeout(100)
+    globe_hoverer(page_session)
+    page_session.wait_for_function(
+        """
+        () => {
+          const tooltip = document.querySelector(".float-tooltip-kap");
+          if (!tooltip) {
+            return false;
+          }
+          const style = window.getComputedStyle(tooltip);
+          if (style.display === "none") {
+            return false;
+          }
+          return (tooltip.textContent || "").includes("Updated point");
         }
         """,
         timeout=20000,
@@ -271,43 +309,30 @@ def test_points_transition_duration(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    initial_image = canvas_capture(page_session)
-    canvas_save_capture(initial_image, "test_points_transition_duration-initial", True)
-    initial_ref = canvas_reference_path("test_points_transition_duration-initial")
-    if not initial_ref.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {initial_ref} and re-run."
+    def _assert_capture(label: str) -> None:
+        captured_image = canvas_capture(page_session)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= canvas_similarity_threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
-    canvas_compare_images(initial_image, initial_ref)
 
-    updated_config = config.model_copy(
-        update={
-            "points": config.points.model_copy(update={"points_data": updated_points})
-        }
-    )
-    widget.config = updated_config.model_dump(
-        by_alias=True, exclude_none=True, exclude_defaults=True
-    )
-
-    page_session.wait_for_function(
-        """
-        () => {
-          const canvas = document.querySelector("canvas");
-          if (!canvas) {
-            return false;
-          }
-          const dataUrl = canvas.toDataURL("image/png");
-          return dataUrl && dataUrl.length > 2000;
-        }
-        """,
-        timeout=20000,
-    )
-
-    updated_image = canvas_capture(page_session)
-    canvas_save_capture(updated_image, "test_points_transition_duration-updated", True)
-    updated_ref = canvas_reference_path("test_points_transition_duration-updated")
-    if not updated_ref.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {updated_ref} and re-run."
-        )
-    canvas_compare_images(updated_image, updated_ref)
+    _assert_capture("test_points_transition_duration-initial")
+    widget.set_points_transition_duration(0)
+    widget.set_points_data(updated_points)
+    page_session.wait_for_timeout(100)
+    _assert_capture("test_points_transition_duration-updated")

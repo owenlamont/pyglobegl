@@ -129,8 +129,11 @@ def _assert_canvas_matches(
     captured_image = canvas_capture(page_session)
     reference_path = canvas_reference_path(canvas_label)
     if not reference_path.exists():
+        reference_path.parent.mkdir(parents=True, exist_ok=True)
+        captured_image.save(reference_path)
         raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
+            "Reference image missing. Saved capture to "
+            f"{reference_path}; verify and re-run."
         )
     try:
         score = canvas_compare_images(captured_image, reference_path)
@@ -149,7 +152,6 @@ def _assert_canvas_matches(
 def test_polygons_accessors(
     page_session: Page,
     canvas_capture,
-    canvas_label,
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
@@ -174,6 +176,16 @@ def test_polygons_accessors(
             "cap_resolution": 1.0,
         },
     ]
+    updated_polygons = [
+        {
+            "geom2": _polygon(-10, -10, 10, 0),
+            "cap_color2": "#ffcc00",
+            "side_color2": "#3366ff",
+            "stroke_color2": None,
+            "altitude2": 0.08,
+            "cap_resolution2": 0.2,
+        }
+    ]
 
     config = _make_config(
         globe_flat_texture_data_url,
@@ -195,7 +207,226 @@ def test_polygons_accessors(
     _assert_canvas_matches(
         page_session,
         canvas_capture,
-        canvas_label,
+        "test_polygons_accessors",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+    widget.set_polygon_geojson_geometry("geom2")
+    widget.set_polygon_cap_color("cap_color2")
+    widget.set_polygon_side_color("side_color2")
+    widget.set_polygon_stroke_color("stroke_color2")
+    widget.set_polygon_altitude("altitude2")
+    widget.set_polygon_cap_curvature_resolution("cap_resolution2")
+    widget.set_polygons_data(updated_polygons)
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygons_accessors-updated",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_polygon_label_tooltip(
+    page_session: Page, globe_hoverer, globe_flat_texture_data_url
+) -> None:
+    polygons_data = [
+        {
+            "geom": _polygon(-10, -5, 10, 5),
+            "label": "Initial polygon",
+            "cap_color": "#ffcc00",
+            "side_color": "#ffcc00",
+            "altitude": 0.06,
+        }
+    ]
+    updated_polygons = [
+        {
+            "geom": _polygon(-10, -5, 10, 5),
+            "label2": "Updated polygon",
+            "cap_color": "#ffcc00",
+            "side_color": "#ffcc00",
+            "altitude": 0.06,
+        }
+    ]
+
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=polygons_data,
+            polygon_geojson_geometry="geom",
+            polygon_cap_color="cap_color",
+            polygon_side_color="side_color",
+            polygon_altitude="altitude",
+            polygon_label="label",
+            polygons_transition_duration=0,
+        ),
+        altitude=1.7,
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    globe_hoverer(page_session)
+    page_session.wait_for_function(
+        """
+        () => {
+          const tooltip = document.querySelector(".float-tooltip-kap");
+          if (!tooltip) {
+            return false;
+          }
+          const style = window.getComputedStyle(tooltip);
+          if (style.display === "none") {
+            return false;
+          }
+          return (tooltip.textContent || "").includes("Initial polygon");
+        }
+        """,
+        timeout=20000,
+    )
+
+    widget.set_polygon_label("label2")
+    widget.set_polygons_data(updated_polygons)
+    page_session.wait_for_timeout(100)
+    globe_hoverer(page_session)
+    page_session.wait_for_function(
+        """
+        () => {
+          const tooltip = document.querySelector(".float-tooltip-kap");
+          if (!tooltip) {
+            return false;
+          }
+          const style = window.getComputedStyle(tooltip);
+          if (style.display === "none") {
+            return false;
+          }
+          return (tooltip.textContent || "").includes("Updated polygon");
+        }
+        """,
+        timeout=20000,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_polygon_cap_material(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_flat_texture_data_url,
+) -> None:
+    polygon_id = uuid4()
+    polygons_data = [
+        {
+            "id": polygon_id,
+            "geom": _circle_polygon(0, 0, 10, steps=36),
+            "cap_color": "#ffcc00",
+            "side_color": "#334455",
+            "altitude": 0.12,
+        }
+    ]
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=polygons_data,
+            polygon_geojson_geometry="geom",
+            polygon_cap_color="cap_color",
+            polygon_side_color="side_color",
+            polygon_altitude="altitude",
+            polygons_transition_duration=0,
+        ),
+        altitude=1.7,
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_cap_material-initial",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+
+    widget.set_polygon_cap_material(
+        {"type": "MeshBasicMaterial", "params": {"color": "#00ff00", "wireframe": True}}
+    )
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_cap_material-updated",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_polygon_side_material(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    canvas_similarity_threshold,
+    globe_flat_texture_data_url,
+) -> None:
+    polygons_data = [
+        {
+            "geom": _circle_polygon(0, 0, 8, steps=36),
+            "cap_color": "#ffcc00",
+            "side_color": "#223344",
+            "altitude": 0.18,
+        }
+    ]
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=polygons_data,
+            polygon_geojson_geometry="geom",
+            polygon_cap_color="cap_color",
+            polygon_side_color="side_color",
+            polygon_altitude="altitude",
+            polygons_transition_duration=0,
+        ),
+        lat=0,
+        lng=90,
+        altitude=1.8,
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_side_material-initial",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        canvas_similarity_threshold,
+    )
+
+    widget.set_polygon_side_material(
+        {"type": "MeshBasicMaterial", "params": {"color": "#00ccff", "wireframe": True}}
+    )
+    page_session.wait_for_timeout(100)
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygon_side_material-updated",
         canvas_reference_path,
         canvas_compare_images,
         canvas_save_capture,
