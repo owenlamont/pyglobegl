@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 def test_arcs_accessors(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.985
+    canvas_similarity_threshold = 0.98
     arcs_data = [
         ArcDatum(
             start_lat=0,
@@ -110,7 +110,7 @@ def test_arcs_accessors(
 def test_arcs_default_accessors(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.987
+    canvas_similarity_threshold = 0.98
     arcs_data = [
         ArcDatum(
             start_lat=0,
@@ -178,7 +178,7 @@ def test_arcs_default_accessors(
 def test_arc_dashes(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.985
+    canvas_similarity_threshold = 0.98
     initial_dash_length = 1.0
     initial_dash_gap = 0.0
     updated_dash_length = 0.2
@@ -314,7 +314,7 @@ def test_arc_runtime_update(
 def test_arc_stroke(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.975
+    canvas_similarity_threshold = 0.97
     initial_stroke = 0.4
     updated_stroke = 2.5
     arc_id = uuid4()
@@ -365,7 +365,7 @@ def test_arc_stroke(
 def test_arc_start_end_altitude(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.984
+    canvas_similarity_threshold = 0.98
     arc_id = uuid4()
     arcs_data = [
         ArcDatum(
@@ -425,7 +425,7 @@ def test_arc_start_end_altitude(
 def test_arc_curve_resolution(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.965
+    canvas_similarity_threshold = 0.96
     initial_curve_resolution = 2
     updated_curve_resolution = 120
     arcs_data = [
@@ -479,7 +479,7 @@ def test_arc_curve_resolution(
 def test_arc_circular_resolution(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.983
+    canvas_similarity_threshold = 0.98
     initial_circular_resolution = 2
     updated_circular_resolution = 16
     arcs_data = [

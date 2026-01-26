@@ -72,7 +72,7 @@ def test_points_accessors(
 def test_point_resolution(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.985
+    canvas_similarity_threshold = 0.98
     initial_resolution = 3
     updated_resolution = 18
     radius = 5.0

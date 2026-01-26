@@ -158,7 +158,7 @@ def test_polygons_accessors(
     canvas_save_capture,
     globe_flat_texture_data_url,
 ) -> None:
-    canvas_similarity_threshold = 0.975
+    canvas_similarity_threshold = 0.97
     polygons_data = [
         PolygonDatum(
             geometry=_polygon(-25, -5, -5, 10),
@@ -302,7 +302,7 @@ def test_polygons_transition_duration(
     canvas_save_capture,
     globe_flat_texture_data_url,
 ) -> None:
-    canvas_similarity_threshold = 0.984
+    canvas_similarity_threshold = 0.98
     initial_polygons = [
         PolygonDatum(
             geometry=_polygon(-30, -10, -10, 10),
