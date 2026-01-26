@@ -336,7 +336,7 @@ def test_arc_dashes(
 
 
 @pytest.mark.usefixtures("solara_test")
-def test_arc_color_gradient(
+def test_arc_runtime_update(
     page_session: Page,
     canvas_capture,
     canvas_reference_path,
@@ -433,7 +433,7 @@ def test_arc_color_gradient(
             f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
         )
 
-    _assert_capture("test_arc_color_gradient-gradient")
+    _assert_capture("test_arc_runtime_update-initial")
     widget.update_arc(
         arc_id,
         start_lat=30,
@@ -453,7 +453,7 @@ def test_arc_color_gradient(
         label="Updated arc",
     )
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_color_gradient-gradient-alt")
+    _assert_capture("test_arc_runtime_update-updated")
 
 
 @pytest.mark.usefixtures("solara_test")
