@@ -44,6 +44,7 @@ class GlobeMaterialSpec(BaseModel, extra="forbid", frozen=True):
     """Specification for constructing a ThreeJS material in the frontend."""
 
     type: str
+    # Keep explicit default assignment for type checkers even with Annotated Field.
     params: Annotated[dict[str, Any], Field(default_factory=dict)] = Field(
         default_factory=dict
     )
