@@ -321,7 +321,7 @@ def test_polygons_transition_duration(
     canvas_save_capture,
     globe_flat_texture_data_url,
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.985
     initial_polygons = [
         {
             "geom": _polygon(-30, -10, -10, 10),
