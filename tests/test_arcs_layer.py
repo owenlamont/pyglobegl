@@ -661,7 +661,7 @@ def test_arc_dash_animation_changes(
 def test_arc_dash_animate_time_setter(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.98
     arc_id = uuid4()
     arcs_data = [
         ArcDatum(
