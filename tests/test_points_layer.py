@@ -23,12 +23,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.usefixtures("solara_test")
 def test_points_accessors(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     points_data = [
@@ -85,29 +80,7 @@ def test_points_accessors(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_points_accessors")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_point_lat("lat2")
     widget.set_point_lng("lng2")
     widget.set_point_altitude("alt2")
@@ -115,17 +88,12 @@ def test_points_accessors(
     widget.set_point_color("color2")
     widget.set_points_data(updated_points)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_points_accessors-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_point_resolution(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.985
     initial_resolution = 3
@@ -165,30 +133,10 @@ def test_point_resolution(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_point_resolution-resolution-3")
+    canvas_assert_capture(page_session, "resolution-3", canvas_similarity_threshold)
     widget.set_point_resolution(updated_resolution)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_point_resolution-resolution-18")
+    canvas_assert_capture(page_session, "resolution-18", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -266,12 +214,7 @@ def test_point_label_tooltip(
 
 @pytest.mark.usefixtures("solara_test")
 def test_points_transition_duration(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_points = [
@@ -309,43 +252,16 @@ def test_points_transition_duration(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_points_transition_duration-initial")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_points_transition_duration(0)
     widget.set_points_data(updated_points)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_points_transition_duration-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_points_merge(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     points_data = [
@@ -383,29 +299,7 @@ def test_points_merge(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_points_merge-off")
+    canvas_assert_capture(page_session, "off", canvas_similarity_threshold)
     widget.set_points_merge(True)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_points_merge-on")
+    canvas_assert_capture(page_session, "on", canvas_similarity_threshold)

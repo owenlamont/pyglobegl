@@ -20,12 +20,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.usefixtures("solara_test")
 def test_globe_atmosphere_color(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_color = "#00ffff"
@@ -53,27 +48,7 @@ def test_globe_atmosphere_color(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_globe_atmosphere_color-cyan")
+    canvas_assert_capture(page_session, "cyan", canvas_similarity_threshold)
     widget.set_atmosphere_color(updated_color)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_globe_atmosphere_color-magenta")
+    canvas_assert_capture(page_session, "magenta", canvas_similarity_threshold)

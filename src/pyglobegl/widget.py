@@ -86,7 +86,7 @@ class GlobeWidget(anywidget.AnyWidget):
         self._arcs_data = self._normalize_layer_data(config.arcs.arcs_data)
         self._polygons_data = self._normalize_layer_data(config.polygons.polygons_data)
         self._globe_props = config.globe.model_dump(
-            by_alias=True, exclude_none=True, exclude_unset=True, mode="json"
+            by_alias=True, exclude_none=True, exclude_unset=False, mode="json"
         )
         self._points_props = config.points.model_dump(
             by_alias=True,
@@ -214,27 +214,27 @@ class GlobeWidget(anywidget.AnyWidget):
         """Set the globe tile engine URL."""
         self._set_layer_prop("globe", self._globe_props, "globeTileEngineUrl", value)
 
-    def get_show_globe(self) -> bool | None:
+    def get_show_globe(self) -> bool:
         """Return whether the globe mesh is visible."""
-        return self._globe_props.get("showGlobe")
+        return bool(self._globe_props.get("showGlobe", True))
 
-    def set_show_globe(self, value: bool | None) -> None:
+    def set_show_globe(self, value: bool) -> None:
         """Set whether the globe mesh is visible."""
         self._set_layer_prop("globe", self._globe_props, "showGlobe", value)
 
-    def get_show_graticules(self) -> bool | None:
+    def get_show_graticules(self) -> bool:
         """Return whether graticules are visible."""
-        return self._globe_props.get("showGraticules")
+        return bool(self._globe_props.get("showGraticules", False))
 
-    def set_show_graticules(self, value: bool | None) -> None:
+    def set_show_graticules(self, value: bool) -> None:
         """Set whether graticules are visible."""
         self._set_layer_prop("globe", self._globe_props, "showGraticules", value)
 
-    def get_show_atmosphere(self) -> bool | None:
+    def get_show_atmosphere(self) -> bool:
         """Return whether the atmosphere is visible."""
-        return self._globe_props.get("showAtmosphere")
+        return bool(self._globe_props.get("showAtmosphere", True))
 
-    def set_show_atmosphere(self, value: bool | None) -> None:
+    def set_show_atmosphere(self, value: bool) -> None:
         """Set whether the atmosphere is visible."""
         self._set_layer_prop("globe", self._globe_props, "showAtmosphere", value)
 

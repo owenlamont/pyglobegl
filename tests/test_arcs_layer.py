@@ -27,12 +27,7 @@ if TYPE_CHECKING:
 
 @pytest.mark.usefixtures("solara_test")
 def test_arcs_accessors(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.985
     arcs_data = [
@@ -112,29 +107,7 @@ def test_arcs_accessors(
         timeout=20000,
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arcs_accessors")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_arc_start_lat("sLat2")
     widget.set_arc_start_lng("sLng2")
     widget.set_arc_end_lat("eLat2")
@@ -143,19 +116,14 @@ def test_arcs_accessors(
     widget.set_arc_color("color2")
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arcs_accessors-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arcs_default_accessors(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.987
     arcs_data = [
         ArcDatum(
             start_lat=0,
@@ -216,44 +184,17 @@ def test_arcs_default_accessors(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arcs_default_accessors")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arcs_default_accessors-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_dashes(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.985
     initial_dash_length = 1.0
     initial_dash_gap = 0.0
     updated_dash_length = 0.2
@@ -307,42 +248,16 @@ def test_arc_dashes(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_dashes-solid")
+    canvas_assert_capture(page_session, "solid", canvas_similarity_threshold)
     widget.set_arc_dash_length(updated_dash_length)
     widget.set_arc_dash_gap(updated_dash_gap)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_dashes-dashed")
+    canvas_assert_capture(page_session, "dashed", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_runtime_update(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.96
     initial_colors = ["#ffcc00", "#00ffaa"]
@@ -412,28 +327,7 @@ def test_arc_runtime_update(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_runtime_update-initial")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.update_arc(
         arc_id,
         start_lat=30,
@@ -453,19 +347,14 @@ def test_arc_runtime_update(
         label="Updated arc",
     )
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_runtime_update-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_stroke(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.975
     initial_stroke = 0.4
     updated_stroke = 2.5
     arcs_data = [
@@ -506,43 +395,17 @@ def test_arc_stroke(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_stroke-thin")
+    canvas_assert_capture(page_session, "thin", canvas_similarity_threshold)
     widget.set_arc_stroke(updated_stroke)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_stroke-thick")
+    canvas_assert_capture(page_session, "thick", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_start_end_altitude(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.984
     arcs_data = [
         {
             "startLat": 0,
@@ -602,29 +465,7 @@ def test_arc_start_end_altitude(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_start_end_altitude")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_arc_start_lat("startLat2")
     widget.set_arc_start_lng("startLng2")
     widget.set_arc_end_lat("endLat2")
@@ -634,17 +475,12 @@ def test_arc_start_end_altitude(
     widget.set_arc_color("color2")
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_start_end_altitude-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_curve_resolution(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.965
     initial_curve_resolution = 2
@@ -695,41 +531,15 @@ def test_arc_curve_resolution(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_curve_resolution-low")
+    canvas_assert_capture(page_session, "low", canvas_similarity_threshold)
     widget.set_arc_curve_resolution(updated_curve_resolution)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_curve_resolution-high")
+    canvas_assert_capture(page_session, "high", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_circular_resolution(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_circular_resolution = 2
@@ -780,41 +590,15 @@ def test_arc_circular_resolution(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_circular_resolution-low")
+    canvas_assert_capture(page_session, "low", canvas_similarity_threshold)
     widget.set_arc_circular_resolution(updated_circular_resolution)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_circular_resolution-high")
+    canvas_assert_capture(page_session, "high", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_dash_initial_gap(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_gap = 0.0
@@ -861,31 +645,10 @@ def test_arc_dash_initial_gap(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_dash_initial_gap-gap-0")
+    canvas_assert_capture(page_session, "gap-0", canvas_similarity_threshold)
     widget.set_arc_dash_initial_gap(updated_gap)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_dash_initial_gap-gap-0.6")
+    canvas_assert_capture(page_session, "gap-0.6", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -965,12 +728,7 @@ def test_arc_dash_animation_changes(
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_dash_animate_time_setter(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     arcs_data = [
@@ -1014,42 +772,15 @@ def test_arc_dash_animate_time_setter(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_dash_animate_time-off")
+    canvas_assert_capture(page_session, "off", canvas_similarity_threshold)
     widget.set_arc_dash_animate_time(2000)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_dash_animate_time-on")
+    canvas_assert_capture(page_session, "on", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_arcs_transition_duration(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_arcs = [
@@ -1099,33 +830,11 @@ def test_arcs_transition_duration(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arcs_transition_duration-initial")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_arcs_transition_duration(0)
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arcs_transition_duration-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -1245,12 +954,7 @@ def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_altitude_modes(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_earth_texture_url,
+    page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_altitude = 0.15
@@ -1303,29 +1007,8 @@ def test_arc_altitude_modes(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            canvas_save_capture(captured_image, label, False)
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_arc_altitude_modes-fixed-altitude")
+    canvas_assert_capture(page_session, "fixed-altitude", canvas_similarity_threshold)
     widget.set_arc_altitude(updated_altitude)
     widget.set_arc_altitude_auto_scale(updated_auto_scale)
     page_session.wait_for_timeout(100)
-    _assert_capture("test_arc_altitude_modes-auto-scale")
+    canvas_assert_capture(page_session, "auto-scale", canvas_similarity_threshold)

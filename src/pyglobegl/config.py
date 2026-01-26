@@ -59,13 +59,9 @@ class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
     globe_tile_engine_url: str | None = Field(
         default=None, serialization_alias="globeTileEngineUrl"
     )
-    show_globe: bool | None = Field(default=None, serialization_alias="showGlobe")
-    show_graticules: bool | None = Field(
-        default=None, serialization_alias="showGraticules"
-    )
-    show_atmosphere: bool | None = Field(
-        default=None, serialization_alias="showAtmosphere"
-    )
+    show_globe: bool = Field(default=True, serialization_alias="showGlobe")
+    show_graticules: bool = Field(default=False, serialization_alias="showGraticules")
+    show_atmosphere: bool = Field(default=True, serialization_alias="showAtmosphere")
     atmosphere_color: str | None = Field(
         default=None, serialization_alias="atmosphereColor"
     )

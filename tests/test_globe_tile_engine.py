@@ -150,10 +150,7 @@ def test_globe_tile_engine_cache_reset(
 @pytest.mark.usefixtures("solara_test")
 def test_globe_tile_engine_url_setter(
     page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
+    canvas_assert_capture,
     globe_flat_texture_data_url,
     globe_tile_server,
 ) -> None:
@@ -183,29 +180,7 @@ def test_globe_tile_engine_url_setter(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_globe_tile_engine_url_setter-initial")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_globe_tile_engine_url(tile_template)
     _wait_for_canvas_color(page_session, "#ff0000")
-    _assert_capture("test_globe_tile_engine_url_setter-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

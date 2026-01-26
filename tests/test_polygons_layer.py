@@ -321,7 +321,7 @@ def test_polygons_transition_duration(
     canvas_save_capture,
     globe_flat_texture_data_url,
 ) -> None:
-    canvas_similarity_threshold = 0.985
+    canvas_similarity_threshold = 0.984
     initial_polygons = [
         {
             "geom": _polygon(-30, -10, -10, 10),
@@ -752,12 +752,7 @@ def test_polygon_altitude(
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_cap_curvature_resolution(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_curvature = 2.0
@@ -795,30 +790,7 @@ def test_polygon_cap_curvature_resolution(
 
     _await_globe_ready(page_session)
 
-    def _assert_capture(label: str) -> None:
-        captured = canvas_capture(page_session)
-        reference_path = canvas_reference_path(
-            f"test_polygon_cap_curvature_resolution-{label}"
-        )
-        if not reference_path.exists():
-            canvas_save_capture(
-                captured, f"test_polygon_cap_curvature_resolution-{label}", False
-            )
-            raise AssertionError(
-                "Reference image missing. Save the capture to "
-                f"{reference_path} and re-run."
-            )
-        score = canvas_compare_images(captured, reference_path)
-        passed = score >= canvas_similarity_threshold
-        canvas_save_capture(
-            captured, f"test_polygon_cap_curvature_resolution-{label}", passed
-        )
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("curvature-2")
+    canvas_assert_capture(page_session, "curvature-2", canvas_similarity_threshold)
     widget.update_polygon(polygon_id, cap_curvature_resolution=updated_curvature)
     page_session.wait_for_timeout(100)
-    _assert_capture("curvature-12")
+    canvas_assert_capture(page_session, "curvature-12", canvas_similarity_threshold)

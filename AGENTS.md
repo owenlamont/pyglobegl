@@ -16,11 +16,7 @@ and immediately use the widget without rebuilding JupyterLab.
 - Update documentation whenever behaviour or features change.
 - Diagnose bugs before patching; prefer minimal repros and root-cause fixes.
 - When code changes land, run `prek run --all-files` and
-  `uv run pytest --color=no`.
-  If running in a sandboxed Codex session, request elevated permissions so the
-  commands can reach the full workspace and any required local services.
-- Always run `prek` with elevated permissions so it can fetch hook repos and
-  access the full workspace.
+  `uv run pytest --color=no -n 4` (local runs are more stable with 4 workers).
 
 ## Project Structure (planned)
 

@@ -21,11 +21,7 @@ if TYPE_CHECKING:
 @pytest.mark.usefixtures("solara_test")
 def test_bump_image_url(
     page_session: Page,
-    canvas_capture,
-    canvas_label,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
+    canvas_assert_capture,
     globe_bump_test_data_url,
     globe_flat_texture_data_url,
 ) -> None:
@@ -53,29 +49,7 @@ def test_bump_image_url(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    def _assert_capture(label: str) -> None:
-        captured_image = canvas_capture(page_session)
-        reference_path = canvas_reference_path(label)
-        if not reference_path.exists():
-            reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
-            raise AssertionError(
-                "Reference image missing. Saved capture to "
-                f"{reference_path}; verify and re-run."
-            )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= canvas_similarity_threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
-        assert passed, (
-            "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-        )
-
-    _assert_capture("test_bump_image_url")
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
     widget.set_bump_image_url(updated_bump_image_url)
     page_session.wait_for_timeout(200)
-    _assert_capture("test_bump_image_url-updated")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
