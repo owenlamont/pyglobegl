@@ -13,6 +13,7 @@ from typing import Any
 from urllib.request import urlopen
 from uuid import uuid4
 
+from geojson_pydantic import MultiPolygon, Polygon
 from pydantic import AnyUrl, TypeAdapter
 import solara
 
@@ -21,6 +22,7 @@ from pyglobegl import (
     GlobeLayerConfig,
     GlobeLayoutConfig,
     GlobeWidget,
+    PolygonDatum,
     PolygonsLayerConfig,
 )
 
@@ -72,7 +74,7 @@ def _interpolate_scale(stops: list[tuple[int, int, int]], t: float) -> str:
 
 
 @lru_cache(maxsize=1)
-def _load_countries() -> list[dict[str, Any]]:
+def _load_countries() -> list[PolygonDatum]:
     with urlopen(_COUNTRIES_URL) as response:
         data = json.load(response)
 
@@ -93,29 +95,55 @@ def _load_countries() -> list[dict[str, Any]]:
     values = [_value(feat) for feat in features]
     max_val = max(values) if values else 1.0
 
+    polygons: list[PolygonDatum] = []
     for feat, val in zip(features, values, strict=False):
         t = math.sqrt(val) / math.sqrt(max_val) if max_val else 0.0
         props = feat.setdefault("properties", {})
         color = _interpolate_scale(_YLORRD_STOPS, t)
-        feat["id"] = str(uuid4())
-        feat["color"] = color
-        feat["hover_color"] = "steelblue"
-        feat["stroke_color"] = "#111111"
-        feat["side_color"] = "rgba(0, 100, 0, 0.15)"
-        feat["altitude"] = 0.06
-        feat["hover_altitude"] = 0.12
-        feat["label"] = (
+        geometry = feat.get("geometry")
+        if not isinstance(geometry, dict):
+            raise ValueError("Feature geometry must be a GeoJSON object.")
+        if geometry.get("type") == "Polygon":
+            polygon_geometry = Polygon.model_validate(geometry)
+        elif geometry.get("type") == "MultiPolygon":
+            polygon_geometry = MultiPolygon.model_validate(geometry)
+        else:
+            raise ValueError("Country geometry must be Polygon or MultiPolygon.")
+        label = (
             f"<b>{props.get('ADMIN', 'Unknown')} ({props.get('ISO_A2', '--')}):</b>"
             " <br />"
             f"GDP: <i>{props.get('GDP_MD_EST', 'N/A')}</i> M$<br/>"
             f"Population: <i>{props.get('POP_EST', 'N/A')}</i>"
         )
+        polygons.append(
+            PolygonDatum.model_validate(
+                {
+                    "id": uuid4(),
+                    "geometry": polygon_geometry,
+                    "cap_color": color,
+                    "side_color": "rgba(0, 100, 0, 0.15)",
+                    "stroke_color": "#111111",
+                    "altitude": 0.06,
+                    "label": label,
+                    "hover_color": "steelblue",
+                    "hover_altitude": 0.12,
+                }
+            )
+        )
 
-    return features
+    return polygons
 
 
 _COUNTRIES = _load_countries()
-_COUNTRY_INDEX = {country["id"]: country for country in _COUNTRIES}
+_COUNTRY_INDEX = {
+    str(country.id): {
+        "cap_color": country.cap_color,
+        "altitude": country.altitude,
+        "hover_color": country.hover_color,
+        "hover_altitude": country.hover_altitude,
+    }
+    for country in _COUNTRIES
+}
 
 config = GlobeConfig(
     layout=GlobeLayoutConfig(
@@ -132,14 +160,7 @@ config = GlobeConfig(
         show_graticules=False,
     ),
     polygons=PolygonsLayerConfig(
-        polygons_data=_COUNTRIES,
-        polygon_geojson_geometry="geometry",
-        polygon_cap_color="color",
-        polygon_side_color="side_color",
-        polygon_stroke_color="stroke_color",
-        polygon_label="label",
-        polygon_altitude="altitude",
-        polygons_transition_duration=300,
+        polygons_data=_COUNTRIES, polygons_transition_duration=300
     ),
 )
 
@@ -161,7 +182,7 @@ def page():
             if isinstance(prev_id, str) and prev_id in _COUNTRY_INDEX:
                 base = _COUNTRY_INDEX[prev_id]
                 widget.update_polygon(
-                    prev_id, color=base["color"], altitude=base["altitude"]
+                    prev_id, cap_color=base["cap_color"], altitude=base["altitude"]
                 )
         if polygon is not None:
             polygon_id = polygon.get("id")
@@ -169,7 +190,7 @@ def page():
                 base = _COUNTRY_INDEX[polygon_id]
                 widget.update_polygon(
                     polygon_id,
-                    color=base["hover_color"],
+                    cap_color=base["hover_color"],
                     altitude=base["hover_altitude"],
                 )
 

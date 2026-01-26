@@ -49,6 +49,6 @@ def test_globe_material_spec(page_session: Page, canvas_assert_capture) -> None:
     )
 
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
-    widget.set_globe_material(updated_material.model_dump(mode="json"))
+    widget.set_globe_material(updated_material)
     page_session.wait_for_timeout(200)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

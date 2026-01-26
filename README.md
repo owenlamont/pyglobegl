@@ -64,24 +64,25 @@ from pyglobegl import (
 )
 
 points = [
-    PointDatum(lat=0, lng=0, size=0.25, color="#ff0000", label="Center"),
-    PointDatum(lat=15, lng=-45, size=0.12, color="#00ff00", label="West"),
+    PointDatum(lat=0, lng=0, altitude=0.25, color="#ff0000", label="Center"),
+    PointDatum(lat=15, lng=-45, altitude=0.12, color="#00ff00", label="West"),
 ]
 
 config = GlobeConfig(
     globe=GlobeLayerConfig(
         globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
     ),
-    points=PointsLayerConfig(
-        points_data=points,
-        point_altitude="size",
-        point_color="color",
-        point_label="label",
-    ),
+    points=PointsLayerConfig(points_data=points),
 )
 
 display(GlobeWidget(config=config))
 ```
+
+pyglobegl expects layer data as Pydantic models (`PointDatum`, `ArcDatum`,
+`PolygonDatum`). Dynamic accessor remapping is not supported; per-datum values
+are read from the model field names. Numeric fields reject string values, and
+data model defaults mirror globe.gl defaults so omitted values still render
+predictably.
 
 ## Arcs Layer
 
@@ -103,6 +104,8 @@ arcs = [
         end_lat=10,
         end_lng=40,
         altitude=0.2,
+        color="#ffcc00",
+        stroke=1.2,
     ),
     ArcDatum(
         start_lat=20,
@@ -110,6 +113,8 @@ arcs = [
         end_lat=-10,
         end_lng=-50,
         altitude=0.1,
+        color="#ffcc00",
+        stroke=1.2,
     ),
 ]
 
@@ -117,12 +122,7 @@ config = GlobeConfig(
     globe=GlobeLayerConfig(
         globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
     ),
-    arcs=ArcsLayerConfig(
-        arcs_data=arcs,
-        arc_altitude="altitude",
-        arc_color="#ffcc00",
-        arc_stroke=1.2,
-    ),
+    arcs=ArcsLayerConfig(arcs_data=arcs),
 )
 
 display(GlobeWidget(config=config))
@@ -163,9 +163,6 @@ config = GlobeConfig(
         polygons_data=[
             PolygonDatum(geometry=polygon, cap_color="#ffcc00", altitude=0.05)
         ],
-        polygon_geojson_geometry="geometry",
-        polygon_cap_color="cap_color",
-        polygon_altitude="altitude",
     ),
 )
 
@@ -207,6 +204,7 @@ widget.on_polygon_hover(on_polygon_hover)
 ## GeoPandas Helpers (Optional)
 
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
+These helpers return Pydantic models (`PointDatum`, `ArcDatum`, `PolygonDatum`).
 Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 
 ```python

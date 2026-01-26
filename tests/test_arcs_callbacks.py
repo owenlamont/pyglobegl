@@ -7,6 +7,7 @@ from IPython.display import display
 import pytest
 
 from pyglobegl import (
+    ArcDatum,
     ArcsLayerConfig,
     GlobeConfig,
     GlobeInitConfig,
@@ -35,7 +36,15 @@ def test_on_arc_click_callback(
         click_event.set()
 
     arcs_data = [
-        {"startLat": 0, "startLng": -20, "endLat": 0, "endLng": 20, "color": "#ffcc00"}
+        ArcDatum(
+            start_lat=0,
+            start_lng=-20,
+            end_lat=0,
+            end_lng=20,
+            color="#ffcc00",
+            altitude=0.2,
+            stroke=1.2,
+        )
     ]
 
     config = GlobeConfig(
@@ -48,17 +57,7 @@ def test_on_arc_click_callback(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_altitude=0.2,
-            arc_stroke=1.2,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -103,7 +102,15 @@ def test_on_arc_right_click_callback(
         click_event.set()
 
     arcs_data = [
-        {"startLat": 0, "startLng": -20, "endLat": 0, "endLng": 20, "color": "#00ffcc"}
+        ArcDatum(
+            start_lat=0,
+            start_lng=-20,
+            end_lat=0,
+            end_lng=20,
+            color="#00ffcc",
+            altitude=0.2,
+            stroke=1.2,
+        )
     ]
 
     config = GlobeConfig(
@@ -116,17 +123,7 @@ def test_on_arc_right_click_callback(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_altitude=0.2,
-            arc_stroke=1.2,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -171,7 +168,15 @@ def test_on_arc_hover_callback(
         hover_event.set()
 
     arcs_data = [
-        {"startLat": 0, "startLng": -20, "endLat": 0, "endLng": 20, "color": "#ff00cc"}
+        ArcDatum(
+            start_lat=0,
+            start_lng=-20,
+            end_lat=0,
+            end_lng=20,
+            color="#ff00cc",
+            altitude=0.2,
+            stroke=1.2,
+        )
     ]
 
     config = GlobeConfig(
@@ -184,17 +189,7 @@ def test_on_arc_hover_callback(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_altitude=0.2,
-            arc_stroke=1.2,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),

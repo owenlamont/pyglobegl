@@ -7,23 +7,28 @@ Launch commands:
 from __future__ import annotations
 
 import random
-from typing import Any
 
 from pydantic import AnyUrl, TypeAdapter
 import solara
 
-from pyglobegl import GlobeConfig, GlobeLayerConfig, GlobeWidget, PointsLayerConfig
+from pyglobegl import (
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+    PointDatum,
+    PointsLayerConfig,
+)
 
 
-def _make_points(count: int = 300) -> list[dict[str, Any]]:
+def _make_points(count: int = 300) -> list[PointDatum]:
     colors = ["red", "white", "blue", "green"]
     return [
-        {
-            "lat": (random.random() - 0.5) * 180,  # noqa: S311
-            "lng": (random.random() - 0.5) * 360,  # noqa: S311
-            "size": random.random() / 3,  # noqa: S311
-            "color": random.choice(colors),  # noqa: S311
-        }
+        PointDatum(
+            lat=(random.random() - 0.5) * 180,  # noqa: S311
+            lng=(random.random() - 0.5) * 360,  # noqa: S311
+            altitude=random.random() / 3,  # noqa: S311
+            color=random.choice(colors),  # noqa: S311
+        )
         for _ in range(count)
     ]
 
@@ -34,9 +39,7 @@ config = GlobeConfig(
             "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
         )
     ),
-    points=PointsLayerConfig(
-        points_data=_make_points(), point_altitude="size", point_color="color"
-    ),
+    points=PointsLayerConfig(points_data=_make_points()),
 )
 
 

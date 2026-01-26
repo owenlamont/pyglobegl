@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
+from pyglobegl.config import ArcDatum, PointDatum, PolygonDatum
 
 
 if TYPE_CHECKING:
@@ -60,7 +62,6 @@ def _build_points_schema() -> type[pa.DataFrameModel]:
         )
         altitude: Series[float] | None = pa.Field(nullable=True)
         radius: Series[float] | None = pa.Field(nullable=True)
-        size: Series[float] | None = pa.Field(nullable=True)
         color: Series[str] | None = pa.Field(nullable=True, coerce=False)
         label: Series[str] | None = pa.Field(nullable=True, coerce=False)
 
@@ -224,8 +225,8 @@ def polygons_from_gdf(
     *,
     geometry_column: str | None = None,
     include_columns: Iterable[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Convert a GeoDataFrame of polygon geometries into globe.gl polygon data.
+) -> list[PolygonDatum]:
+    """Convert a GeoDataFrame of polygon geometries into polygon data models.
 
     Args:
         gdf: GeoDataFrame containing polygon geometries.
@@ -233,7 +234,7 @@ def polygons_from_gdf(
         include_columns: Optional iterable of column names to copy onto each polygon.
 
     Returns:
-        A list of polygon dictionaries with a GeoJSON geometry plus any requested
+        A list of PolygonDatum models with a GeoJSON geometry plus any requested
         attributes.
 
     Raises:
@@ -280,7 +281,7 @@ def polygons_from_gdf(
 
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
     data["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
-    return data.to_dict("records")
+    return [PolygonDatum.model_validate(record) for record in data.to_dict("records")]
 
 
 def _handle_schema_error(exc: Exception, message: str) -> None:
@@ -310,8 +311,8 @@ def points_from_gdf(
     *,
     include_columns: Iterable[str] | None = None,
     point_geometry: str | None = None,
-) -> list[dict[str, Any]]:
-    """Convert a GeoDataFrame of point geometries into globe.gl point data.
+) -> list[PointDatum]:
+    """Convert a GeoDataFrame of point geometries into point data models.
 
     Args:
         gdf: GeoDataFrame containing point geometries.
@@ -319,8 +320,8 @@ def points_from_gdf(
         point_geometry: Optional name of the point geometry column to use.
 
     Returns:
-        A list of point dictionaries with ``lat`` and ``lng`` keys plus any
-        requested attributes.
+        A list of PointDatum models with ``lat`` and ``lng`` plus any requested
+        attributes.
 
     Raises:
         ValueError: If the GeoDataFrame has no CRS or contains no point geometries.
@@ -347,8 +348,8 @@ def points_from_gdf(
     gdf = gdf.to_crs(4326)
     _validate_optional_columns(
         gdf,
-        numeric_columns=("altitude", "radius", "size"),
-        positive_columns=("radius", "size"),
+        numeric_columns=("altitude", "radius"),
+        positive_columns=("radius",),
         nonnegative_columns=("altitude",),
         color_columns=("color",),
         string_columns=("label",),
@@ -367,7 +368,7 @@ def points_from_gdf(
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
     data["lat"] = gdf.geometry.y
     data["lng"] = gdf.geometry.x
-    return data.to_dict("records")
+    return [PointDatum.model_validate(record) for record in data.to_dict("records")]
 
 
 def arcs_from_gdf(
@@ -376,8 +377,8 @@ def arcs_from_gdf(
     start_geometry: str = "start",
     end_geometry: str = "end",
     include_columns: Iterable[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Convert a GeoDataFrame into globe.gl arcs data.
+) -> list[ArcDatum]:
+    """Convert a GeoDataFrame into arc data models.
 
     Geometry columns are reprojected to EPSG:4326 before extracting lat/lng.
 
@@ -388,7 +389,7 @@ def arcs_from_gdf(
         include_columns: Optional iterable of column names to copy onto each arc.
 
     Returns:
-        A list of arc dictionaries with start/end coordinates plus any requested
+        A list of ArcDatum models with start/end coordinates plus any requested
         attributes.
 
     Raises:
@@ -456,8 +457,8 @@ def arcs_from_gdf(
         raise ValueError(f"GeoDataFrame missing columns: {missing_extra}")
 
     data = validated[columns].copy() if columns else validated.iloc[:, 0:0].copy()
-    data["startLat"] = validated["start_lat"]
-    data["startLng"] = validated["start_lng"]
-    data["endLat"] = validated["end_lat"]
-    data["endLng"] = validated["end_lng"]
-    return data.to_dict("records")
+    data["start_lat"] = validated["start_lat"]
+    data["start_lng"] = validated["start_lng"]
+    data["end_lat"] = validated["end_lat"]
+    data["end_lng"] = validated["end_lng"]
+    return [ArcDatum.model_validate(record) for record in data.to_dict("records")]

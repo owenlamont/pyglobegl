@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from pyglobegl import arcs_from_gdf
+from pyglobegl import ArcDatum, arcs_from_gdf
 
 
 @pytest.mark.parametrize(
@@ -16,15 +16,15 @@ from pyglobegl import arcs_from_gdf
                 {"start": (-10, 30), "end": (0, -30)},
             ],
             [
-                {"startLat": -10, "startLng": 0, "endLat": 20, "endLng": 5},
-                {"startLat": 30, "startLng": -10, "endLat": -30, "endLng": 0},
+                ArcDatum(start_lat=-10, start_lng=0, end_lat=20, end_lng=5),
+                ArcDatum(start_lat=30, start_lng=-10, end_lat=-30, end_lng=0),
             ],
             id="basic",
         )
     ],
 )
 def test_arcs_from_gdf_valid(
-    rows: list[dict[str, tuple[float, float]]], expected: list[dict]
+    rows: list[dict[str, tuple[float, float]]], expected: list[ArcDatum]
 ) -> None:
     geopandas = pytest.importorskip("geopandas")
     from shapely.geometry import Point
@@ -38,7 +38,13 @@ def test_arcs_from_gdf_valid(
         crs=4326,
     )
     arcs = arcs_from_gdf(gdf)
-    assert arcs == expected
+    assert len(arcs) == len(expected)
+    for arc, expect in zip(arcs, expected, strict=True):
+        assert isinstance(arc, ArcDatum)
+        assert arc.start_lat == expect.start_lat
+        assert arc.start_lng == expect.start_lng
+        assert arc.end_lat == expect.end_lat
+        assert arc.end_lng == expect.end_lng
 
 
 def test_arcs_from_gdf_missing_columns() -> None:
@@ -74,9 +80,17 @@ def test_arcs_from_gdf_include_columns() -> None:
     )
 
     arcs = arcs_from_gdf(gdf, include_columns=["name"])
-    assert arcs == [
-        {"name": "Arc", "startLat": 0, "startLng": 0, "endLat": 0, "endLng": 10}
-    ]
+    assert len(arcs) == 1
+    arc = arcs[0]
+    assert isinstance(arc, ArcDatum)
+    assert arc.start_lat == 0
+    assert arc.start_lng == 0
+    assert arc.end_lat == 0
+    assert arc.end_lng == 10
+    payload = arc.model_dump(
+        exclude={"id", "start_lat", "start_lng", "end_lat", "end_lng"}
+    )
+    assert payload["name"] == "Arc"
 
 
 @pytest.mark.parametrize(

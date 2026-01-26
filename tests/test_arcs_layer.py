@@ -31,32 +31,35 @@ def test_arcs_accessors(
 ) -> None:
     canvas_similarity_threshold = 0.985
     arcs_data = [
-        {
-            "startLat": 0,
-            "startLng": -30,
-            "endLat": 15,
-            "endLng": 35,
-            "alt": 0.25,
-            "color": "#ff0033",
-        },
-        {
-            "startLat": -10,
-            "startLng": 30,
-            "endLat": 25,
-            "endLng": -10,
-            "alt": 0.15,
-            "color": "#00ffaa",
-        },
+        ArcDatum(
+            start_lat=0,
+            start_lng=-30,
+            end_lat=15,
+            end_lng=35,
+            altitude=0.25,
+            color="#ff0033",
+            stroke=0.7,
+        ),
+        ArcDatum(
+            start_lat=-10,
+            start_lng=30,
+            end_lat=25,
+            end_lng=-10,
+            altitude=0.15,
+            color="#00ffaa",
+            stroke=0.7,
+        ),
     ]
     updated_arcs = [
-        {
-            "sLat2": 20,
-            "sLng2": -10,
-            "eLat2": -15,
-            "eLng2": 35,
-            "alt2": 0.12,
-            "color2": "#00ccff",
-        }
+        ArcDatum(
+            start_lat=20,
+            start_lng=-10,
+            end_lat=-15,
+            end_lng=35,
+            altitude=0.12,
+            color="#00ccff",
+            stroke=0.7,
+        )
     ]
 
     config = GlobeConfig(
@@ -69,17 +72,7 @@ def test_arcs_accessors(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_altitude="alt",
-            arc_color="color",
-            arc_stroke=0.7,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -108,12 +101,6 @@ def test_arcs_accessors(
     )
 
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
-    widget.set_arc_start_lat("sLat2")
-    widget.set_arc_start_lng("sLng2")
-    widget.set_arc_end_lat("eLat2")
-    widget.set_arc_end_lng("eLng2")
-    widget.set_arc_altitude("alt2")
-    widget.set_arc_color("color2")
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
@@ -132,6 +119,7 @@ def test_arcs_default_accessors(
             end_lng=35,
             altitude=0.25,
             color="#ffcc00",
+            stroke=1.2,
         ),
         ArcDatum(
             start_lat=-10,
@@ -140,6 +128,7 @@ def test_arcs_default_accessors(
             end_lng=-10,
             altitude=0.15,
             color="#00ffaa",
+            stroke=1.2,
         ),
     ]
     updated_arcs = [
@@ -150,6 +139,7 @@ def test_arcs_default_accessors(
             end_lng=30,
             altitude=0.2,
             color="#ff66cc",
+            stroke=1.2,
         )
     ]
 
@@ -163,13 +153,7 @@ def test_arcs_default_accessors(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_altitude="altitude",
-            arc_color="color",
-            arc_stroke=1.2,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -199,15 +183,21 @@ def test_arc_dashes(
     initial_dash_gap = 0.0
     updated_dash_length = 0.2
     updated_dash_gap = 0.15
+    arc_id = uuid4()
     arcs_data = [
-        {
-            "startLat": 0,
-            "startLng": -35,
-            "endLat": 0,
-            "endLng": 35,
-            "alt": 0.2,
-            "color": "#ffcc00",
-        }
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-35,
+            end_lat=0,
+            end_lng=35,
+            altitude=0.2,
+            color="#ffcc00",
+            stroke=0.8,
+            dash_length=initial_dash_length,
+            dash_gap=initial_dash_gap,
+            dash_animate_time=0.0,
+        )
     ]
 
     config = GlobeConfig(
@@ -220,20 +210,7 @@ def test_arc_dashes(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_altitude="alt",
-            arc_color="color",
-            arc_stroke=0.8,
-            arc_dash_length=initial_dash_length,
-            arc_dash_gap=initial_dash_gap,
-            arc_dash_animate_time=0,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -249,8 +226,9 @@ def test_arc_dashes(
     )
 
     canvas_assert_capture(page_session, "solid", canvas_similarity_threshold)
-    widget.set_arc_dash_length(updated_dash_length)
-    widget.set_arc_dash_gap(updated_dash_gap)
+    widget.update_arc(
+        arc_id, dash_length=updated_dash_length, dash_gap=updated_dash_gap
+    )
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "dashed", canvas_similarity_threshold)
 
@@ -294,25 +272,7 @@ def test_arc_runtime_update(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_start_altitude="startAltitude",
-            arc_end_altitude="endAltitude",
-            arc_color="color",
-            arc_label="label",
-            arc_stroke="stroke",
-            arc_altitude="altitude",
-            arc_altitude_auto_scale="altitudeAutoScale",
-            arc_dash_length="dashLength",
-            arc_dash_gap="dashGap",
-            arc_dash_initial_gap="dashInitialGap",
-            arc_dash_animate_time="dashAnimateTime",
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -357,8 +317,17 @@ def test_arc_stroke(
     canvas_similarity_threshold = 0.975
     initial_stroke = 0.4
     updated_stroke = 2.5
+    arc_id = uuid4()
     arcs_data = [
-        {"startLat": 0, "startLng": -35, "endLat": 0, "endLng": 35, "color": "#ffcc00"}
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-35,
+            end_lat=0,
+            end_lng=35,
+            color="#ffcc00",
+            stroke=initial_stroke,
+        )
     ]
 
     config = GlobeConfig(
@@ -371,16 +340,7 @@ def test_arc_stroke(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=initial_stroke,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -396,7 +356,7 @@ def test_arc_stroke(
     )
 
     canvas_assert_capture(page_session, "thin", canvas_similarity_threshold)
-    widget.set_arc_stroke(updated_stroke)
+    widget.update_arc(arc_id, stroke=updated_stroke)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "thick", canvas_similarity_threshold)
 
@@ -406,27 +366,19 @@ def test_arc_start_end_altitude(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.984
+    arc_id = uuid4()
     arcs_data = [
-        {
-            "startLat": 0,
-            "startLng": -40,
-            "endLat": 10,
-            "endLng": 40,
-            "startAlt": 0.0,
-            "endAlt": 0.6,
-            "color": "#33ddff",
-        }
-    ]
-    updated_arcs = [
-        {
-            "startLat2": -15,
-            "startLng2": -20,
-            "endLat2": 20,
-            "endLng2": 30,
-            "startAlt2": 0.4,
-            "endAlt2": 0.1,
-            "color2": "#ffcc00",
-        }
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-40,
+            end_lat=10,
+            end_lng=40,
+            start_altitude=0.0,
+            end_altitude=0.6,
+            color="#33ddff",
+            stroke=1.1,
+        )
     ]
 
     config = GlobeConfig(
@@ -439,18 +391,7 @@ def test_arc_start_end_altitude(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_start_altitude="startAlt",
-            arc_end_altitude="endAlt",
-            arc_color="color",
-            arc_stroke=1.1,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.8), transition_ms=0
         ),
@@ -466,14 +407,16 @@ def test_arc_start_end_altitude(
     )
 
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
-    widget.set_arc_start_lat("startLat2")
-    widget.set_arc_start_lng("startLng2")
-    widget.set_arc_end_lat("endLat2")
-    widget.set_arc_end_lng("endLng2")
-    widget.set_arc_start_altitude("startAlt2")
-    widget.set_arc_end_altitude("endAlt2")
-    widget.set_arc_color("color2")
-    widget.set_arcs_data(updated_arcs)
+    widget.update_arc(
+        arc_id,
+        start_lat=-15,
+        start_lng=-20,
+        end_lat=20,
+        end_lng=30,
+        start_altitude=0.4,
+        end_altitude=0.1,
+        color="#ffcc00",
+    )
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
@@ -486,13 +429,15 @@ def test_arc_curve_resolution(
     initial_curve_resolution = 2
     updated_curve_resolution = 120
     arcs_data = [
-        {
-            "startLat": -5,
-            "startLng": -50,
-            "endLat": 15,
-            "endLng": 50,
-            "color": "#ffcc00",
-        }
+        ArcDatum(
+            start_lat=-5,
+            start_lng=-50,
+            end_lat=15,
+            end_lng=50,
+            color="#ffcc00",
+            altitude=0.4,
+            stroke=1.2,
+        )
     ]
 
     config = GlobeConfig(
@@ -507,14 +452,7 @@ def test_arc_curve_resolution(
         ),
         arcs=ArcsLayerConfig(
             arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_altitude=0.4,
             arc_curve_resolution=initial_curve_resolution,
-            arc_stroke=1.2,
             arcs_transition_duration=0,
         ),
         view=GlobeViewConfig(
@@ -541,17 +479,19 @@ def test_arc_curve_resolution(
 def test_arc_circular_resolution(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.983
     initial_circular_resolution = 2
     updated_circular_resolution = 16
     arcs_data = [
-        {
-            "startLat": 10,
-            "startLng": -60,
-            "endLat": -5,
-            "endLng": 60,
-            "color": "#ffcc00",
-        }
+        ArcDatum(
+            start_lat=10,
+            start_lng=-60,
+            end_lat=-5,
+            end_lng=60,
+            color="#ffcc00",
+            altitude=0.35,
+            stroke=2.4,
+        )
     ]
 
     config = GlobeConfig(
@@ -566,14 +506,7 @@ def test_arc_circular_resolution(
         ),
         arcs=ArcsLayerConfig(
             arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_altitude=0.35,
             arc_circular_resolution=initial_circular_resolution,
-            arc_stroke=2.4,
             arcs_transition_duration=0,
         ),
         view=GlobeViewConfig(
@@ -603,8 +536,21 @@ def test_arc_dash_initial_gap(
     canvas_similarity_threshold = 0.99
     initial_gap = 0.0
     updated_gap = 0.6
+    arc_id = uuid4()
     arcs_data = [
-        {"startLat": 0, "startLng": -35, "endLat": 0, "endLng": 35, "color": "#ffcc00"}
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-35,
+            end_lat=0,
+            end_lng=35,
+            color="#ffcc00",
+            stroke=0.9,
+            dash_length=0.2,
+            dash_gap=0.1,
+            dash_initial_gap=initial_gap,
+            dash_animate_time=0.0,
+        )
     ]
 
     config = GlobeConfig(
@@ -617,20 +563,7 @@ def test_arc_dash_initial_gap(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=0.9,
-            arc_dash_length=0.2,
-            arc_dash_gap=0.1,
-            arc_dash_initial_gap=initial_gap,
-            arc_dash_animate_time=0,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -646,7 +579,7 @@ def test_arc_dash_initial_gap(
     )
 
     canvas_assert_capture(page_session, "gap-0", canvas_similarity_threshold)
-    widget.set_arc_dash_initial_gap(updated_gap)
+    widget.update_arc(arc_id, dash_initial_gap=updated_gap)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "gap-0.6", canvas_similarity_threshold)
 
@@ -660,7 +593,17 @@ def test_arc_dash_animation_changes(
     globe_earth_texture_url,
 ) -> None:
     arcs_data = [
-        {"startLat": 0, "startLng": -60, "endLat": 0, "endLng": 60, "color": "#ffcc00"}
+        ArcDatum(
+            start_lat=0,
+            start_lng=-60,
+            end_lat=0,
+            end_lng=60,
+            color="#ffcc00",
+            stroke=2.6,
+            dash_length=0.1,
+            dash_gap=0.2,
+            dash_animate_time=1000,
+        )
     ]
 
     config = GlobeConfig(
@@ -673,19 +616,7 @@ def test_arc_dash_animation_changes(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=2.6,
-            arc_dash_length=0.1,
-            arc_dash_gap=0.2,
-            arc_dash_animate_time=1000,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -731,8 +662,20 @@ def test_arc_dash_animate_time_setter(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.99
+    arc_id = uuid4()
     arcs_data = [
-        {"startLat": 0, "startLng": -60, "endLat": 0, "endLng": 60, "color": "#ffcc00"}
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-60,
+            end_lat=0,
+            end_lng=60,
+            color="#ffcc00",
+            stroke=2.6,
+            dash_length=0.1,
+            dash_gap=0.2,
+            dash_animate_time=0.0,
+        )
     ]
 
     config = GlobeConfig(
@@ -745,19 +688,7 @@ def test_arc_dash_animate_time_setter(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=2.6,
-            arc_dash_length=0.1,
-            arc_dash_gap=0.2,
-            arc_dash_animate_time=0,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -773,7 +704,7 @@ def test_arc_dash_animate_time_setter(
     )
 
     canvas_assert_capture(page_session, "off", canvas_similarity_threshold)
-    widget.set_arc_dash_animate_time(2000)
+    widget.update_arc(arc_id, dash_animate_time=2000)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "on", canvas_similarity_threshold)
 
@@ -784,16 +715,24 @@ def test_arcs_transition_duration(
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_arcs = [
-        {"startLat": 0, "startLng": -40, "endLat": 0, "endLng": 40, "color": "#ffcc00"}
+        ArcDatum(
+            start_lat=0,
+            start_lng=-40,
+            end_lat=0,
+            end_lng=40,
+            color="#ffcc00",
+            stroke=2.0,
+        )
     ]
     updated_arcs = [
-        {
-            "startLat": 20,
-            "startLng": -20,
-            "endLat": -10,
-            "endLng": 30,
-            "color": "#00ccff",
-        }
+        ArcDatum(
+            start_lat=20,
+            start_lng=-20,
+            end_lat=-10,
+            end_lng=30,
+            color="#00ccff",
+            stroke=2.0,
+        )
     ]
 
     config = GlobeConfig(
@@ -806,16 +745,7 @@ def test_arcs_transition_duration(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=initial_arcs,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=2.0,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=initial_arcs, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -840,24 +770,28 @@ def test_arcs_transition_duration(
 @pytest.mark.usefixtures("solara_test")
 def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
     arcs_data = [
-        {
-            "startLat": 0,
-            "startLng": -20,
-            "endLat": 0,
-            "endLng": 20,
-            "color": "#ff00cc",
-            "label": "Initial arc",
-        }
+        ArcDatum(
+            start_lat=0,
+            start_lng=-20,
+            end_lat=0,
+            end_lng=20,
+            color="#ff00cc",
+            label="Initial arc",
+            altitude=0.2,
+            stroke=1.2,
+        )
     ]
     updated_arcs = [
-        {
-            "startLat": 0,
-            "startLng": -20,
-            "endLat": 0,
-            "endLng": 20,
-            "color": "#ff00cc",
-            "label2": "Updated arc",
-        }
+        ArcDatum(
+            start_lat=0,
+            start_lng=-20,
+            end_lat=0,
+            end_lng=20,
+            color="#ff00cc",
+            label="Updated arc",
+            altitude=0.2,
+            stroke=1.2,
+        )
     ]
 
     config = GlobeConfig(
@@ -870,18 +804,7 @@ def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_label="label",
-            arc_color="color",
-            arc_altitude=0.2,
-            arc_stroke=1.2,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.7), transition_ms=0
         ),
@@ -946,7 +869,6 @@ def test_arc_label_tooltip(page_session: Page, globe_earth_texture_url) -> None:
 
     _assert_tooltip("Initial arc")
 
-    widget.set_arc_label("label2")
     widget.set_arcs_data(updated_arcs)
     page_session.wait_for_timeout(200)
     _assert_tooltip("Updated arc")
@@ -958,17 +880,20 @@ def test_arc_altitude_modes(
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_altitude = 0.15
-    initial_auto_scale = None
     updated_altitude = None
     updated_auto_scale = 2.5
+    arc_id = uuid4()
     arcs_data = [
-        {
-            "startLat": 10,
-            "startLng": -40,
-            "endLat": -10,
-            "endLng": 40,
-            "color": "#33ddff",
-        }
+        ArcDatum(
+            id=arc_id,
+            start_lat=10,
+            start_lng=-40,
+            end_lat=-10,
+            end_lng=40,
+            color="#33ddff",
+            altitude=initial_altitude,
+            stroke=0.9,
+        )
     ]
 
     config = GlobeConfig(
@@ -981,18 +906,7 @@ def test_arc_altitude_modes(
             show_atmosphere=False,
             show_graticules=False,
         ),
-        arcs=ArcsLayerConfig(
-            arcs_data=arcs_data,
-            arc_start_lat="startLat",
-            arc_start_lng="startLng",
-            arc_end_lat="endLat",
-            arc_end_lng="endLng",
-            arc_color="color",
-            arc_stroke=0.9,
-            arc_altitude=initial_altitude,
-            arc_altitude_auto_scale=initial_auto_scale,
-            arcs_transition_duration=0,
-        ),
+        arcs=ArcsLayerConfig(arcs_data=arcs_data, arcs_transition_duration=0),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.8), transition_ms=0
         ),
@@ -1008,7 +922,8 @@ def test_arc_altitude_modes(
     )
 
     canvas_assert_capture(page_session, "fixed-altitude", canvas_similarity_threshold)
-    widget.set_arc_altitude(updated_altitude)
-    widget.set_arc_altitude_auto_scale(updated_auto_scale)
+    widget.update_arc(
+        arc_id, altitude=updated_altitude, altitude_auto_scale=updated_auto_scale
+    )
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "auto-scale", canvas_similarity_threshold)

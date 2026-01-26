@@ -13,6 +13,7 @@ from pyglobegl import (
     GlobeLayoutConfig,
     GlobeViewConfig,
     GlobeWidget,
+    PointDatum,
     PointOfView,
     PointsLayerConfig,
 )
@@ -45,11 +46,16 @@ def test_on_point_click_callback(
             show_graticules=False,
         ),
         points=PointsLayerConfig(
-            points_data=[{"lat": 0, "lng": 0, "label": "Center"}],
-            point_label="label",
-            point_altitude=0.2,
-            point_radius=1.2,
-            point_color="#ffff00",
+            points_data=[
+                PointDatum(
+                    lat=0,
+                    lng=0,
+                    label="Center",
+                    altitude=0.2,
+                    radius=1.2,
+                    color="#ffff00",
+                )
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -105,11 +111,16 @@ def test_on_point_right_click_callback(
             show_graticules=False,
         ),
         points=PointsLayerConfig(
-            points_data=[{"lat": 0, "lng": 0, "label": "Center"}],
-            point_label="label",
-            point_altitude=0.2,
-            point_radius=1.2,
-            point_color="#00ffff",
+            points_data=[
+                PointDatum(
+                    lat=0,
+                    lng=0,
+                    label="Center",
+                    altitude=0.2,
+                    radius=1.2,
+                    color="#00ffff",
+                )
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -165,11 +176,16 @@ def test_on_point_hover_callback(
             show_graticules=False,
         ),
         points=PointsLayerConfig(
-            points_data=[{"lat": 0, "lng": 0, "label": "Center"}],
-            point_label="label",
-            point_altitude=0.2,
-            point_radius=1.2,
-            point_color="#ff00ff",
+            points_data=[
+                PointDatum(
+                    lat=0,
+                    lng=0,
+                    label="Center",
+                    altitude=0.2,
+                    radius=1.2,
+                    color="#ff00ff",
+                )
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -208,10 +224,16 @@ def test_points_merge_disables_click(
             show_graticules=False,
         ),
         points=PointsLayerConfig(
-            points_data=[{"lat": 0, "lng": 0, "label": "Center"}],
-            point_altitude=0.2,
-            point_radius=1.2,
-            point_color="#ffffff",
+            points_data=[
+                PointDatum(
+                    lat=0,
+                    lng=0,
+                    label="Center",
+                    altitude=0.2,
+                    radius=1.2,
+                    color="#ffffff",
+                )
+            ],
             points_merge=True,
         ),
         view=GlobeViewConfig(

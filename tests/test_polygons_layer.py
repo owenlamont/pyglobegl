@@ -15,6 +15,7 @@ from pyglobegl import (
     GlobeInitConfig,
     GlobeLayerConfig,
     GlobeLayoutConfig,
+    GlobeMaterialSpec,
     GlobeViewConfig,
     GlobeWidget,
     PointOfView,
@@ -159,45 +160,38 @@ def test_polygons_accessors(
 ) -> None:
     canvas_similarity_threshold = 0.975
     polygons_data = [
-        {
-            "geom": _polygon(-25, -5, -5, 10),
-            "cap_color": "#ff66cc",
-            "side_color": "#ff66cc",
-            "stroke_color": None,
-            "altitude": 0.05,
-            "cap_resolution": 0.5,
-        },
-        {
-            "geom": _polygon(5, -5, 25, 10),
-            "cap_color": "#66ccff",
-            "side_color": "#66ccff",
-            "stroke_color": None,
-            "altitude": 0.05,
-            "cap_resolution": 1.0,
-        },
+        PolygonDatum(
+            geometry=_polygon(-25, -5, -5, 10),
+            cap_color="#ff66cc",
+            side_color="#ff66cc",
+            stroke_color=None,
+            altitude=0.05,
+            cap_curvature_resolution=0.5,
+        ),
+        PolygonDatum(
+            geometry=_polygon(5, -5, 25, 10),
+            cap_color="#66ccff",
+            side_color="#66ccff",
+            stroke_color=None,
+            altitude=0.05,
+            cap_curvature_resolution=1.0,
+        ),
     ]
     updated_polygons = [
-        {
-            "geom2": _polygon(-10, -10, 10, 0),
-            "cap_color2": "#ffcc00",
-            "side_color2": "#3366ff",
-            "stroke_color2": None,
-            "altitude2": 0.08,
-            "cap_resolution2": 0.2,
-        }
+        PolygonDatum(
+            geometry=_polygon(-10, -10, 10, 0),
+            cap_color="#ffcc00",
+            side_color="#3366ff",
+            stroke_color=None,
+            altitude=0.08,
+            cap_curvature_resolution=0.2,
+        )
     ]
 
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
-            polygons_data=polygons_data,
-            polygon_geojson_geometry="geom",
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution="cap_resolution",
-            polygons_transition_duration=0,
+            polygons_data=polygons_data, polygons_transition_duration=0
         ),
     )
     widget = GlobeWidget(config=config)
@@ -213,12 +207,6 @@ def test_polygons_accessors(
         canvas_save_capture,
         canvas_similarity_threshold,
     )
-    widget.set_polygon_geojson_geometry("geom2")
-    widget.set_polygon_cap_color("cap_color2")
-    widget.set_polygon_side_color("side_color2")
-    widget.set_polygon_stroke_color("stroke_color2")
-    widget.set_polygon_altitude("altitude2")
-    widget.set_polygon_cap_curvature_resolution("cap_resolution2")
     widget.set_polygons_data(updated_polygons)
     page_session.wait_for_timeout(100)
     _assert_canvas_matches(
@@ -237,34 +225,28 @@ def test_polygon_label_tooltip(
     page_session: Page, globe_hoverer, globe_flat_texture_data_url
 ) -> None:
     polygons_data = [
-        {
-            "geom": _polygon(-10, -5, 10, 5),
-            "label": "Initial polygon",
-            "cap_color": "#ffcc00",
-            "side_color": "#ffcc00",
-            "altitude": 0.06,
-        }
+        PolygonDatum(
+            geometry=_polygon(-10, -5, 10, 5),
+            label="Initial polygon",
+            cap_color="#ffcc00",
+            side_color="#ffcc00",
+            altitude=0.06,
+        )
     ]
     updated_polygons = [
-        {
-            "geom": _polygon(-10, -5, 10, 5),
-            "label2": "Updated polygon",
-            "cap_color": "#ffcc00",
-            "side_color": "#ffcc00",
-            "altitude": 0.06,
-        }
+        PolygonDatum(
+            geometry=_polygon(-10, -5, 10, 5),
+            label="Updated polygon",
+            cap_color="#ffcc00",
+            side_color="#ffcc00",
+            altitude=0.06,
+        )
     ]
 
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
-            polygons_data=polygons_data,
-            polygon_geojson_geometry="geom",
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_altitude="altitude",
-            polygon_label="label",
-            polygons_transition_duration=0,
+            polygons_data=polygons_data, polygons_transition_duration=0
         ),
         altitude=1.7,
     )
@@ -290,7 +272,6 @@ def test_polygon_label_tooltip(
         timeout=20000,
     )
 
-    widget.set_polygon_label("label2")
     widget.set_polygons_data(updated_polygons)
     page_session.wait_for_timeout(100)
     globe_hoverer(page_session)
@@ -323,34 +304,28 @@ def test_polygons_transition_duration(
 ) -> None:
     canvas_similarity_threshold = 0.984
     initial_polygons = [
-        {
-            "geom": _polygon(-30, -10, -10, 10),
-            "cap_color": "#ffcc00",
-            "side_color": "#ffcc00",
-            "stroke_color": None,
-            "altitude": 0.08,
-        }
+        PolygonDatum(
+            geometry=_polygon(-30, -10, -10, 10),
+            cap_color="#ffcc00",
+            side_color="#ffcc00",
+            stroke_color=None,
+            altitude=0.08,
+        )
     ]
     updated_polygons = [
-        {
-            "geom": _polygon(10, -10, 30, 10),
-            "cap_color": "#66ccff",
-            "side_color": "#66ccff",
-            "stroke_color": None,
-            "altitude": 0.08,
-        }
+        PolygonDatum(
+            geometry=_polygon(10, -10, 30, 10),
+            cap_color="#66ccff",
+            side_color="#66ccff",
+            stroke_color=None,
+            altitude=0.08,
+        )
     ]
 
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
-            polygons_data=initial_polygons,
-            polygon_geojson_geometry="geom",
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygons_transition_duration=1200,
+            polygons_data=initial_polygons, polygons_transition_duration=1200
         ),
     )
     widget = GlobeWidget(config=config)
@@ -392,23 +367,18 @@ def test_polygon_cap_material(
     canvas_similarity_threshold = 0.99
     polygon_id = uuid4()
     polygons_data = [
-        {
-            "id": polygon_id,
-            "geom": _circle_polygon(0, 0, 10, steps=36),
-            "cap_color": "#ffcc00",
-            "side_color": "#334455",
-            "altitude": 0.12,
-        }
+        PolygonDatum(
+            id=polygon_id,
+            geometry=_circle_polygon(0, 0, 10, steps=36),
+            cap_color="#ffcc00",
+            side_color="#334455",
+            altitude=0.12,
+        )
     ]
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
-            polygons_data=polygons_data,
-            polygon_geojson_geometry="geom",
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_altitude="altitude",
-            polygons_transition_duration=0,
+            polygons_data=polygons_data, polygons_transition_duration=0
         ),
         altitude=1.7,
     )
@@ -427,7 +397,9 @@ def test_polygon_cap_material(
     )
 
     widget.set_polygon_cap_material(
-        {"type": "MeshBasicMaterial", "params": {"color": "#00ff00", "wireframe": True}}
+        GlobeMaterialSpec(
+            type="MeshBasicMaterial", params={"color": "#00ff00", "wireframe": True}
+        )
     )
     page_session.wait_for_timeout(100)
     _assert_canvas_matches(
@@ -452,22 +424,17 @@ def test_polygon_side_material(
 ) -> None:
     canvas_similarity_threshold = 0.99
     polygons_data = [
-        {
-            "geom": _circle_polygon(0, 0, 8, steps=36),
-            "cap_color": "#ffcc00",
-            "side_color": "#223344",
-            "altitude": 0.18,
-        }
+        PolygonDatum(
+            geometry=_circle_polygon(0, 0, 8, steps=36),
+            cap_color="#ffcc00",
+            side_color="#223344",
+            altitude=0.18,
+        )
     ]
     config = _make_config(
         globe_flat_texture_data_url,
         PolygonsLayerConfig(
-            polygons_data=polygons_data,
-            polygon_geojson_geometry="geom",
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_altitude="altitude",
-            polygons_transition_duration=0,
+            polygons_data=polygons_data, polygons_transition_duration=0
         ),
         lat=0,
         lng=90,
@@ -488,7 +455,9 @@ def test_polygon_side_material(
     )
 
     widget.set_polygon_side_material(
-        {"type": "MeshBasicMaterial", "params": {"color": "#00ccff", "wireframe": True}}
+        GlobeMaterialSpec(
+            type="MeshBasicMaterial", params={"color": "#00ccff", "wireframe": True}
+        )
     )
     page_session.wait_for_timeout(100)
     _assert_canvas_matches(
@@ -527,13 +496,9 @@ def test_polygon_cap_color(
                     side_color=initial_cap_color,
                     stroke_color=None,
                     altitude=0.3,
+                    cap_curvature_resolution=4.0,
                 )
             ],
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=4.0,
             polygons_transition_duration=0,
         ),
     )
@@ -590,13 +555,9 @@ def test_polygon_side_color(
                     side_color=initial_side_color,
                     stroke_color=None,
                     altitude=0.4,
+                    cap_curvature_resolution=4.0,
                 )
             ],
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=4.0,
             polygons_transition_duration=0,
         ),
         lat=40,
@@ -653,13 +614,9 @@ def test_polygon_stroke_color(
                     side_color="#ffcc66",
                     stroke_color=initial_stroke_color,
                     altitude=0.3,
+                    cap_curvature_resolution=4.0,
                 )
             ],
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=4.0,
             polygons_transition_duration=0,
         ),
     )
@@ -714,13 +671,9 @@ def test_polygon_altitude(
                     side_color="#66ccff",
                     stroke_color=None,
                     altitude=initial_altitude,
+                    cap_curvature_resolution=4.0,
                 )
             ],
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=4.0,
             polygons_transition_duration=0,
         ),
     )
@@ -770,13 +723,9 @@ def test_polygon_cap_curvature_resolution(
                     side_color="#1f3b52",
                     stroke_color=None,
                     altitude=0.06,
+                    cap_curvature_resolution=initial_curvature,
                 )
             ],
-            polygon_cap_color="cap_color",
-            polygon_side_color="side_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
-            polygon_cap_curvature_resolution=initial_curvature,
             polygons_transition_duration=0,
         ),
         lat=0,

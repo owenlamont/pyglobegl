@@ -70,10 +70,7 @@ def test_on_polygon_click_callback(
                     stroke_color="#ffffff",
                     altitude=0.05,
                 )
-            ],
-            polygon_cap_color="cap_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -138,10 +135,7 @@ def test_on_polygon_right_click_callback(
                     stroke_color="#ffffff",
                     altitude=0.05,
                 )
-            ],
-            polygon_cap_color="cap_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0
@@ -206,10 +200,7 @@ def test_on_polygon_hover_callback(
                     stroke_color="#ffffff",
                     altitude=0.05,
                 )
-            ],
-            polygon_cap_color="cap_color",
-            polygon_stroke_color="stroke_color",
-            polygon_altitude="altitude",
+            ]
         ),
         view=GlobeViewConfig(
             point_of_view=PointOfView(lat=0, lng=0, altitude=1.6), transition_ms=0

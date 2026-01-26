@@ -8,7 +8,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import MultiPolygon, Point, Polygon
 
-from pyglobegl import polygons_from_gdf
+from pyglobegl import PolygonDatum, polygons_from_gdf
 
 
 def _square(west: float, south: float, east: float, north: float) -> Polygon:
@@ -35,11 +35,12 @@ def test_polygons_from_gdf_validates_schema() -> None:
     )
     assert len(polygons) == 1
     polygon = polygons[0]
-    assert polygon["name"] == "Zone A"
-    assert polygon["population"] == 120
-    assert polygon["altitude"] == 0.05
-    assert polygon["cap_color"] == "#ffcc00"
-    assert isinstance(polygon["geometry"], GeoJsonPolygon)
+    assert isinstance(polygon, PolygonDatum)
+    assert polygon.name == "Zone A"
+    assert polygon.model_dump(exclude={"id", "geometry"})["population"] == 120
+    assert polygon.altitude == 0.05
+    assert polygon.cap_color == "#ffcc00"
+    assert isinstance(polygon.geometry, GeoJsonPolygon)
 
 
 def test_polygons_from_gdf_reprojects_geometry() -> None:
@@ -51,7 +52,9 @@ def test_polygons_from_gdf_reprojects_geometry() -> None:
     ).to_crs(3857)
 
     polygons = polygons_from_gdf(gdf, include_columns=["name"])
-    geometry = polygons[0]["geometry"]
+    polygon = polygons[0]
+    assert isinstance(polygon, PolygonDatum)
+    geometry = polygon.geometry
     assert isinstance(geometry, GeoJsonPolygon)
     coords = geometry.coordinates[0][0]
     assert coords[0] == pytest.approx(-10, abs=1e-6)
@@ -116,4 +119,5 @@ def test_polygons_from_gdf_accepts_multipolygon() -> None:
     )
 
     polygons = polygons_from_gdf(gdf, include_columns=["name"])
-    assert isinstance(polygons[0]["geometry"], GeoJsonMultiPolygon)
+    assert isinstance(polygons[0], PolygonDatum)
+    assert isinstance(polygons[0].geometry, GeoJsonMultiPolygon)
