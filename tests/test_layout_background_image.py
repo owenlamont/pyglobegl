@@ -26,10 +26,10 @@ def test_layout_background_image(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
     globe_background_night_sky_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False

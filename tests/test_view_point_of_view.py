@@ -42,11 +42,11 @@ def test_view_point_of_view(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
     pov,
     expected_altitude,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False

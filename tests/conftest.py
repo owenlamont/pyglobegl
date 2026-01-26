@@ -21,9 +21,6 @@ from skimage.metrics import structural_similarity
 from pyglobegl.images import image_to_data_url
 
 
-_SSIM_THRESHOLD = 0.86
-
-
 def _is_wsl() -> bool:
     version = pathlib.Path("/proc/version")
     if not version.exists():
@@ -457,11 +454,6 @@ def canvas_save_capture() -> Callable[[Image.Image, str, bool], pathlib.Path]:
 
 
 @pytest.fixture
-def canvas_similarity_threshold() -> float:
-    return _SSIM_THRESHOLD
-
-
-@pytest.fixture
 def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], float]:
     def _compare(captured: Image.Image, reference_path: pathlib.Path) -> float:
         reference = Image.open(reference_path).convert("RGBA")
@@ -478,6 +470,49 @@ def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], float]:
         return float(score)
 
     return _compare
+
+
+@pytest.fixture
+def canvas_assert_capture(
+    canvas_capture,
+    canvas_label,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+) -> Callable[[PlaywrightPage, str, float], None]:
+    def _assert(page: PlaywrightPage, capture_label: str, threshold: float) -> None:
+        if not capture_label:
+            raise ValueError("capture_label must be non-empty.")
+        if capture_label == canvas_label or capture_label.startswith(
+            f"{canvas_label}-"
+        ):
+            raise ValueError(
+                "capture_label must exclude the test name prefix; it is added "
+                "automatically."
+            )
+        label = f"{canvas_label}-{_safe_name(capture_label)}"
+        captured_image = canvas_capture(page)
+        reference_path = canvas_reference_path(label)
+        if not reference_path.exists():
+            reference_path.parent.mkdir(parents=True, exist_ok=True)
+            captured_image.save(reference_path)
+            raise AssertionError(
+                "Reference image missing. Saved capture to "
+                f"{reference_path}; verify and re-run."
+            )
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+            passed = score >= threshold
+        except Exception:
+            canvas_save_capture(captured_image, label, False)
+            raise
+        canvas_save_capture(captured_image, label, passed)
+        assert passed, (
+            "Captured image similarity below threshold. "
+            f"Score: {score:.4f} (threshold {threshold:.4f})."
+        )
+
+    return _assert
 
 
 @pytest.fixture(scope="session")

@@ -64,24 +64,25 @@ from pyglobegl import (
 )
 
 points = [
-    PointDatum(lat=0, lng=0, size=0.25, color="#ff0000", label="Center"),
-    PointDatum(lat=15, lng=-45, size=0.12, color="#00ff00", label="West"),
+    PointDatum(lat=0, lng=0, altitude=0.25, color="#ff0000", label="Center"),
+    PointDatum(lat=15, lng=-45, altitude=0.12, color="#00ff00", label="West"),
 ]
 
 config = GlobeConfig(
     globe=GlobeLayerConfig(
         globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
     ),
-    points=PointsLayerConfig(
-        points_data=points,
-        point_altitude="size",
-        point_color="color",
-        point_label="label",
-    ),
+    points=PointsLayerConfig(points_data=points),
 )
 
 display(GlobeWidget(config=config))
 ```
+
+pyglobegl expects layer data as Pydantic models (`PointDatum`, `ArcDatum`,
+`PolygonDatum`). Dynamic accessor remapping is not supported; per-datum values
+are read from the model field names. Numeric fields reject string values, and
+data model defaults mirror globe.gl defaults so omitted values still render
+predictably.
 
 ## Arcs Layer
 
@@ -103,6 +104,8 @@ arcs = [
         end_lat=10,
         end_lng=40,
         altitude=0.2,
+        color="#ffcc00",
+        stroke=1.2,
     ),
     ArcDatum(
         start_lat=20,
@@ -110,6 +113,8 @@ arcs = [
         end_lat=-10,
         end_lng=-50,
         altitude=0.1,
+        color="#ffcc00",
+        stroke=1.2,
     ),
 ]
 
@@ -117,20 +122,89 @@ config = GlobeConfig(
     globe=GlobeLayerConfig(
         globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
     ),
-    arcs=ArcsLayerConfig(
-        arcs_data=arcs,
-        arc_altitude="altitude",
-        arc_color="#ffcc00",
-        arc_stroke=1.2,
+    arcs=ArcsLayerConfig(arcs_data=arcs),
+)
+
+display(GlobeWidget(config=config))
+```
+
+## Polygons Layer
+
+```python
+from IPython.display import display
+from geojson_pydantic import Polygon
+
+from pyglobegl import (
+    GlobeConfig,
+    GlobeLayerConfig,
+    GlobeWidget,
+    PolygonDatum,
+    PolygonsLayerConfig,
+)
+
+polygon = Polygon(
+    type="Polygon",
+    coordinates=[
+        [
+            (-10, 0),
+            (-10, 10),
+            (10, 10),
+            (10, 0),
+            (-10, 0),
+        ]
+    ],
+)
+
+config = GlobeConfig(
+    globe=GlobeLayerConfig(
+        globe_image_url="https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-day.jpg"
+    ),
+    polygons=PolygonsLayerConfig(
+        polygons_data=[
+            PolygonDatum(geometry=polygon, cap_color="#ffcc00", altitude=0.05)
+        ],
     ),
 )
 
 display(GlobeWidget(config=config))
 ```
 
+## Runtime Updates and Callbacks
+
+Use `GlobeWidget` setters to update data and accessors after the widget is
+rendered. Each datum includes an auto-generated UUID4 `id` unless provided.
+Callback payloads include the datum (and its `id`) so you can update visuals in
+response to user input.
+Runtime update helpers validate UUID4 ids; invalid ids raise a validation error.
+Batch updates use the patch models (`PointDatumPatch`, `ArcDatumPatch`,
+`PolygonDatumPatch`) so updates are serialized with the correct globe.gl field
+names.
+
+```python
+widget = GlobeWidget(config=config)
+display(widget)
+
+def on_polygon_hover(current, previous):
+    if previous:
+        widget.update_polygon(
+            previous["id"],
+            cap_color=previous["base_color"],
+            altitude=previous["altitude"],
+        )
+    if current:
+        widget.update_polygon(
+            current["id"],
+            cap_color="#2f80ff",
+            altitude=current["altitude"] + 0.03,
+        )
+
+widget.on_polygon_hover(on_polygon_hover)
+```
+
 ## GeoPandas Helpers (Optional)
 
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
+These helpers return Pydantic models (`PointDatum`, `ArcDatum`, `PolygonDatum`).
 Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 
 ```python
@@ -170,10 +244,32 @@ gdf = gpd.GeoDataFrame(
 arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
 
+```python
+import geopandas as gpd
+from shapely.geometry import Polygon
+
+from pyglobegl import polygons_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Zone A"],
+        "polygons": [
+            Polygon([(-10, 0), (-10, 10), (10, 10), (10, 0), (-10, 0)]),
+        ],
+    },
+    geometry="polygons",
+    crs="EPSG:4326",
+)
+polygons = polygons_from_gdf(gdf, include_columns=["name"])
+```
+
 `points_from_gdf` defaults to a point geometry column named `point` if present,
 otherwise it uses the active GeoDataFrame geometry column (override with
 `point_geometry=`). `arcs_from_gdf` expects point geometry columns named
 `start` and `end` (override with `start_geometry=` and `end_geometry=`).
+`polygons_from_gdf` defaults to a geometry column named `polygons` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`geometry_column=`).
 
 ## Goals
 
@@ -192,7 +288,7 @@ otherwise it uses the active GeoDataFrame geometry column (override with
     - [x] Globe layer
     - [x] Points layer
     - [x] Arcs layer
-    - [ ] Polygons layer
+    - [x] Polygons layer
     - [ ] Paths layer
     - [ ] Heatmaps layer
     - [ ] Hex bin layer
@@ -232,25 +328,6 @@ otherwise it uses the active GeoDataFrame geometry column (override with
 
 1) `cd frontend && pnpm run build`
 2) `uv build`
-
-### WSL2 Test Notes
-
-- WSL2 UI tests require WSLg with a working display socket (Wayland or X11) and
-  WebGL available in the Playwright Chromium build.
-- If the UI tests are meant to enforce hardware acceleration, set
-  `PYGLOBEGL_REQUIRE_HW_ACCEL=1` before running pytest so software renderers
-  skip early.
-- On WSL2, the UI test harness retries the browser launch with the D3D12-backed
-  Mesa driver if the initial WebGL probe reports a software renderer. You can
-  still set `GALLIUM_DRIVER=d3d12` and `MESA_LOADER_DRIVER_OVERRIDE=d3d12`
-  manually, and optionally set `PYGLOBEGL_WSL_GPU_ADAPTER=<GPU name>` to map to
-  `MESA_D3D12_DEFAULT_ADAPTER_NAME` when multiple adapters are present.
-
-### Windows Test Notes
-
-- The Playwright Chromium launch adds ANGLE GPU flags on Windows to prefer
-  hardware acceleration (D3D11 via ANGLE). If the GPU path is unavailable,
-  Chromium can still fall back to software rendering.
 
 ### UI Test Artifacts
 

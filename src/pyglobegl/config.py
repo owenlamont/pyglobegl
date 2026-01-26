@@ -1,37 +1,39 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
+from uuid import uuid4
 
-from pydantic import AnyUrl, BaseModel, Field, field_serializer, PositiveInt
+from geojson_pydantic import MultiPolygon, Polygon
+from pydantic import AnyUrl, BaseModel, Field, field_serializer, model_validator, UUID4
 
 
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
     """Initialization settings for globe.gl."""
 
-    renderer_config: Mapping[str, Any] | None = Field(
-        default=None, serialization_alias="rendererConfig"
-    )
-    wait_for_globe_ready: bool = Field(
-        default=True, serialization_alias="waitForGlobeReady"
-    )
-    animate_in: bool = Field(default=True, serialization_alias="animateIn")
+    renderer_config: Annotated[
+        Mapping[str, Any] | None, Field(serialization_alias="rendererConfig")
+    ] = None
+    wait_for_globe_ready: Annotated[
+        bool, Field(serialization_alias="waitForGlobeReady")
+    ] = True
+    animate_in: Annotated[bool, Field(serialization_alias="animateIn")] = True
 
 
 class GlobeLayoutConfig(BaseModel, extra="forbid", frozen=True):
     """Layout settings for globe.gl rendering."""
 
-    width: PositiveInt | None = None
-    height: PositiveInt | None = None
-    globe_offset: tuple[float, float] | None = Field(
-        default=None, serialization_alias="globeOffset"
-    )
-    background_color: str | None = Field(
-        default=None, serialization_alias="backgroundColor"
-    )
-    background_image_url: AnyUrl | None = Field(
-        default=None, serialization_alias="backgroundImageUrl"
-    )
+    width: Annotated[int | None, Field(gt=0)] = None
+    height: Annotated[int | None, Field(gt=0)] = None
+    globe_offset: Annotated[
+        tuple[float, float] | None, Field(serialization_alias="globeOffset")
+    ] = None
+    background_color: Annotated[
+        str | None, Field(serialization_alias="backgroundColor")
+    ] = None
+    background_image_url: Annotated[
+        AnyUrl | None, Field(serialization_alias="backgroundImageUrl")
+    ] = None
 
     @field_serializer("background_image_url", when_used="always")
     def _serialize_background_image(self, value: AnyUrl | None) -> str | None:
@@ -42,40 +44,41 @@ class GlobeMaterialSpec(BaseModel, extra="forbid", frozen=True):
     """Specification for constructing a ThreeJS material in the frontend."""
 
     type: str
-    params: dict[str, Any] = Field(default_factory=dict)
+    # Keep explicit default assignment for type checkers even with Annotated Field.
+    params: Annotated[dict[str, Any], Field(default_factory=dict)] = Field(
+        default_factory=dict
+    )
 
 
 class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
     """Globe layer settings for globe.gl."""
 
-    globe_image_url: AnyUrl | None = Field(
-        default=None, serialization_alias="globeImageUrl"
+    globe_image_url: Annotated[
+        AnyUrl | None, Field(serialization_alias="globeImageUrl")
+    ] = None
+    bump_image_url: Annotated[
+        AnyUrl | None, Field(serialization_alias="bumpImageUrl")
+    ] = None
+    globe_tile_engine_url: Annotated[
+        str | None, Field(serialization_alias="globeTileEngineUrl")
+    ] = None
+    show_globe: Annotated[bool, Field(serialization_alias="showGlobe")] = True
+    show_graticules: Annotated[bool, Field(serialization_alias="showGraticules")] = (
+        False
     )
-    bump_image_url: AnyUrl | None = Field(
-        default=None, serialization_alias="bumpImageUrl"
-    )
-    globe_tile_engine_url: str | None = Field(
-        default=None, serialization_alias="globeTileEngineUrl"
-    )
-    show_globe: bool | None = Field(default=None, serialization_alias="showGlobe")
-    show_graticules: bool | None = Field(
-        default=None, serialization_alias="showGraticules"
-    )
-    show_atmosphere: bool | None = Field(
-        default=None, serialization_alias="showAtmosphere"
-    )
-    atmosphere_color: str | None = Field(
-        default=None, serialization_alias="atmosphereColor"
-    )
-    atmosphere_altitude: float | None = Field(
-        default=None, serialization_alias="atmosphereAltitude"
-    )
-    globe_curvature_resolution: float | None = Field(
-        default=None, serialization_alias="globeCurvatureResolution"
-    )
-    globe_material: GlobeMaterialSpec | dict[str, Any] | None = Field(
-        default=None, serialization_alias="globeMaterial"
-    )
+    show_atmosphere: Annotated[bool, Field(serialization_alias="showAtmosphere")] = True
+    atmosphere_color: Annotated[
+        str | None, Field(serialization_alias="atmosphereColor")
+    ] = None
+    atmosphere_altitude: Annotated[
+        float | None, Field(serialization_alias="atmosphereAltitude")
+    ] = None
+    globe_curvature_resolution: Annotated[
+        float | None, Field(serialization_alias="globeCurvatureResolution")
+    ] = None
+    globe_material: Annotated[
+        GlobeMaterialSpec | None, Field(serialization_alias="globeMaterial")
+    ] = None
 
     @field_serializer("globe_image_url", "bump_image_url", when_used="always")
     def _serialize_globe_images(self, value: AnyUrl | None) -> str | None:
@@ -85,126 +88,204 @@ class GlobeLayerConfig(BaseModel, extra="forbid", frozen=True):
 class PointDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a points layer entry."""
 
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
     lat: float
     lng: float
+    altitude: float = 0.1
+    radius: float = 0.25
+    color: str = "#ffffaa"
+    label: str | None = None
+
+
+class PointDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a points layer entry."""
+
+    id: UUID4
+    lat: float | None = None
+    lng: float | None = None
     altitude: float | None = None
     radius: float | None = None
     color: str | None = None
     label: str | None = None
-    size: float | None = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> PointDatumPatch:
+        for field in ("lat", "lng", "altitude", "radius", "color"):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
 
 
 class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
     """Points layer settings for globe.gl."""
 
-    points_data: list[PointDatum] | list[dict[str, Any]] | None = Field(
-        default=None, serialization_alias="pointsData"
-    )
-    point_label: str | None = Field(default=None, serialization_alias="pointLabel")
-    point_lat: float | str | None = Field(default=None, serialization_alias="pointLat")
-    point_lng: float | str | None = Field(default=None, serialization_alias="pointLng")
-    point_color: str | None = Field(default=None, serialization_alias="pointColor")
-    point_altitude: float | str | None = Field(
-        default=None, serialization_alias="pointAltitude"
-    )
-    point_radius: float | str | None = Field(
-        default=None, serialization_alias="pointRadius"
-    )
-    point_resolution: int | None = Field(
-        default=None, serialization_alias="pointResolution"
-    )
-    points_merge: bool | None = Field(default=None, serialization_alias="pointsMerge")
-    points_transition_duration: int | None = Field(
-        default=None, serialization_alias="pointsTransitionDuration"
-    )
+    points_data: Annotated[
+        list[PointDatum] | None, Field(serialization_alias="pointsData")
+    ] = None
+    point_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="pointResolution")
+    ] = 12
+    points_merge: Annotated[bool, Field(serialization_alias="pointsMerge")] = False
+    points_transition_duration: Annotated[
+        int, Field(serialization_alias="pointsTransitionDuration")
+    ] = 1000
 
 
 class ArcDatum(BaseModel, extra="allow", frozen=True):
     """Data model for an arcs layer entry."""
 
-    start_lat: float = Field(serialization_alias="startLat")
-    start_lng: float = Field(serialization_alias="startLng")
-    end_lat: float = Field(serialization_alias="endLat")
-    end_lng: float = Field(serialization_alias="endLng")
-    start_altitude: float | None = Field(
-        default=None, serialization_alias="startAltitude"
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    start_lat: Annotated[float, Field(serialization_alias="startLat")]
+    start_lng: Annotated[float, Field(serialization_alias="startLng")]
+    end_lat: Annotated[float, Field(serialization_alias="endLat")]
+    end_lng: Annotated[float, Field(serialization_alias="endLng")]
+    start_altitude: Annotated[
+        float, Field(default=0.0, serialization_alias="startAltitude")
+    ] = 0.0
+    end_altitude: Annotated[
+        float, Field(default=0.0, serialization_alias="endAltitude")
+    ] = 0.0
+    altitude: Annotated[float | None, Field(serialization_alias="altitude")] = None
+    altitude_auto_scale: Annotated[
+        float, Field(serialization_alias="altitudeAutoScale")
+    ] = 0.5
+    stroke: Annotated[float | None, Field(serialization_alias="stroke")] = None
+    dash_length: Annotated[float, Field(serialization_alias="dashLength")] = 1.0
+    dash_gap: Annotated[float, Field(serialization_alias="dashGap")] = 0.0
+    dash_initial_gap: Annotated[float, Field(serialization_alias="dashInitialGap")] = (
+        0.0
     )
-    end_altitude: float | None = Field(default=None, serialization_alias="endAltitude")
-    altitude: float | None = Field(default=None, serialization_alias="altitude")
-    altitude_auto_scale: float | None = Field(
-        default=None, serialization_alias="altitudeAutoScale"
-    )
-    stroke: float | None = Field(default=None, serialization_alias="stroke")
-    dash_length: float | None = Field(default=None, serialization_alias="dashLength")
-    dash_gap: float | None = Field(default=None, serialization_alias="dashGap")
-    dash_initial_gap: float | None = Field(
-        default=None, serialization_alias="dashInitialGap"
-    )
-    dash_animate_time: float | None = Field(
-        default=None, serialization_alias="dashAnimateTime"
-    )
-    color: str | None = None
+    dash_animate_time: Annotated[
+        float, Field(serialization_alias="dashAnimateTime")
+    ] = 0.0
+    color: str | list[str] = "#ffffaa"
     label: str | None = None
+
+
+class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for an arcs layer entry."""
+
+    id: UUID4
+    start_lat: Annotated[float | None, Field(serialization_alias="startLat")] = None
+    start_lng: Annotated[float | None, Field(serialization_alias="startLng")] = None
+    end_lat: Annotated[float | None, Field(serialization_alias="endLat")] = None
+    end_lng: Annotated[float | None, Field(serialization_alias="endLng")] = None
+    start_altitude: Annotated[
+        float | None, Field(serialization_alias="startAltitude")
+    ] = None
+    end_altitude: Annotated[float | None, Field(serialization_alias="endAltitude")] = (
+        None
+    )
+    altitude: Annotated[float | None, Field(serialization_alias="altitude")] = None
+    altitude_auto_scale: Annotated[
+        float | None, Field(serialization_alias="altitudeAutoScale")
+    ] = None
+    stroke: Annotated[float | None, Field(serialization_alias="stroke")] = None
+    dash_length: Annotated[float | None, Field(serialization_alias="dashLength")] = None
+    dash_gap: Annotated[float | None, Field(serialization_alias="dashGap")] = None
+    dash_initial_gap: Annotated[
+        float | None, Field(serialization_alias="dashInitialGap")
+    ] = None
+    dash_animate_time: Annotated[
+        float | None, Field(serialization_alias="dashAnimateTime")
+    ] = None
+    color: str | list[str] | None = None
+    label: str | None = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> ArcDatumPatch:
+        for field in (
+            "start_lat",
+            "start_lng",
+            "end_lat",
+            "end_lng",
+            "start_altitude",
+            "end_altitude",
+            "altitude_auto_scale",
+            "dash_length",
+            "dash_gap",
+            "dash_initial_gap",
+            "dash_animate_time",
+            "color",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
 
 
 class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
     """Arcs layer settings for globe.gl."""
 
-    arcs_data: list[ArcDatum] | list[dict[str, Any]] | None = Field(
-        default=None, serialization_alias="arcsData"
-    )
-    arc_label: str | None = Field(default=None, serialization_alias="arcLabel")
-    arc_start_lat: float | str | None = Field(
-        default=None, serialization_alias="arcStartLat"
-    )
-    arc_start_lng: float | str | None = Field(
-        default=None, serialization_alias="arcStartLng"
-    )
-    arc_start_altitude: float | str | None = Field(
-        default=None, serialization_alias="arcStartAltitude"
-    )
-    arc_end_lat: float | str | None = Field(
-        default=None, serialization_alias="arcEndLat"
-    )
-    arc_end_lng: float | str | None = Field(
-        default=None, serialization_alias="arcEndLng"
-    )
-    arc_end_altitude: float | str | None = Field(
-        default=None, serialization_alias="arcEndAltitude"
-    )
-    arc_color: str | list[str] | None = Field(
-        default=None, serialization_alias="arcColor"
-    )
-    arc_altitude: float | str | None = Field(
-        default=None, serialization_alias="arcAltitude"
-    )
-    arc_altitude_auto_scale: float | str | None = Field(
-        default=None, serialization_alias="arcAltitudeAutoScale"
-    )
-    arc_stroke: float | str | None = Field(
-        default=None, serialization_alias="arcStroke"
-    )
-    arc_curve_resolution: int | None = Field(
-        default=None, serialization_alias="arcCurveResolution"
-    )
-    arc_circular_resolution: int | None = Field(
-        default=None, serialization_alias="arcCircularResolution"
-    )
-    arc_dash_length: float | str | None = Field(
-        default=None, serialization_alias="arcDashLength"
-    )
-    arc_dash_gap: float | str | None = Field(
-        default=None, serialization_alias="arcDashGap"
-    )
-    arc_dash_initial_gap: float | str | None = Field(
-        default=None, serialization_alias="arcDashInitialGap"
-    )
-    arc_dash_animate_time: float | str | None = Field(
-        default=None, serialization_alias="arcDashAnimateTime"
-    )
-    arcs_transition_duration: int | None = Field(
-        default=None, serialization_alias="arcsTransitionDuration"
-    )
+    arcs_data: Annotated[
+        list[ArcDatum] | None, Field(serialization_alias="arcsData")
+    ] = None
+    arc_curve_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="arcCurveResolution")
+    ] = 64
+    arc_circular_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="arcCircularResolution")
+    ] = 6
+    arcs_transition_duration: Annotated[
+        int, Field(serialization_alias="arcsTransitionDuration")
+    ] = 1000
+
+
+class PolygonDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a polygons layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    geometry: Polygon | MultiPolygon
+    name: str | None = None
+    label: str | None = None
+    cap_color: str = "#ffffaa"
+    side_color: str = "#ffffaa"
+    stroke_color: str | None = None
+    altitude: float = 0.01
+    cap_curvature_resolution: float = 5.0
+
+
+class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a polygons layer entry."""
+
+    id: UUID4
+    geometry: Polygon | MultiPolygon | None = None
+    name: str | None = None
+    label: str | None = None
+    cap_color: str | None = None
+    side_color: str | None = None
+    stroke_color: str | None = None
+    altitude: float | None = None
+    cap_curvature_resolution: float | None = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> PolygonDatumPatch:
+        for field in (
+            "geometry",
+            "cap_color",
+            "side_color",
+            "altitude",
+            "cap_curvature_resolution",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class PolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Polygons layer settings for globe.gl."""
+
+    polygons_data: Annotated[
+        list[PolygonDatum] | None, Field(serialization_alias="polygonsData")
+    ] = None
+    polygon_cap_material: Annotated[
+        GlobeMaterialSpec | None, Field(serialization_alias="polygonCapMaterial")
+    ] = None
+    polygon_side_material: Annotated[
+        GlobeMaterialSpec | None, Field(serialization_alias="polygonSideMaterial")
+    ] = None
+    polygons_transition_duration: Annotated[
+        int, Field(serialization_alias="polygonsTransitionDuration")
+    ] = 1000
 
 
 class PointOfView(BaseModel, extra="forbid", frozen=True):
@@ -218,18 +299,35 @@ class PointOfView(BaseModel, extra="forbid", frozen=True):
 class GlobeViewConfig(BaseModel, extra="forbid", frozen=True):
     """View configuration for globe.gl camera."""
 
-    point_of_view: PointOfView | None = Field(
-        default=None, serialization_alias="pointOfView"
+    point_of_view: Annotated[
+        PointOfView | None, Field(serialization_alias="pointOfView")
+    ] = None
+    transition_ms: Annotated[int | None, Field(serialization_alias="transitionMs")] = (
+        None
     )
-    transition_ms: int | None = Field(default=None, serialization_alias="transitionMs")
 
 
 class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     """Top-level configuration container for GlobeWidget."""
 
-    init: GlobeInitConfig = Field(default_factory=GlobeInitConfig)
-    layout: GlobeLayoutConfig = Field(default_factory=GlobeLayoutConfig)
-    globe: GlobeLayerConfig = Field(default_factory=GlobeLayerConfig)
-    points: PointsLayerConfig = Field(default_factory=PointsLayerConfig)
-    arcs: ArcsLayerConfig = Field(default_factory=ArcsLayerConfig)
-    view: GlobeViewConfig = Field(default_factory=GlobeViewConfig)
+    init: Annotated[GlobeInitConfig, Field(default_factory=GlobeInitConfig)] = Field(
+        default_factory=GlobeInitConfig
+    )
+    layout: Annotated[GlobeLayoutConfig, Field(default_factory=GlobeLayoutConfig)] = (
+        Field(default_factory=GlobeLayoutConfig)
+    )
+    globe: Annotated[GlobeLayerConfig, Field(default_factory=GlobeLayerConfig)] = Field(
+        default_factory=GlobeLayerConfig
+    )
+    points: Annotated[PointsLayerConfig, Field(default_factory=PointsLayerConfig)] = (
+        Field(default_factory=PointsLayerConfig)
+    )
+    arcs: Annotated[ArcsLayerConfig, Field(default_factory=ArcsLayerConfig)] = Field(
+        default_factory=ArcsLayerConfig
+    )
+    polygons: Annotated[
+        PolygonsLayerConfig, Field(default_factory=PolygonsLayerConfig)
+    ] = Field(default_factory=PolygonsLayerConfig)
+    view: Annotated[GlobeViewConfig, Field(default_factory=GlobeViewConfig)] = Field(
+        default_factory=GlobeViewConfig
+    )

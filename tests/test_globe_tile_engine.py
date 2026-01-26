@@ -145,3 +145,42 @@ def test_globe_tile_engine_cache_reset(
             f"Reference image missing. Save the capture to {cleared_ref} and re-run."
         )
     canvas_compare_images(cleared_image, cleared_ref)
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_globe_tile_engine_url_setter(
+    page_session: Page,
+    canvas_assert_capture,
+    globe_flat_texture_data_url,
+    globe_tile_server,
+) -> None:
+    canvas_similarity_threshold = 0.99
+    base_url, set_tile_bytes = globe_tile_server
+    set_tile_bytes(_make_tile_bytes((255, 0, 0)))
+    tile_template = f"{base_url}/{{z}}/{{x}}/{{y}}.png"
+
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=globe_flat_texture_data_url,
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    page_session.wait_for_function(
+        "document.querySelector('canvas, .jupyter-widgets') !== null", timeout=20000
+    )
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
+    widget.set_globe_tile_engine_url(tile_template)
+    _wait_for_canvas_color(page_session, "#ff0000")
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

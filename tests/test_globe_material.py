@@ -20,18 +20,14 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.usefixtures("solara_test")
-def test_globe_material_spec(
-    page_session: Page,
-    canvas_capture,
-    canvas_label,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    canvas_similarity_threshold,
-) -> None:
+def test_globe_material_spec(page_session: Page, canvas_assert_capture) -> None:
+    canvas_similarity_threshold = 0.9
     material = GlobeMaterialSpec(
         type="MeshPhongMaterial",
         params={"color": "#ff00ff", "emissive": "#00ff00", "wireframe": True},
+    )
+    updated_material = GlobeMaterialSpec(
+        type="MeshBasicMaterial", params={"color": "#00ccff"}
     )
     config = GlobeConfig(
         init=GlobeInitConfig(
@@ -52,21 +48,7 @@ def test_globe_material_spec(
         "window.__pyglobegl_globe_ready === true", timeout=20000
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
-        )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
+    widget.set_globe_material(updated_material)
+    page_session.wait_for_timeout(200)
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

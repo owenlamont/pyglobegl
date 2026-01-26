@@ -16,11 +16,7 @@ and immediately use the widget without rebuilding JupyterLab.
 - Update documentation whenever behaviour or features change.
 - Diagnose bugs before patching; prefer minimal repros and root-cause fixes.
 - When code changes land, run `prek run --all-files` and
-  `uv run pytest --color=no`.
-  If running in a sandboxed Codex session, request elevated permissions so the
-  commands can reach the full workspace and any required local services.
-- Always run `prek` with elevated permissions so it can fetch hook repos and
-  access the full workspace.
+  `uv run pytest --color=no -n 4` (local runs are more stable with 4 workers).
 
 ## Project Structure (planned)
 
@@ -36,8 +32,22 @@ and immediately use the widget without rebuilding JupyterLab.
 - Use precise type hints and avoid `Any` unless unavoidable.
 - Keep comments minimal; prefer clear names and docstrings.
 - Keep imports at module top unless avoiding circular imports.
+- For GeoJSON polygons, ensure exterior rings are counter-clockwise (right-hand
+  rule) so three.js cap triangulation renders correctly; holes should be
+  clockwise.
 - Stage new files before running prek so they are included in checks. If prek
   applies fixes, rerun it to confirm a clean pass.
+
+## Decision Log
+
+- Prefer strong Pydantic models over dynamic globe.gl accessors. Layer data
+  must be `PointDatum`/`ArcDatum`/`PolygonDatum` (no raw dicts for public APIs).
+- Do not expose accessor remapping or string field-name accessors in Python.
+  We keep the mapping internal to bridge Pythonic names to globe.gl keys.
+- Defaults in data models mirror globe.gl so omitted values still render
+  predictably.
+- Extra fields are allowed on models for metadata, but canonical fields are
+  fixed (no aliasing to alternate names).
 
 ## Frontend Notes
 

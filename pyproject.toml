@@ -1,6 +1,6 @@
 [project]
 name = "pyglobegl"
-version = "0.4.0"
+version = "0.5.0"
 description = "anywidget wrapper for globe.gl"
 readme = "README.md"
 authors = [
@@ -38,6 +38,7 @@ classifiers = [
 ]
 dependencies = [
     "anywidget>=0.9.21",
+    "geojson-pydantic>=2.1.0",
     "pillow>=12.1.0",
     "pydantic>=2.12.5",
     "traitlets>=5.14.3",

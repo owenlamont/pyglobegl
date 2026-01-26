@@ -73,12 +73,27 @@ type ArcsLayerConfig = {
 	arcsTransitionDuration?: number;
 };
 
+type PolygonsLayerConfig = {
+	polygonsData?: Array<Record<string, unknown>>;
+	polygonLabel?: string;
+	polygonGeoJsonGeometry?: string;
+	polygonCapColor?: string;
+	polygonCapMaterial?: unknown;
+	polygonSideColor?: string;
+	polygonSideMaterial?: unknown;
+	polygonStrokeColor?: string;
+	polygonAltitude?: number | string;
+	polygonCapCurvatureResolution?: number | string;
+	polygonsTransitionDuration?: number;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
 	globe?: GlobeLayerConfig;
 	points?: PointsLayerConfig;
 	arcs?: ArcsLayerConfig;
+	polygons?: PolygonsLayerConfig;
 	view?: GlobeViewConfig;
 };
 
@@ -130,6 +145,37 @@ function ensureWebGPUShaderStage(): void {
 	};
 }
 
+const TOOLTIP_STYLE = `.float-tooltip-kap {
+  position: absolute;
+  width: max-content;
+  max-width: max(50%, 150px);
+  padding: 3px 5px;
+  border-radius: 3px;
+  font: 12px sans-serif;
+  color: #eee;
+  background: rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+`;
+
+function ensureTooltipStyles(el: HTMLElement): void {
+	const root = el.getRootNode();
+	const styleParent =
+		root instanceof ShadowRoot
+			? root
+			: (document.head ?? document.documentElement);
+	if (
+		!styleParent ||
+		styleParent.querySelector?.('[data-pyglobegl-tooltip="1"]')
+	) {
+		return;
+	}
+	const style = document.createElement("style");
+	style.dataset.pyglobeglTooltip = "1";
+	style.textContent = TOOLTIP_STYLE;
+	styleParent.appendChild(style);
+}
+
 export function render({ el, model }: AnyWidgetRenderProps): () => void {
 	el.style.width = "100%";
 	el.style.height = "auto";
@@ -138,6 +184,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 	el.style.alignItems = "center";
 
 	ensureWebGPUShaderStage();
+	ensureTooltipStyles(el);
 
 	let resizeObserver: ResizeObserver | undefined;
 
@@ -245,6 +292,160 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			},
 		);
 
+		globe.onPolygonClick(
+			(
+				polygon: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "polygon_click", payload: { polygon, coords } });
+			},
+		);
+
+		globe.onPolygonRightClick(
+			(
+				polygon: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({
+					type: "polygon_right_click",
+					payload: { polygon, coords },
+				});
+			},
+		);
+
+		globe.onPolygonHover(
+			(
+				polygon: Record<string, unknown> | null,
+				prevPolygon: Record<string, unknown> | null,
+			) => {
+				model.send({
+					type: "polygon_hover",
+					payload: { polygon, prev_polygon: prevPolygon },
+				});
+			},
+		);
+
+		const globeProps = new Set([
+			"globeImageUrl",
+			"bumpImageUrl",
+			"globeTileEngineUrl",
+			"showGlobe",
+			"showGraticules",
+			"showAtmosphere",
+			"atmosphereColor",
+			"atmosphereAltitude",
+			"globeCurvatureResolution",
+			"globeMaterial",
+		]);
+
+		const pointProps = new Set([
+			"pointLabel",
+			"pointLat",
+			"pointLng",
+			"pointColor",
+			"pointAltitude",
+			"pointRadius",
+			"pointResolution",
+			"pointsMerge",
+			"pointsTransitionDuration",
+		]);
+
+		const arcProps = new Set([
+			"arcStartLat",
+			"arcStartLng",
+			"arcStartAltitude",
+			"arcEndLat",
+			"arcEndLng",
+			"arcEndAltitude",
+			"arcColor",
+			"arcAltitude",
+			"arcAltitudeAutoScale",
+			"arcStroke",
+			"arcCurveResolution",
+			"arcCircularResolution",
+			"arcDashLength",
+			"arcDashGap",
+			"arcDashInitialGap",
+			"arcDashAnimateTime",
+			"arcsTransitionDuration",
+			"arcLabel",
+		]);
+
+		const polygonProps = new Set([
+			"polygonLabel",
+			"polygonGeoJsonGeometry",
+			"polygonCapColor",
+			"polygonCapMaterial",
+			"polygonSideColor",
+			"polygonSideMaterial",
+			"polygonStrokeColor",
+			"polygonAltitude",
+			"polygonCapCurvatureResolution",
+			"polygonsTransitionDuration",
+		]);
+
+		const materialProps = new Set([
+			"globeMaterial",
+			"polygonCapMaterial",
+			"polygonSideMaterial",
+		]);
+
+		const applyLayerProp = (
+			props: Set<string>,
+			prop: unknown,
+			value: unknown,
+		): void => {
+			if (typeof prop !== "string" || !props.has(prop)) {
+				return;
+			}
+			const setter = (globe as Record<string, unknown>)[prop];
+			if (typeof setter === "function") {
+				const nextValue = materialProps.has(prop)
+					? buildMaterial(value)
+					: value;
+				(setter as (arg: unknown) => void)(nextValue);
+			}
+		};
+
+		const patchLayerData = (
+			getter: () => Array<Record<string, unknown>> | undefined,
+			setter: (data: Array<Record<string, unknown>>) => void,
+			patches: Array<Record<string, unknown>>,
+		): void => {
+			const data = getter() ?? [];
+			const index = new Map(
+				data
+					.map((datum) => {
+						const id = datum.id;
+						if (id === undefined || id === null) {
+							return null;
+						}
+						return [String(id), datum] as const;
+					})
+					.filter(
+						(entry): entry is [string, Record<string, unknown>] =>
+							entry !== null,
+					),
+			);
+			for (const patch of patches) {
+				if (!patch || typeof patch !== "object") {
+					continue;
+				}
+				const patchId = patch.id;
+				if (patchId === undefined || patchId === null) {
+					continue;
+				}
+				const target = index.get(String(patchId));
+				if (!target) {
+					continue;
+				}
+				Object.assign(target, patch);
+			}
+			setter(data);
+		};
+
 		model.on("msg:custom", (msg: unknown) => {
 			if (
 				typeof msg === "object" &&
@@ -253,6 +454,55 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				(msg as { type: string }).type === "globe_tile_engine_clear_cache"
 			) {
 				globe.globeTileEngineClearCache();
+			}
+			if (
+				typeof msg === "object" &&
+				msg !== null &&
+				"type" in msg &&
+				"payload" in msg
+			) {
+				const { type, payload } = msg as {
+					type: string;
+					payload?: {
+						data?: Array<Record<string, unknown>>;
+						patches?: Array<Record<string, unknown>>;
+						prop?: unknown;
+						value?: unknown;
+					};
+				};
+				if (type === "points_set_data") {
+					globe.pointsData(payload?.data ?? []);
+				} else if (type === "arcs_set_data") {
+					globe.arcsData(payload?.data ?? []);
+				} else if (type === "polygons_set_data") {
+					globe.polygonsData(payload?.data ?? []);
+				} else if (type === "points_patch_data") {
+					patchLayerData(
+						() => globe.pointsData() ?? [],
+						(data) => globe.pointsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "arcs_patch_data") {
+					patchLayerData(
+						() => globe.arcsData() ?? [],
+						(data) => globe.arcsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "polygons_patch_data") {
+					patchLayerData(
+						() => globe.polygonsData() ?? [],
+						(data) => globe.polygonsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "points_prop") {
+					applyLayerProp(pointProps, payload?.prop, payload?.value);
+				} else if (type === "arcs_prop") {
+					applyLayerProp(arcProps, payload?.prop, payload?.value);
+				} else if (type === "polygons_prop") {
+					applyLayerProp(polygonProps, payload?.prop, payload?.value);
+				} else if (type === "globe_prop") {
+					applyLayerProp(globeProps, payload?.prop, payload?.value);
+				}
 			}
 		});
 
@@ -495,6 +745,55 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyPolygonsProps = (polygonsConfig?: PolygonsLayerConfig): void => {
+			if (!polygonsConfig) {
+				return;
+			}
+			if (polygonsConfig.polygonsData !== undefined) {
+				globe.polygonsData(polygonsConfig.polygonsData ?? []);
+			}
+			if (polygonsConfig.polygonLabel !== undefined) {
+				globe.polygonLabel(polygonsConfig.polygonLabel ?? null);
+			}
+			if (polygonsConfig.polygonGeoJsonGeometry !== undefined) {
+				globe.polygonGeoJsonGeometry(
+					polygonsConfig.polygonGeoJsonGeometry ?? null,
+				);
+			}
+			if (polygonsConfig.polygonCapColor !== undefined) {
+				globe.polygonCapColor(polygonsConfig.polygonCapColor ?? null);
+			}
+			if (polygonsConfig.polygonCapMaterial !== undefined) {
+				globe.polygonCapMaterial(
+					buildMaterial(polygonsConfig.polygonCapMaterial),
+				);
+			}
+			if (polygonsConfig.polygonSideColor !== undefined) {
+				globe.polygonSideColor(polygonsConfig.polygonSideColor ?? null);
+			}
+			if (polygonsConfig.polygonSideMaterial !== undefined) {
+				globe.polygonSideMaterial(
+					buildMaterial(polygonsConfig.polygonSideMaterial),
+				);
+			}
+			if (polygonsConfig.polygonStrokeColor !== undefined) {
+				globe.polygonStrokeColor(polygonsConfig.polygonStrokeColor ?? null);
+			}
+			if (polygonsConfig.polygonAltitude !== undefined) {
+				globe.polygonAltitude(polygonsConfig.polygonAltitude ?? null);
+			}
+			if (polygonsConfig.polygonCapCurvatureResolution !== undefined) {
+				globe.polygonCapCurvatureResolution(
+					polygonsConfig.polygonCapCurvatureResolution ?? null,
+				);
+			}
+			if (polygonsConfig.polygonsTransitionDuration !== undefined) {
+				globe.polygonsTransitionDuration(
+					polygonsConfig.polygonsTransitionDuration,
+				);
+			}
+		};
+
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
 			if (!viewConfig || !viewConfig.pointOfView) {
 				return;
@@ -524,6 +823,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			const globeConfig = config?.globe;
 			const pointsConfig = config?.points;
 			const arcsConfig = config?.arcs;
+			const polygonsConfig = config?.polygons;
 			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
@@ -535,6 +835,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyGlobeProps(globeConfig);
 			applyPointsProps(pointsConfig);
 			applyArcsProps(arcsConfig);
+			applyPolygonsProps(polygonsConfig);
 			applyViewProps(viewConfig);
 		};
 

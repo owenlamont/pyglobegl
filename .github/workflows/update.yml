@@ -24,12 +24,18 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install toolchain
+        run: mise install
       - name: Upgrade dependencies
         run: uv sync --upgrade --all-extras
       - name: Update frontend dependencies
         run: |
           cd frontend
-          pnpm update
+          mise exec -- pnpm update
       - name: Install prek
         run: uv tool install prek
       - name: Run prek autoupdate

@@ -20,8 +20,8 @@ def test_solara_canvas_capture_baseline(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False

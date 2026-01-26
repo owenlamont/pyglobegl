@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from pyglobegl import points_from_gdf
+from pyglobegl import PointDatum, points_from_gdf
 
 
 @pytest.mark.parametrize(
@@ -49,7 +49,17 @@ def test_points_from_gdf_validates_schema(
     )
 
     points = points_from_gdf(gdf, include_columns=["name", "value"])
-    assert points == expected
+    assert len(points) == len(expected)
+    for point, expect in zip(points, expected, strict=True):
+        assert isinstance(point, PointDatum)
+        assert point.lat == expect["lat"]
+        assert point.lng == expect["lng"]
+        assert point.altitude == 0.1
+        assert point.radius == 0.25
+        assert point.color == "#ffffaa"
+        assert point.model_dump(
+            exclude={"id", "lat", "lng", "altitude", "radius", "color", "label"}
+        ) == {key: expect[key] for key in expect if key not in {"lat", "lng"}}
 
 
 def test_points_from_gdf_requires_crs() -> None:
@@ -97,10 +107,8 @@ def test_points_from_gdf_missing_columns() -> None:
     [
         pytest.param("altitude", "high", "must be numeric", id="altitude-string"),
         pytest.param("radius", "wide", "must be numeric", id="radius-string"),
-        pytest.param("size", "large", "must be numeric", id="size-string"),
         pytest.param("altitude", -1.0, "must be non-negative", id="altitude-negative"),
         pytest.param("radius", -2.0, "must be positive", id="radius-negative"),
-        pytest.param("size", -0.5, "must be positive", id="size-negative"),
         pytest.param("color", 123, "must be strings", id="color-non-string"),
         pytest.param("color", "notacolor", "valid CSS colors", id="color-invalid"),
         pytest.param("label", 456, "must be strings", id="label-non-string"),
