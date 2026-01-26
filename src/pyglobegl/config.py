@@ -259,7 +259,13 @@ class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PolygonDatumPatch:
-        for field in ("geometry", "altitude", "cap_curvature_resolution"):
+        for field in (
+            "geometry",
+            "cap_color",
+            "side_color",
+            "altitude",
+            "cap_curvature_resolution",
+        ):
             if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be None.")
         return self
