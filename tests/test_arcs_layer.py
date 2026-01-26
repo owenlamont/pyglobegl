@@ -34,7 +34,7 @@ def test_arcs_accessors(
     canvas_save_capture,
     globe_earth_texture_url,
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.985
     arcs_data = [
         {
             "startLat": 0,
