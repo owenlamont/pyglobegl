@@ -178,6 +178,10 @@ Use `GlobeWidget` setters to update data and accessors after the widget is
 rendered. Each datum includes an auto-generated UUID4 `id` unless provided.
 Callback payloads include the datum (and its `id`) so you can update visuals in
 response to user input.
+Runtime update helpers validate UUID4 ids; invalid ids raise a validation error.
+Batch updates use the patch models (`PointDatumPatch`, `ArcDatumPatch`,
+`PolygonDatumPatch`) so updates are serialized with the correct globe.gl field
+names.
 
 ```python
 widget = GlobeWidget(config=config)

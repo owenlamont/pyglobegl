@@ -155,9 +155,9 @@ def test_polygons_accessors(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     polygons_data = [
         {
             "geom": _polygon(-25, -5, -5, 10),
@@ -319,9 +319,9 @@ def test_polygons_transition_duration(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_polygons = [
         {
             "geom": _polygon(-30, -10, -10, 10),
@@ -387,9 +387,9 @@ def test_polygon_cap_material(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     polygon_id = uuid4()
     polygons_data = [
         {
@@ -448,9 +448,9 @@ def test_polygon_side_material(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     polygons_data = [
         {
             "geom": _circle_polygon(0, 0, 8, steps=36),
@@ -509,9 +509,9 @@ def test_polygon_cap_color(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_cap_color = "#ff66cc"
     updated_cap_color = "#66ccff"
     polygon_id = uuid4()
@@ -572,9 +572,9 @@ def test_polygon_side_color(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_side_color = "#66ccff"
     updated_side_color = "#ffcc66"
     polygon_id = uuid4()
@@ -635,9 +635,9 @@ def test_polygon_stroke_color(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_stroke_color = "#ffffff"
     updated_stroke_color = "#00ffcc"
     polygon_id = uuid4()
@@ -696,9 +696,9 @@ def test_polygon_altitude(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_altitude = 0.02
     updated_altitude = 0.12
     polygon_id = uuid4()
@@ -757,9 +757,9 @@ def test_polygon_cap_curvature_resolution(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_curvature = 2.0
     updated_curvature = 12.0
     polygon_id = uuid4()

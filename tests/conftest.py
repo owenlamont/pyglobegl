@@ -21,9 +21,6 @@ from skimage.metrics import structural_similarity
 from pyglobegl.images import image_to_data_url
 
 
-_SSIM_THRESHOLD = 0.86
-
-
 def _is_wsl() -> bool:
     version = pathlib.Path("/proc/version")
     if not version.exists():
@@ -454,11 +451,6 @@ def canvas_save_capture() -> Callable[[Image.Image, str, bool], pathlib.Path]:
         return path
 
     return _save
-
-
-@pytest.fixture
-def canvas_similarity_threshold() -> float:
-    return _SSIM_THRESHOLD
 
 
 @pytest.fixture

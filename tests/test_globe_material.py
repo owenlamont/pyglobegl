@@ -26,8 +26,8 @@ def test_globe_material_spec(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     material = GlobeMaterialSpec(
         type="MeshPhongMaterial",
         params={"color": "#ff00ff", "emissive": "#00ff00", "wireframe": True},

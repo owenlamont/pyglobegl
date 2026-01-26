@@ -92,7 +92,7 @@ class PointDatum(BaseModel, extra="allow", frozen=True):
     lng: float
     altitude: float | None = None
     radius: float | None = None
-    color: str | None = None
+    color: str | list[str] | None = None
     label: str | None = None
     size: float | None = None
 
@@ -105,7 +105,7 @@ class PointDatumPatch(BaseModel, extra="allow", frozen=True):
     lng: float | None = None
     altitude: float | None = None
     radius: float | None = None
-    color: str | None = None
+    color: str | list[str] | None = None
     label: str | None = None
     size: float | None = None
 
@@ -160,7 +160,7 @@ class ArcDatum(BaseModel, extra="allow", frozen=True):
     dash_animate_time: float | None = Field(
         default=None, serialization_alias="dashAnimateTime"
     )
-    color: str | None = None
+    color: str | list[str] | None = None
     label: str | None = None
 
 
@@ -189,7 +189,7 @@ class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
     dash_animate_time: float | None = Field(
         default=None, serialization_alias="dashAnimateTime"
     )
-    color: str | None = None
+    color: str | list[str] | None = None
     label: str | None = None
 
 

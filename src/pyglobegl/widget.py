@@ -282,17 +282,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._points_data = normalized
         self.send({"type": "points_set_data", "payload": {"data": normalized}})
 
-    def patch_points_data(
-        self, patches: Sequence[PointDatumPatch | Mapping[str, Any]]
-    ) -> None:
+    def patch_points_data(self, patches: Sequence[PointDatumPatch]) -> None:
         """Patch points data by id."""
-        normalized = self._normalize_patches(patches)
+        normalized = self._normalize_point_patches(patches)
         self._apply_patches(self._points_data, normalized, "points")
         self.send({"type": "points_patch_data", "payload": {"patches": normalized}})
 
     def update_point(self, point_id: UUID4 | str, **changes: Any) -> None:
         """Update a single point by id."""
-        patch = {"id": point_id, **changes}
+        patch = PointDatumPatch.model_validate({"id": point_id, **changes})
         self.patch_points_data([patch])
 
     def get_point_label(self) -> str | None:
@@ -379,17 +377,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._arcs_data = normalized
         self.send({"type": "arcs_set_data", "payload": {"data": normalized}})
 
-    def patch_arcs_data(
-        self, patches: Sequence[ArcDatumPatch | Mapping[str, Any]]
-    ) -> None:
+    def patch_arcs_data(self, patches: Sequence[ArcDatumPatch]) -> None:
         """Patch arcs data by id."""
-        normalized = self._normalize_patches(patches)
+        normalized = self._normalize_arc_patches(patches)
         self._apply_patches(self._arcs_data, normalized, "arcs")
         self.send({"type": "arcs_patch_data", "payload": {"patches": normalized}})
 
     def update_arc(self, arc_id: UUID4 | str, **changes: Any) -> None:
         """Update a single arc by id."""
-        patch = {"id": arc_id, **changes}
+        patch = ArcDatumPatch.model_validate({"id": arc_id, **changes})
         self.patch_arcs_data([patch])
 
     def get_arc_start_lat(self) -> float | str | None:
@@ -640,17 +636,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._polygons_data = normalized
         self.send({"type": "polygons_set_data", "payload": {"data": normalized}})
 
-    def patch_polygons_data(
-        self, patches: Sequence[PolygonDatumPatch | Mapping[str, Any]]
-    ) -> None:
+    def patch_polygons_data(self, patches: Sequence[PolygonDatumPatch]) -> None:
         """Patch polygons data by id."""
-        normalized = self._normalize_patches(patches)
+        normalized = self._normalize_polygon_patches(patches)
         self._apply_patches(self._polygons_data, normalized, "polygons")
         self.send({"type": "polygons_patch_data", "payload": {"patches": normalized}})
 
     def update_polygon(self, polygon_id: UUID4 | str, **changes: Any) -> None:
         """Update a single polygon by id."""
-        patch = {"id": polygon_id, **changes}
+        patch = PolygonDatumPatch.model_validate({"id": polygon_id, **changes})
         self.patch_polygons_data([patch])
 
     def _handle_frontend_message(
@@ -701,26 +695,42 @@ class GlobeWidget(anywidget.AnyWidget):
             normalized.append(entry)
         return normalized
 
-    def _normalize_patches(
-        self, patches: Sequence[BaseModel | Mapping[str, Any]]
+    def _normalize_point_patches(
+        self, patches: Sequence[PointDatumPatch]
     ) -> list[dict[str, Any]]:
-        def _normalize_value(value: Any) -> Any:
-            if isinstance(value, BaseModel):
-                return value.model_dump(by_alias=True, exclude_none=True, mode="json")
-            if isinstance(value, Mapping):
-                return {key: _normalize_value(item) for key, item in value.items()}
-            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-                return [_normalize_value(item) for item in value]
-            return value
-
         normalized: list[dict[str, Any]] = []
         for patch in patches:
-            if isinstance(patch, BaseModel):
-                entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
-            elif isinstance(patch, Mapping):
-                entry = {key: _normalize_value(value) for key, value in patch.items()}
-            else:
-                raise TypeError("Patch entries must be mappings or Pydantic models.")
+            if not isinstance(patch, PointDatumPatch):
+                raise TypeError("Patch entries must be PointDatumPatch.")
+            entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_arc_patches(
+        self, patches: Sequence[ArcDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, ArcDatumPatch):
+                raise TypeError("Patch entries must be ArcDatumPatch.")
+            entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_polygon_patches(
+        self, patches: Sequence[PolygonDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, PolygonDatumPatch):
+                raise TypeError("Patch entries must be PolygonDatumPatch.")
+            entry = patch.model_dump(by_alias=True, exclude_none=True, mode="json")
             if entry.get("id") is None:
                 raise ValueError("Patch entries must include an id.")
             entry["id"] = str(entry["id"])

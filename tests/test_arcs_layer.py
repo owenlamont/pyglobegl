@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from IPython.display import display
 import numpy as np
@@ -31,9 +32,9 @@ def test_arcs_accessors(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     arcs_data = [
         {
             "startLat": 0,
@@ -152,9 +153,9 @@ def test_arcs_default_accessors(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     arcs_data = [
         ArcDatum(
             start_lat=0,
@@ -250,9 +251,9 @@ def test_arc_dashes(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_dash_length = 1.0
     initial_dash_gap = 0.0
     updated_dash_length = 0.2
@@ -341,20 +342,31 @@ def test_arc_color_gradient(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.96
     initial_colors = ["#ffcc00", "#00ffaa"]
     updated_colors = ["#ff0033", "#33ddff"]
+    arc_id = uuid4()
     arcs_data = [
-        {
-            "id": "arc-gradient",
-            "startLat": 5,
-            "startLng": -50,
-            "endLat": -5,
-            "endLng": 50,
-            "color": initial_colors,
-        }
+        ArcDatum(
+            id=arc_id,
+            start_lat=0,
+            start_lng=-60,
+            end_lat=0,
+            end_lng=60,
+            start_altitude=0.02,
+            end_altitude=0.04,
+            altitude=0.2,
+            altitude_auto_scale=0.1,
+            stroke=2.0,
+            dash_length=1.0,
+            dash_gap=0.0,
+            dash_initial_gap=0.0,
+            dash_animate_time=0.0,
+            color=initial_colors,
+            label="Initial arc",
+        )
     ]
 
     config = GlobeConfig(
@@ -373,9 +385,17 @@ def test_arc_color_gradient(
             arc_start_lng="startLng",
             arc_end_lat="endLat",
             arc_end_lng="endLng",
+            arc_start_altitude="startAltitude",
+            arc_end_altitude="endAltitude",
             arc_color="color",
-            arc_stroke=1.2,
-            arc_altitude=0.25,
+            arc_label="label",
+            arc_stroke="stroke",
+            arc_altitude="altitude",
+            arc_altitude_auto_scale="altitudeAutoScale",
+            arc_dash_length="dashLength",
+            arc_dash_gap="dashGap",
+            arc_dash_initial_gap="dashInitialGap",
+            arc_dash_animate_time="dashAnimateTime",
             arcs_transition_duration=0,
         ),
         view=GlobeViewConfig(
@@ -414,7 +434,24 @@ def test_arc_color_gradient(
         )
 
     _assert_capture("test_arc_color_gradient-gradient")
-    widget.update_arc("arc-gradient", color=updated_colors)
+    widget.update_arc(
+        arc_id,
+        start_lat=30,
+        start_lng=-30,
+        end_lat=-30,
+        end_lng=30,
+        start_altitude=0.4,
+        end_altitude=0.6,
+        altitude=0.8,
+        altitude_auto_scale=0.9,
+        stroke=6.0,
+        dash_length=0.2,
+        dash_gap=0.6,
+        dash_initial_gap=0.4,
+        dash_animate_time=0.0,
+        color=updated_colors,
+        label="Updated arc",
+    )
     page_session.wait_for_timeout(100)
     _assert_capture("test_arc_color_gradient-gradient-alt")
 
@@ -426,9 +463,9 @@ def test_arc_stroke(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_stroke = 0.4
     updated_stroke = 2.5
     arcs_data = [
@@ -503,9 +540,9 @@ def test_arc_start_end_altitude(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     arcs_data = [
         {
             "startLat": 0,
@@ -607,9 +644,9 @@ def test_arc_curve_resolution(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.965
     initial_curve_resolution = 2
     updated_curve_resolution = 120
     arcs_data = [
@@ -692,9 +729,9 @@ def test_arc_circular_resolution(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_circular_resolution = 2
     updated_circular_resolution = 16
     arcs_data = [
@@ -777,9 +814,9 @@ def test_arc_dash_initial_gap(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_gap = 0.0
     updated_gap = 0.6
     arcs_data = [
@@ -933,9 +970,9 @@ def test_arc_dash_animate_time_setter(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     arcs_data = [
         {"startLat": 0, "startLng": -60, "endLat": 0, "endLng": 60, "color": "#ffcc00"}
     ]
@@ -1012,9 +1049,9 @@ def test_arcs_transition_duration(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_arcs = [
         {"startLat": 0, "startLng": -40, "endLat": 0, "endLng": 40, "color": "#ffcc00"}
     ]
@@ -1213,9 +1250,9 @@ def test_arc_altitude_modes(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_altitude = 0.15
     initial_auto_scale = None
     updated_altitude = None

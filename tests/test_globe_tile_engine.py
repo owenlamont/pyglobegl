@@ -154,10 +154,10 @@ def test_globe_tile_engine_url_setter(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_flat_texture_data_url,
     globe_tile_server,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     base_url, set_tile_bytes = globe_tile_server
     set_tile_bytes(_make_tile_bytes((255, 0, 0)))
     tile_template = f"{base_url}/{{z}}/{{x}}/{{y}}.png"

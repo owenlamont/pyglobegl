@@ -26,10 +26,10 @@ def test_bump_image_url(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_bump_test_data_url,
     globe_flat_texture_data_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     updated_bump_image_url = None
     config = GlobeConfig(
         init=GlobeInitConfig(

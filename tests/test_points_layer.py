@@ -28,9 +28,9 @@ def test_points_accessors(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     points_data = [
         {"latitude": 0, "longitude": 0, "alt": 0.25, "radius": 1.2, "color": "#ff0000"},
         {
@@ -125,9 +125,9 @@ def test_point_resolution(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.985
     initial_resolution = 3
     updated_resolution = 18
     radius = 5.0
@@ -271,9 +271,9 @@ def test_points_transition_duration(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     initial_points = [
         {"lat": 0, "lng": 0, "altitude": 0.2, "radius": 1.2, "color": "#ff0000"}
     ]
@@ -345,9 +345,9 @@ def test_points_merge(
     canvas_reference_path,
     canvas_compare_images,
     canvas_save_capture,
-    canvas_similarity_threshold,
     globe_earth_texture_url,
 ) -> None:
+    canvas_similarity_threshold = 0.99
     points_data = [
         {"lat": 0, "lng": 0, "altitude": 0.2, "radius": 1.6, "color": "#ffcc00"},
         {"lat": 10, "lng": 20, "altitude": 0.25, "radius": 1.2, "color": "#00ccff"},
