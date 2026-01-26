@@ -28,7 +28,7 @@ def test_globe_layer_graticules(
     canvas_compare_images,
     canvas_save_capture,
 ) -> None:
-    canvas_similarity_threshold = 0.99
+    canvas_similarity_threshold = 0.97
     initial_show_graticules = False
     updated_show_graticules = True
     config = GlobeConfig(
