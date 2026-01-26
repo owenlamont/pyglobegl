@@ -38,6 +38,17 @@ and immediately use the widget without rebuilding JupyterLab.
 - Stage new files before running prek so they are included in checks. If prek
   applies fixes, rerun it to confirm a clean pass.
 
+## Decision Log
+
+- Prefer strong Pydantic models over dynamic globe.gl accessors. Layer data
+  must be `PointDatum`/`ArcDatum`/`PolygonDatum` (no raw dicts for public APIs).
+- Do not expose accessor remapping or string field-name accessors in Python.
+  We keep the mapping internal to bridge Pythonic names to globe.gl keys.
+- Defaults in data models mirror globe.gl so omitted values still render
+  predictably.
+- Extra fields are allowed on models for metadata, but canonical fields are
+  fixed (no aliasing to alternate names).
+
 ## Frontend Notes
 
 - Frontend assets are bundled with Vite and shipped in the wheel.
