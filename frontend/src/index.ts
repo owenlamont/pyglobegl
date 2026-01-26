@@ -145,6 +145,37 @@ function ensureWebGPUShaderStage(): void {
 	};
 }
 
+const TOOLTIP_STYLE = `.float-tooltip-kap {
+  position: absolute;
+  width: max-content;
+  max-width: max(50%, 150px);
+  padding: 3px 5px;
+  border-radius: 3px;
+  font: 12px sans-serif;
+  color: #eee;
+  background: rgba(0,0,0,0.6);
+  pointer-events: none;
+}
+`;
+
+function ensureTooltipStyles(el: HTMLElement): void {
+	const root = el.getRootNode();
+	const styleParent =
+		root instanceof ShadowRoot
+			? root
+			: (document.head ?? document.documentElement);
+	if (
+		!styleParent ||
+		styleParent.querySelector?.('[data-pyglobegl-tooltip="1"]')
+	) {
+		return;
+	}
+	const style = document.createElement("style");
+	style.dataset.pyglobeglTooltip = "1";
+	style.textContent = TOOLTIP_STYLE;
+	styleParent.appendChild(style);
+}
+
 export function render({ el, model }: AnyWidgetRenderProps): () => void {
 	el.style.width = "100%";
 	el.style.height = "auto";
@@ -153,6 +184,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 	el.style.alignItems = "center";
 
 	ensureWebGPUShaderStage();
+	ensureTooltipStyles(el);
 
 	let resizeObserver: ResizeObserver | undefined;
 
