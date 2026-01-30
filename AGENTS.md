@@ -88,10 +88,6 @@ automate rendering checks, run Playwright on Windows and open the marimo server
 on `localhost` (don’t force `--host 0.0.0.0`, which can break localhost
 forwarding).
 
-- Configure Playwright MCP to use Windows PowerShell (config in
-  `~/.codex/config.toml`):
-  - `command = "pwsh.exe"`
-  - `args = ["-NoLogo", "-NoProfile", "-Command", "npx @playwright/mcp@latest"]`
 - Start marimo (edit mode) in WSL:
   - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
     `--skip-update-check`

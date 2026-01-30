@@ -288,6 +288,80 @@ class PolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
     ] = 1000
 
 
+class PathDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a paths layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    path: list[tuple[float, float] | tuple[float, float, float]]
+    name: str | None = None
+    label: str | None = None
+    color: str | list[str] = "#ffffaa"
+    dash_length: Annotated[float, Field(serialization_alias="dashLength")] = 1.0
+    dash_gap: Annotated[float, Field(serialization_alias="dashGap")] = 0.0
+    dash_initial_gap: Annotated[float, Field(serialization_alias="dashInitialGap")] = (
+        0.0
+    )
+    dash_animate_time: Annotated[
+        float, Field(serialization_alias="dashAnimateTime")
+    ] = 0.0
+
+
+class PathDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a paths layer entry."""
+
+    id: UUID4
+    path: list[tuple[float, float] | tuple[float, float, float]] | None = None
+    name: str | None = None
+    label: str | None = None
+    color: str | list[str] | None = None
+    dash_length: Annotated[float | None, Field(serialization_alias="dashLength")] = None
+    dash_gap: Annotated[float | None, Field(serialization_alias="dashGap")] = None
+    dash_initial_gap: Annotated[
+        float | None, Field(serialization_alias="dashInitialGap")
+    ] = None
+    dash_animate_time: Annotated[
+        float | None, Field(serialization_alias="dashAnimateTime")
+    ] = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> PathDatumPatch:
+        for field in (
+            "path",
+            "color",
+            "dash_length",
+            "dash_gap",
+            "dash_initial_gap",
+            "dash_animate_time",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Paths layer settings for globe.gl."""
+
+    paths_data: Annotated[
+        list[PathDatum] | None, Field(serialization_alias="pathsData")
+    ] = None
+    path_point_lat: Annotated[
+        str | int | None, Field(serialization_alias="pathPointLat")
+    ] = None
+    path_point_lng: Annotated[
+        str | int | None, Field(serialization_alias="pathPointLng")
+    ] = None
+    path_point_alt: Annotated[
+        str | int | None, Field(serialization_alias="pathPointAlt")
+    ] = None
+    path_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="pathResolution")
+    ] = 2
+    path_stroke: Annotated[float | None, Field(serialization_alias="pathStroke")] = None
+    paths_transition_duration: Annotated[
+        int, Field(serialization_alias="pathsTransitionDuration")
+    ] = 1000
+
+
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
@@ -328,6 +402,9 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     polygons: Annotated[
         PolygonsLayerConfig, Field(default_factory=PolygonsLayerConfig)
     ] = Field(default_factory=PolygonsLayerConfig)
+    paths: Annotated[PathsLayerConfig, Field(default_factory=PathsLayerConfig)] = Field(
+        default_factory=PathsLayerConfig
+    )
     view: Annotated[GlobeViewConfig, Field(default_factory=GlobeViewConfig)] = Field(
         default_factory=GlobeViewConfig
     )

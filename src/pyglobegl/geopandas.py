@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
-from pyglobegl.config import ArcDatum, PointDatum, PolygonDatum
+from pyglobegl.config import ArcDatum, PathDatum, PointDatum, PolygonDatum
 
 
 if TYPE_CHECKING:
@@ -135,6 +135,30 @@ def _build_polygons_schema() -> type[pa.DataFrameModel]:
             return series.geom_type.isin(["Polygon", "MultiPolygon"])
 
     return PolygonsGeoDataFrameModel
+
+
+def _build_paths_schema() -> type[pa.DataFrameModel]:
+    import pandera.pandas as pa
+    from pandera.typing.geopandas import Geometry, GeoSeries
+
+    globals().update({"GeoSeries": GeoSeries, "Geometry": Geometry})
+
+    class PathsGeoDataFrameModel(pa.DataFrameModel):
+        """Pandera schema for path geometries."""
+
+        geometry: GeoSeries[Geometry] = pa.Field(
+            nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
+        )
+
+        class Config:
+            coerce = True
+            strict = False
+
+        @pa.check("geometry", error="Geometry must be LineString or MultiLineString.")
+        def _line_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
+            return series.geom_type.isin(["LineString", "MultiLineString"])
+
+    return PathsGeoDataFrameModel
 
 
 def _ensure_numeric(df: pd.DataFrame, column: str, context: str) -> None:
@@ -462,3 +486,142 @@ def arcs_from_gdf(
     data["end_lat"] = validated["end_lat"]
     data["end_lng"] = validated["end_lng"]
     return [ArcDatum.model_validate(record) for record in data.to_dict("records")]
+
+
+def paths_from_gdf(
+    gdf: gpd.GeoDataFrame,
+    *,
+    geometry_column: str | None = None,
+    include_columns: Iterable[str] | None = None,
+) -> list[PathDatum]:
+    """Convert a GeoDataFrame of line geometries into path data models.
+
+    Args:
+        gdf: GeoDataFrame containing line geometries.
+        geometry_column: Optional name of the geometry column to use.
+        include_columns: Optional iterable of column names to copy onto each path.
+
+    Returns:
+        A list of PathDatum models with a list of coordinates plus any requested
+        attributes.
+
+    Raises:
+        ValueError: If the GeoDataFrame has no CRS or contains non-line geometries.
+    """
+    _require_geopandas()
+    _require_pandas()
+    _require_pandera()
+
+    if gdf.crs is None:
+        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
+
+    if geometry_column is None and "paths" in gdf.columns:
+        resolved_geometry = "paths"
+    else:
+        resolved_geometry = geometry_column or gdf.geometry.name
+    gdf = gdf.set_geometry(resolved_geometry, inplace=False)
+    if resolved_geometry != "geometry":
+        gdf = gdf.rename(columns={resolved_geometry: "geometry"}).set_geometry(
+            "geometry", inplace=False
+        )
+    if not gdf.geometry.geom_type.isin(["LineString", "MultiLineString"]).all():
+        raise ValueError("Geometry column must contain LineString or MultiLineString.")
+
+    gdf = gdf.to_crs(4326)
+    _validate_optional_columns(
+        gdf,
+        numeric_columns=(
+            "dash_length",
+            "dash_gap",
+            "dash_initial_gap",
+            "dash_animate_time",
+        ),
+        positive_columns=(
+            "dash_length",
+            "dash_gap",
+            "dash_initial_gap",
+            "dash_animate_time",
+        ),
+        nonnegative_columns=(),
+        color_columns=("color",),
+        string_columns=("label", "name"),
+        context="paths_from_gdf",
+    )
+    try:
+        gdf = _build_paths_schema().validate(gdf)
+    except Exception as exc:
+        _handle_schema_error(exc, "GeoDataFrame failed path schema validation.")
+
+    columns = list(include_columns) if include_columns is not None else []
+    missing = [col for col in columns if col not in gdf.columns]
+    if missing:
+        raise ValueError(f"GeoDataFrame missing columns: {missing}")
+
+    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    data["path"] = [_to_path_coordinates(geom) for geom in gdf.geometry]
+    return [PathDatum.model_validate(record) for record in data.to_dict("records")]
+
+
+def _to_path_coordinates(
+    geom: BaseGeometry,
+) -> list[tuple[float, float] | tuple[float, float, float]]:
+    if geom.geom_type == "LineString":
+        return list(geom.coords)
+    if geom.geom_type == "MultiLineString":
+        return list(geom.geoms[0].coords)
+    raise ValueError("Geometry must be LineString or MultiLineString.")
+
+
+def paths_from_mpd(
+    obj: Any, *, include_columns: Iterable[str] | None = None
+) -> list[PathDatum]:
+    """Convert a MovingPandas Trajectory or TrajectoryCollection into path data models.
+
+    Args:
+        obj: MovingPandas Trajectory or TrajectoryCollection.
+        include_columns: Optional iterable of column names to copy onto each path.
+
+    Returns:
+        A list of PathDatum models.
+
+    Raises:
+        ModuleNotFoundError: If movingpandas is not installed.
+        TypeError: If obj is not a Trajectory or TrajectoryCollection.
+    """
+    try:
+        import movingpandas as mpd
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "MovingPandas is required for paths_from_mpd. "
+            "Install with `uv add pyglobegl[geopandas]`."
+        ) from exc
+
+    if isinstance(obj, mpd.TrajectoryCollection):
+        trajectories = obj.trajectories
+    elif isinstance(obj, mpd.Trajectory):
+        trajectories = [obj]
+    else:
+        raise TypeError("obj must be a Trajectory or TrajectoryCollection.")
+
+    columns = list(include_columns) if include_columns is not None else []
+    path_data = []
+
+    for traj in trajectories:
+        # Ensure EPSG:4326
+        if traj.crs != "epsg:4326":
+            traj = traj.to_crs("epsg:4326")
+
+        line = traj.to_linestring()
+        record = {"path": list(line.coords)}
+
+        for col in columns:
+            if col in traj.df.columns:
+                # Use the value from the first row as representative for the path
+                # unless we want to support per-point attributes
+                record[col] = traj.df[col].iloc[0]
+            elif hasattr(traj, col):
+                record[col] = getattr(traj, col)
+
+        path_data.append(PathDatum.model_validate(record))
+
+    return path_data
