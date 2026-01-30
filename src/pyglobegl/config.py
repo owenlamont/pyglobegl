@@ -345,13 +345,13 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
         list[PathDatum] | None, Field(serialization_alias="pathsData")
     ] = None
     path_point_lat: Annotated[
-        str | int | None, Field(serialization_alias="pathPointLat")
+        str | float | None, Field(serialization_alias="pathPointLat")
     ] = None
     path_point_lng: Annotated[
-        str | int | None, Field(serialization_alias="pathPointLng")
+        str | float | None, Field(serialization_alias="pathPointLng")
     ] = None
     path_point_alt: Annotated[
-        str | int | None, Field(serialization_alias="pathPointAlt")
+        str | float | None, Field(serialization_alias="pathPointAlt")
     ] = None
     path_resolution: Annotated[
         int, Field(gt=0, serialization_alias="pathResolution")

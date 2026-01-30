@@ -155,33 +155,22 @@ def test_paths_transition_duration(
     page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.98
-    # Initial: A vertical line from South Pole to North Pole at prime meridian
-    initial_paths = [
-        PathDatum(
-            path=[(0, -90), (0, 90)],
-            color="#ff00ff",  # Magenta
-        )
-    ]
-    # Updated: A vertical line from South Pole to North Pole at 45 degrees East
-    updated_paths = [
-        PathDatum(
-            path=[(0, -90), (0, 90)],
-            color="#00ffff",  # Cyan
-        )
-    ]
-    updated_paths[0] = PathDatum(
-        path=[(45, -90), (45, 90)],
-        color="#00ffff",  # Cyan
-    )
+    # Initial: Red line along the equator (visible side)
+    initial_paths = [PathDatum(path=[(-45, 0), (45, 0)], color="#ff0000")]
+    # Updated: Green line along the prime meridian (visible side)
+    updated_paths = [PathDatum(path=[(0, -45), (0, 45)], color="#00ff00")]
 
     config = _make_config(
         globe_flat_texture_data_url,
         PathsLayerConfig(
-            paths_data=initial_paths, paths_transition_duration=1200, path_stroke=None
+            paths_data=initial_paths,
+            paths_transition_duration=1200,
+            path_stroke=None,
+            path_point_alt=0.1,
         ),
         lat=0,
-        lng=20,  # Center view between 0 and 45 degrees longitude
-        altitude=2.0,
+        lng=0,
+        altitude=1.5,
     )
     widget = GlobeWidget(config=config)
     display(widget)
