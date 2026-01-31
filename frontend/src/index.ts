@@ -87,6 +87,19 @@ type PolygonsLayerConfig = {
 	polygonsTransitionDuration?: number;
 };
 
+type PathsLayerConfig = {
+	pathsData?: Array<Record<string, unknown>>;
+	pathLabel?: string;
+	pathResolution?: number;
+	pathColor?: string | Array<string>;
+	pathStroke?: number | string;
+	pathDashLength?: number | string;
+	pathDashGap?: number | string;
+	pathDashInitialGap?: number | string;
+	pathDashAnimateTime?: number | string;
+	pathTransitionDuration?: number;
+};
+
 type GlobeConfig = {
 	init?: GlobeInitConfig;
 	layout?: GlobeLayoutConfig;
@@ -94,6 +107,7 @@ type GlobeConfig = {
 	points?: PointsLayerConfig;
 	arcs?: ArcsLayerConfig;
 	polygons?: PolygonsLayerConfig;
+	paths?: PathsLayerConfig;
 	view?: GlobeViewConfig;
 };
 
@@ -327,6 +341,56 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			},
 		);
 
+		globe.onPathClick(
+			(
+				path: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "path_click", payload: { path, coords } });
+			},
+		);
+
+		globe.onPathRightClick(
+			(
+				path: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "path_right_click", payload: { path, coords } });
+			},
+		);
+
+		globe.onPathHover(
+			(
+				path: Record<string, unknown> | null,
+				prevPath: Record<string, unknown> | null,
+			) => {
+				model.send({
+					type: "path_hover",
+					payload: { path, prev_path: prevPath },
+				});
+			},
+		);
+
+		const defaultPathPoints = (datum: unknown): unknown => {
+			if (datum && typeof datum === "object" && "path" in datum) {
+				return (datum as { path?: unknown }).path ?? datum;
+			}
+			return datum;
+		};
+
+		const defaultPathPointAlt = (point: unknown): number => {
+			if (Array.isArray(point)) {
+				const alt = point[2];
+				return typeof alt === "number" ? alt : 0.001;
+			}
+			return 0.001;
+		};
+
+		globe.pathPoints(defaultPathPoints);
+		globe.pathPointAlt(defaultPathPointAlt);
+
 		const globeProps = new Set([
 			"globeImageUrl",
 			"bumpImageUrl",
@@ -384,6 +448,18 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"polygonAltitude",
 			"polygonCapCurvatureResolution",
 			"polygonsTransitionDuration",
+		]);
+
+		const pathProps = new Set([
+			"pathLabel",
+			"pathResolution",
+			"pathColor",
+			"pathStroke",
+			"pathDashLength",
+			"pathDashGap",
+			"pathDashInitialGap",
+			"pathDashAnimateTime",
+			"pathTransitionDuration",
 		]);
 
 		const materialProps = new Set([
@@ -476,6 +552,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					globe.arcsData(payload?.data ?? []);
 				} else if (type === "polygons_set_data") {
 					globe.polygonsData(payload?.data ?? []);
+				} else if (type === "paths_set_data") {
+					globe.pathsData(payload?.data ?? []);
 				} else if (type === "points_patch_data") {
 					patchLayerData(
 						() => globe.pointsData() ?? [],
@@ -494,12 +572,20 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 						(data) => globe.polygonsData(data),
 						payload?.patches ?? [],
 					);
+				} else if (type === "paths_patch_data") {
+					patchLayerData(
+						() => globe.pathsData() ?? [],
+						(data) => globe.pathsData(data),
+						payload?.patches ?? [],
+					);
 				} else if (type === "points_prop") {
 					applyLayerProp(pointProps, payload?.prop, payload?.value);
 				} else if (type === "arcs_prop") {
 					applyLayerProp(arcProps, payload?.prop, payload?.value);
 				} else if (type === "polygons_prop") {
 					applyLayerProp(polygonProps, payload?.prop, payload?.value);
+				} else if (type === "paths_prop") {
+					applyLayerProp(pathProps, payload?.prop, payload?.value);
 				} else if (type === "globe_prop") {
 					applyLayerProp(globeProps, payload?.prop, payload?.value);
 				}
@@ -794,6 +880,42 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyPathsProps = (pathsConfig?: PathsLayerConfig): void => {
+			if (!pathsConfig) {
+				return;
+			}
+			if (pathsConfig.pathsData !== undefined) {
+				globe.pathsData(pathsConfig.pathsData ?? []);
+			}
+			if (pathsConfig.pathLabel !== undefined) {
+				globe.pathLabel(pathsConfig.pathLabel ?? null);
+			}
+			if (pathsConfig.pathResolution !== undefined) {
+				globe.pathResolution(pathsConfig.pathResolution);
+			}
+			if (pathsConfig.pathColor !== undefined) {
+				globe.pathColor(pathsConfig.pathColor ?? null);
+			}
+			if (pathsConfig.pathStroke !== undefined) {
+				globe.pathStroke(pathsConfig.pathStroke ?? null);
+			}
+			if (pathsConfig.pathDashLength !== undefined) {
+				globe.pathDashLength(pathsConfig.pathDashLength ?? null);
+			}
+			if (pathsConfig.pathDashGap !== undefined) {
+				globe.pathDashGap(pathsConfig.pathDashGap ?? null);
+			}
+			if (pathsConfig.pathDashInitialGap !== undefined) {
+				globe.pathDashInitialGap(pathsConfig.pathDashInitialGap ?? null);
+			}
+			if (pathsConfig.pathDashAnimateTime !== undefined) {
+				globe.pathDashAnimateTime(pathsConfig.pathDashAnimateTime ?? null);
+			}
+			if (pathsConfig.pathTransitionDuration !== undefined) {
+				globe.pathTransitionDuration(pathsConfig.pathTransitionDuration);
+			}
+		};
+
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
 			if (!viewConfig || !viewConfig.pointOfView) {
 				return;
@@ -824,6 +946,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			const pointsConfig = config?.points;
 			const arcsConfig = config?.arcs;
 			const polygonsConfig = config?.polygons;
+			const pathsConfig = config?.paths;
 			const viewConfig = config?.view;
 			const hasExplicitSize = applyLayoutSizing(layout);
 			if (hasExplicitSize) {
@@ -836,6 +959,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyPointsProps(pointsConfig);
 			applyArcsProps(arcsConfig);
 			applyPolygonsProps(polygonsConfig);
+			applyPathsProps(pathsConfig);
 			applyViewProps(viewConfig);
 		};
 
