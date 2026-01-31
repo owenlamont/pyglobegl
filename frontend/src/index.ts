@@ -90,10 +90,6 @@ type PolygonsLayerConfig = {
 type PathsLayerConfig = {
 	pathsData?: Array<Record<string, unknown>>;
 	pathLabel?: string;
-	pathPoints?: string;
-	pathPointLat?: number | string;
-	pathPointLng?: number | string;
-	pathPointAlt?: number | string;
 	pathResolution?: number;
 	pathColor?: string | Array<string>;
 	pathStroke?: number | string;
@@ -377,6 +373,24 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			},
 		);
 
+		const defaultPathPoints = (datum: unknown): unknown => {
+			if (datum && typeof datum === "object" && "path" in datum) {
+				return (datum as { path?: unknown }).path ?? datum;
+			}
+			return datum;
+		};
+
+		const defaultPathPointAlt = (point: unknown): number => {
+			if (Array.isArray(point)) {
+				const alt = point[2];
+				return typeof alt === "number" ? alt : 0.001;
+			}
+			return 0.001;
+		};
+
+		globe.pathPoints(defaultPathPoints);
+		globe.pathPointAlt(defaultPathPointAlt);
+
 		const globeProps = new Set([
 			"globeImageUrl",
 			"bumpImageUrl",
@@ -438,10 +452,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 		const pathProps = new Set([
 			"pathLabel",
-			"pathPoints",
-			"pathPointLat",
-			"pathPointLng",
-			"pathPointAlt",
 			"pathResolution",
 			"pathColor",
 			"pathStroke",
@@ -879,18 +889,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (pathsConfig.pathLabel !== undefined) {
 				globe.pathLabel(pathsConfig.pathLabel ?? null);
-			}
-			if (pathsConfig.pathPoints !== undefined) {
-				globe.pathPoints(pathsConfig.pathPoints ?? null);
-			}
-			if (pathsConfig.pathPointLat !== undefined) {
-				globe.pathPointLat(pathsConfig.pathPointLat ?? null);
-			}
-			if (pathsConfig.pathPointLng !== undefined) {
-				globe.pathPointLng(pathsConfig.pathPointLng ?? null);
-			}
-			if (pathsConfig.pathPointAlt !== undefined) {
-				globe.pathPointAlt(pathsConfig.pathPointAlt ?? null);
 			}
 			if (pathsConfig.pathResolution !== undefined) {
 				globe.pathResolution(pathsConfig.pathResolution);

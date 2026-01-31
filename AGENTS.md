@@ -64,6 +64,8 @@ and immediately use the widget without rebuilding JupyterLab.
 - If a task fails due to network, file access, dependency install, or local
   system restrictions, request elevated permissions first rather than pivoting
   to work-arounds. Escalation is preferred over brittle fallback solutions.
+- Never `git commit`, `git push`, or open/create pull requests unless the user
+  explicitly asks or gives consent for those actions.
 
 ## Automated Tests
 

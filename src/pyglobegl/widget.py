@@ -189,7 +189,6 @@ class GlobeWidget(anywidget.AnyWidget):
         )
         self._paths_props.update(
             {
-                "pathPoints": "path",
                 "pathColor": "color",
                 "pathDashLength": "dashLength",
                 "pathDashGap": "dashGap",

@@ -162,12 +162,7 @@ def test_paths_transition_duration(
 
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(
-            paths_data=initial_paths,
-            paths_transition_duration=1200,
-            path_stroke=None,
-            path_point_alt=0.1,
-        ),
+        PathsLayerConfig(paths_data=initial_paths, paths_transition_duration=1200),
         lat=0,
         lng=0,
         altitude=1.5,
@@ -195,9 +190,7 @@ def test_path_stroke(
     ]
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(
-            paths_data=paths_data, paths_transition_duration=0, path_stroke=None
-        ),
+        PathsLayerConfig(paths_data=paths_data, paths_transition_duration=0),
         altitude=1.7,
     )
     widget = GlobeWidget(config=config)
