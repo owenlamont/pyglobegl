@@ -592,14 +592,14 @@ class GlobeWidget(anywidget.AnyWidget):
         """Set the path dash gap."""
         self._set_layer_prop("paths", self._paths_props, "pathDashGap", value)
 
-    def get_paths_transition_duration(self) -> int:
-        """Return the paths transition duration."""
-        return int(self._paths_props.get("pathsTransitionDuration", 1000))
+    def get_path_transition_duration(self) -> int:
+        """Return the path transition duration."""
+        return int(self._paths_props.get("pathTransitionDuration", 1000))
 
-    def set_paths_transition_duration(self, value: int) -> None:
-        """Set the paths transition duration."""
+    def set_path_transition_duration(self, value: int) -> None:
+        """Set the path transition duration."""
         self._set_layer_prop(
-            "paths", self._paths_props, "pathsTransitionDuration", value
+            "paths", self._paths_props, "pathTransitionDuration", value
         )
 
     def _handle_frontend_message(

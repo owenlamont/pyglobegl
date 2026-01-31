@@ -97,7 +97,7 @@ type PathsLayerConfig = {
 	pathDashGap?: number | string;
 	pathDashInitialGap?: number | string;
 	pathDashAnimateTime?: number | string;
-	pathsTransitionDuration?: number;
+	pathTransitionDuration?: number;
 };
 
 type GlobeConfig = {
@@ -459,7 +459,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"pathDashGap",
 			"pathDashInitialGap",
 			"pathDashAnimateTime",
-			"pathsTransitionDuration",
+			"pathTransitionDuration",
 		]);
 
 		const materialProps = new Set([
@@ -911,8 +911,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			if (pathsConfig.pathDashAnimateTime !== undefined) {
 				globe.pathDashAnimateTime(pathsConfig.pathDashAnimateTime ?? null);
 			}
-			if (pathsConfig.pathsTransitionDuration !== undefined) {
-				globe.pathTransitionDuration(pathsConfig.pathsTransitionDuration);
+			if (pathsConfig.pathTransitionDuration !== undefined) {
+				globe.pathTransitionDuration(pathsConfig.pathTransitionDuration);
 			}
 		};
 

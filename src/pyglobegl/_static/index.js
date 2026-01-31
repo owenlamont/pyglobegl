@@ -33268,7 +33268,7 @@ function Nq({ el: i, model: e }) {
       "pathDashGap",
       "pathDashInitialGap",
       "pathDashAnimateTime",
-      "pathsTransitionDuration"
+      "pathTransitionDuration"
     ]), S = /* @__PURE__ */ new Set([
       "globeMaterial",
       "polygonCapMaterial",
@@ -33376,7 +33376,7 @@ function Nq({ el: i, model: e }) {
         O.polygonsTransitionDuration
       ));
     }, k = (O) => {
-      O && (O.pathsData !== void 0 && a.pathsData(O.pathsData ?? []), O.pathLabel !== void 0 && a.pathLabel(O.pathLabel ?? null), O.pathResolution !== void 0 && a.pathResolution(O.pathResolution), O.pathColor !== void 0 && a.pathColor(O.pathColor ?? null), O.pathStroke !== void 0 && a.pathStroke(O.pathStroke ?? null), O.pathDashLength !== void 0 && a.pathDashLength(O.pathDashLength ?? null), O.pathDashGap !== void 0 && a.pathDashGap(O.pathDashGap ?? null), O.pathDashInitialGap !== void 0 && a.pathDashInitialGap(O.pathDashInitialGap ?? null), O.pathDashAnimateTime !== void 0 && a.pathDashAnimateTime(O.pathDashAnimateTime ?? null), O.pathsTransitionDuration !== void 0 && a.pathTransitionDuration(O.pathsTransitionDuration));
+      O && (O.pathsData !== void 0 && a.pathsData(O.pathsData ?? []), O.pathLabel !== void 0 && a.pathLabel(O.pathLabel ?? null), O.pathResolution !== void 0 && a.pathResolution(O.pathResolution), O.pathColor !== void 0 && a.pathColor(O.pathColor ?? null), O.pathStroke !== void 0 && a.pathStroke(O.pathStroke ?? null), O.pathDashLength !== void 0 && a.pathDashLength(O.pathDashLength ?? null), O.pathDashGap !== void 0 && a.pathDashGap(O.pathDashGap ?? null), O.pathDashInitialGap !== void 0 && a.pathDashInitialGap(O.pathDashInitialGap ?? null), O.pathDashAnimateTime !== void 0 && a.pathDashAnimateTime(O.pathDashAnimateTime ?? null), O.pathTransitionDuration !== void 0 && a.pathTransitionDuration(O.pathTransitionDuration));
     }, z = (O) => {
       if (!O || !O.pointOfView)
         return;

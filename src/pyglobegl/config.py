@@ -348,8 +348,8 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
         int, Field(gt=0, serialization_alias="pathResolution")
     ] = 2
     path_stroke: Annotated[float | None, Field(serialization_alias="pathStroke")] = None
-    paths_transition_duration: Annotated[
-        int, Field(serialization_alias="pathsTransitionDuration")
+    path_transition_duration: Annotated[
+        int, Field(serialization_alias="pathTransitionDuration")
     ] = 1000
 
 

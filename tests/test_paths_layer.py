@@ -78,7 +78,7 @@ def test_paths_accessors(
 
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(paths_data=paths_data, paths_transition_duration=0),
+        PathsLayerConfig(paths_data=paths_data, path_transition_duration=0),
     )
     widget = GlobeWidget(config=config)
     display(widget)
@@ -104,7 +104,7 @@ def test_path_label_tooltip(
 
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(paths_data=paths_data, paths_transition_duration=0),
+        PathsLayerConfig(paths_data=paths_data, path_transition_duration=0),
         altitude=1.7,
     )
     widget = GlobeWidget(config=config)
@@ -151,18 +151,18 @@ def test_path_label_tooltip(
 
 
 @pytest.mark.usefixtures("solara_test")
-def test_paths_transition_duration(
+def test_path_transition_duration(
     page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.98
-    # Initial: Red line along the equator (visible side)
-    initial_paths = [PathDatum(path=[(-45, 0), (45, 0)], color="#ff0000")]
-    # Updated: Green line along the prime meridian (visible side)
+    # Initial: Red line along the equator (centered).
+    initial_paths = [PathDatum(path=[(0, -45), (0, 45)], color="#ff0000")]
+    # Updated: Same line but different color for visibility.
     updated_paths = [PathDatum(path=[(0, -45), (0, 45)], color="#00ff00")]
 
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(paths_data=initial_paths, paths_transition_duration=1200),
+        PathsLayerConfig(paths_data=initial_paths, path_transition_duration=1200),
         lat=0,
         lng=0,
         altitude=1.5,
@@ -171,9 +171,10 @@ def test_paths_transition_duration(
     display(widget)
 
     _await_globe_ready(page_session)
+    page_session.wait_for_timeout(1400)
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
 
-    widget.set_paths_transition_duration(0)
+    widget.set_path_transition_duration(0)
     widget.set_paths_data(updated_paths)
     page_session.wait_for_timeout(500)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
@@ -190,7 +191,7 @@ def test_path_stroke(
     ]
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(paths_data=paths_data, paths_transition_duration=0),
+        PathsLayerConfig(paths_data=paths_data, path_transition_duration=0),
         altitude=1.7,
     )
     widget = GlobeWidget(config=config)
@@ -221,7 +222,7 @@ def test_path_dash(
     ]
     config = _make_config(
         globe_flat_texture_data_url,
-        PathsLayerConfig(paths_data=paths_data, paths_transition_duration=0),
+        PathsLayerConfig(paths_data=paths_data, path_transition_duration=0),
         altitude=1.7,
     )
     widget = GlobeWidget(config=config)

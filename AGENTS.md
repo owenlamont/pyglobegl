@@ -44,8 +44,12 @@ and immediately use the widget without rebuilding JupyterLab.
   must be `PointDatum`/`ArcDatum`/`PolygonDatum` (no raw dicts for public APIs).
 - Do not expose accessor remapping or string field-name accessors in Python.
   We keep the mapping internal to bridge Pythonic names to globe.gl keys.
+- Type hints must mirror the Python API, not JS accessors; avoid `str`
+  field-name accessor types in public models.
 - Defaults in data models mirror globe.gl so omitted values still render
   predictably.
+- Avoid `None`/`Optional` unless `null` has a specific, documented meaning in
+  globe.gl/three-globe; otherwise set the globe.gl default value directly.
 - Extra fields are allowed on models for metadata, but canonical fields are
   fixed (no aliasing to alternate names).
 
