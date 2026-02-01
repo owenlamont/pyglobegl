@@ -54,12 +54,7 @@ def test_paths_from_gdf_multilinestring() -> None:
 
     paths = paths_from_gdf(gdf, include_columns=["label"])
 
-    assert len(paths) == 1
-    # Note: Current implementation takes only the first part of MultiLineString
-    # or all parts? Let's check implementation.
-    # It returns list(geom.geoms[0].coords) which is FIRST part.
-    # Wait, I changed it to return list(geom.geoms[0].coords) in the fix?
-    # No, I restored `_to_path_coordinates`.
-    # Let's verify what `_to_path_coordinates` does.
-
-    assert paths[0].label == "Multi Path"
+    assert len(paths) == 2
+    assert paths[0].path == [(0.0, 0.0), (1.0, 1.0)]
+    assert paths[1].path == [(2.0, 2.0), (3.0, 3.0)]
+    assert all(path.label == "Multi Path" for path in paths)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
 from pyglobegl.config import ArcDatum, PathDatum, PointDatum, PolygonDatum
@@ -438,6 +438,7 @@ def paths_from_gdf(
     _require_geopandas()
     _require_pandas()
     _require_pandera()
+    import pandas as pd
 
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
@@ -478,24 +479,36 @@ def paths_from_gdf(
     validation_columns.update(col for col in optional_columns if col in gdf.columns)
     # Pandera's PydanticModel schema must only contain model fields, so validate a
     # subset that matches the Pydantic model.
-    validation = (
-        gdf[list(validation_columns)].copy()
-        if validation_columns
-        else gdf.iloc[:, 0:0].copy()
-    )
-    validation["path"] = [_to_path_coordinates(geom) for geom in gdf.geometry]
-    _validate_rows_with_pydantic(validation, PathDatum, "paths_from_gdf")
+    validation_records = _expand_path_records(gdf, list(validation_columns))
+    data_records = _expand_path_records(gdf, columns)
 
-    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
-    data["path"] = [_to_path_coordinates(geom) for geom in gdf.geometry]
-    return [PathDatum.model_validate(record) for record in data.to_dict("records")]
+    if validation_records:
+        validation_df = pd.DataFrame(validation_records)
+    else:
+        validation_df = pd.DataFrame(columns=[*validation_columns, "path"])
+    _validate_rows_with_pydantic(validation_df, PathDatum, "paths_from_gdf")
+
+    return [PathDatum.model_validate(record) for record in data_records]
 
 
-def _to_path_coordinates(
+def _to_path_coordinate_groups(
     geom: BaseGeometry,
-) -> list[tuple[float, float] | tuple[float, float, float]]:
+) -> list[list[tuple[float, float] | tuple[float, float, float]]]:
     if geom.geom_type == "LineString":
-        return list(geom.coords)
+        return [list(geom.coords)]
     if geom.geom_type == "MultiLineString":
-        return list(geom.geoms[0].coords)
+        return [list(part.coords) for part in geom.geoms]
     raise ValueError("Geometry must be LineString or MultiLineString.")
+
+
+def _expand_path_records(
+    gdf: gpd.GeoDataFrame, columns: Sequence[str]
+) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for idx, geom in enumerate(gdf.geometry):
+        base = {col: gdf.loc[idx, col] for col in columns} if columns else {}
+        for path in _to_path_coordinate_groups(geom):
+            record = dict(base)
+            record["path"] = path
+            records.append(record)
+    return records

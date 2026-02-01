@@ -37,6 +37,30 @@ def _to_color(value: Any) -> Color:
 ColorValue = Annotated[Color | str, BeforeValidator(_to_color)]
 
 
+def _serialize_color_single(value: ColorValue | None) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _serialize_color_list(
+    value: ColorValue | list[ColorValue] | None,
+) -> str | list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return str(value)
+
+
+def _serialize_color_list_required(
+    value: ColorValue | list[ColorValue],
+) -> str | list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    return str(value)
+
+
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
     """Initialization settings for globe.gl."""
 
@@ -125,6 +149,10 @@ class PointDatum(BaseModel, extra="allow", frozen=True):
     color: ColorValue = Color("#ffffaa")
     label: StrictStr | None = None
 
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue) -> str:
+        return str(value)
+
 
 class PointDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for a points layer entry."""
@@ -136,6 +164,10 @@ class PointDatumPatch(BaseModel, extra="allow", frozen=True):
     radius: PositiveFloat | None = None
     color: ColorValue | None = None
     label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PointDatumPatch:
@@ -192,6 +224,10 @@ class ArcDatum(BaseModel, extra="allow", frozen=True):
     color: ColorValue | list[ColorValue] = Color("#ffffaa")
     label: StrictStr | None = None
 
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | list[ColorValue]) -> str | list[str]:
+        return _serialize_color_list_required(value)
+
 
 class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for an arcs layer entry."""
@@ -228,6 +264,12 @@ class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
     ] = None
     color: ColorValue | list[ColorValue] | None = None
     label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(
+        self, value: ColorValue | list[ColorValue] | None
+    ) -> str | list[str] | None:
+        return _serialize_color_list(value)
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> ArcDatumPatch:
@@ -280,6 +322,10 @@ class PolygonDatum(BaseModel, extra="allow", frozen=True):
     altitude: NonNegativeFloat = 0.01
     cap_curvature_resolution: PositiveFloat = 5.0
 
+    @field_serializer("cap_color", "side_color", "stroke_color", when_used="always")
+    def _serialize_colors(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
+
 
 class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for a polygons layer entry."""
@@ -293,6 +339,10 @@ class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
     stroke_color: ColorValue | None = None
     altitude: NonNegativeFloat | None = None
     cap_curvature_resolution: PositiveFloat | None = None
+
+    @field_serializer("cap_color", "side_color", "stroke_color", when_used="always")
+    def _serialize_colors(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PolygonDatumPatch:
@@ -342,6 +392,10 @@ class PathDatum(BaseModel, extra="allow", frozen=True):
         NonNegativeFloat, Field(serialization_alias="dashAnimateTime")
     ] = 0.0
 
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | list[ColorValue]) -> str | list[str]:
+        return _serialize_color_list_required(value)
+
 
 class PathDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for a paths layer entry."""
@@ -363,6 +417,12 @@ class PathDatumPatch(BaseModel, extra="allow", frozen=True):
     dash_animate_time: Annotated[
         NonNegativeFloat | None, Field(serialization_alias="dashAnimateTime")
     ] = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(
+        self, value: ColorValue | list[ColorValue] | None
+    ) -> str | list[str] | None:
+        return _serialize_color_list(value)
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PathDatumPatch:
