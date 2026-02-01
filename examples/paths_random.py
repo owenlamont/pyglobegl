@@ -41,7 +41,7 @@ def _generate_path_points(
     points = [(lat, lng)]
     altitudes = [alt]
 
-    for _ in range(rng.randint(100, max_points)):
+    for _ in range(rng.randint(0, max_points)):
         lat += (rng.random() * 2 - 1) * max_step_deg
         lng += (rng.random() * 2 - 1) * max_step_deg
         alt += (rng.random() * 2 - 1) * max_step_alt
@@ -141,7 +141,7 @@ def page():
     rng = random.Random(7)  # noqa: S311
     base_paths = solara.use_memo(
         lambda: _make_paths(
-            rng, count=10, max_points=800, max_step_deg=1.0, max_step_alt=0.015
+            rng, count=10, max_points=10000, max_step_deg=1.0, max_step_alt=0.015
         ),
         [],
     )
