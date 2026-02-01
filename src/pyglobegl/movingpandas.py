@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from pyglobegl.config import PathDatum
+from pyglobegl.geopandas import paths_from_gdf
 
 
 def paths_from_mpd(
@@ -40,14 +41,13 @@ def paths_from_mpd(
         raise TypeError("obj must be a Trajectory or TrajectoryCollection.")
 
     columns = list(include_columns) if include_columns is not None else []
-    path_data = []
+    records = []
+    crs = None
 
     for traj in trajectories:
-        if traj.crs != "epsg:4326":
-            traj = traj.to_crs("epsg:4326")
-
+        crs = crs or traj.crs
         line = traj.to_linestring()
-        record = {"path": list(line.coords)}
+        record = {"geometry": line}
 
         for col in columns:
             if col in traj.df.columns:
@@ -55,6 +55,9 @@ def paths_from_mpd(
             elif hasattr(traj, col):
                 record[col] = getattr(traj, col)
 
-        path_data.append(PathDatum.model_validate(record))
+        records.append(record)
 
-    return path_data
+    import geopandas as gpd
+
+    gdf = gpd.GeoDataFrame(records, geometry="geometry", crs=crs)
+    return paths_from_gdf(gdf, include_columns=columns)

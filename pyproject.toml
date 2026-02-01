@@ -56,7 +56,9 @@ geopandas = [
     "pandera>=0.28.1",
 ]
 movingpandas = [
+    "geopandas>=1.1.2",
     "movingpandas>=0.22.4",
+    "pandera>=0.28.1",
 ]
 
 [build-system]

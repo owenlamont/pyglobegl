@@ -2903,7 +2903,9 @@ geopandas = [
     { name = "pandera" },
 ]
 movingpandas = [
+    { name = "geopandas" },
     { name = "movingpandas" },
+    { name = "pandera" },
 ]
 
 [package.dev-dependencies]
@@ -2930,8 +2932,10 @@ requires-dist = [
     { name = "anywidget", specifier = ">=0.9.21" },
     { name = "geojson-pydantic", specifier = ">=2.1.0" },
     { name = "geopandas", marker = "extra == 'geopandas'", specifier = ">=1.1.2" },
+    { name = "geopandas", marker = "extra == 'movingpandas'", specifier = ">=1.1.2" },
     { name = "movingpandas", marker = "extra == 'movingpandas'", specifier = ">=0.22.4" },
     { name = "pandera", marker = "extra == 'geopandas'", specifier = ">=0.28.1" },
+    { name = "pandera", marker = "extra == 'movingpandas'", specifier = ">=0.28.1" },
     { name = "pillow", specifier = ">=12.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-extra-types", specifier = ">=2.11.0" },
