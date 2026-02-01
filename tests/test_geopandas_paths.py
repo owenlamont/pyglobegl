@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pydantic_extra_types.color import Color
+
 from pyglobegl import PathDatum
 from pyglobegl.geopandas import paths_from_gdf
 
@@ -26,12 +28,14 @@ def test_paths_from_gdf_linestring() -> None:
     assert len(paths) == 2
     assert isinstance(paths[0], PathDatum)
     assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]
-    assert paths[0].color == "#ff0000"
+    assert isinstance(paths[0].color, Color)
+    assert paths[0].color.as_hex(format="long") == "#ff0000"
     assert paths[0].dash_length == 0.5
 
     assert isinstance(paths[1], PathDatum)
     assert paths[1].path == [(10.0, 10.0), (11.0, 11.0)]
-    assert paths[1].color == "#00ff00"
+    assert isinstance(paths[1].color, Color)
+    assert paths[1].color.as_hex(format="long") == "#00ff00"
     assert paths[1].dash_length == 1.0
 
 

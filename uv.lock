@@ -2860,6 +2860,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-extra-types"
+version = "2.11.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/35/2fee58b1316a73e025728583d3b1447218a97e621933fc776fb8c0f2ebdd/pydantic_extra_types-2.11.0.tar.gz", hash = "sha256:4e9991959d045b75feb775683437a97991d02c138e00b59176571db9ce634f0e", size = 157226, upload-time = "2025-12-31T16:18:27.944Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/17/fabd56da47096d240dd45ba627bead0333b0cf0ee8ada9bec579287dadf3/pydantic_extra_types-2.11.0-py3-none-any.whl", hash = "sha256:84b864d250a0fc62535b7ec591e36f2c5b4d1325fa0017eb8cda9aeb63b374a6", size = 74296, upload-time = "2025-12-31T16:18:26.38Z" },
+]
+
+[[package]]
 name = "pyee"
 version = "13.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2880,6 +2893,7 @@ dependencies = [
     { name = "geojson-pydantic" },
     { name = "pillow" },
     { name = "pydantic" },
+    { name = "pydantic-extra-types" },
     { name = "traitlets" },
 ]
 
@@ -2887,7 +2901,6 @@ dependencies = [
 geopandas = [
     { name = "geopandas" },
     { name = "pandera" },
-    { name = "webcolors" },
 ]
 movingpandas = [
     { name = "movingpandas" },
@@ -2921,8 +2934,8 @@ requires-dist = [
     { name = "pandera", marker = "extra == 'geopandas'", specifier = ">=0.28.1" },
     { name = "pillow", specifier = ">=12.1.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pydantic-extra-types", specifier = ">=2.11.0" },
     { name = "traitlets", specifier = ">=5.14.3" },
-    { name = "webcolors", marker = "extra == 'geopandas'" },
 ]
 provides-extras = ["geopandas", "movingpandas"]
 

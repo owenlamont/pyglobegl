@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pydantic_extra_types.color import Color
 import pytest
 
 from pyglobegl.movingpandas import paths_from_mpd
@@ -28,7 +29,8 @@ def test_paths_from_mpd_trajectory() -> None:
 
     assert len(paths) == 1
     assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]
-    assert paths[0].color == "#0000ff"
+    assert isinstance(paths[0].color, Color)
+    assert paths[0].color.as_hex(format="long") == "#0000ff"
 
 
 @pytest.mark.filterwarnings("ignore:Missing optional dependencies.*Stone Soup")

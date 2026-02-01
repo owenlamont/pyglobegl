@@ -41,6 +41,7 @@ dependencies = [
     "geojson-pydantic>=2.1.0",
     "pillow>=12.1.0",
     "pydantic>=2.12.5",
+    "pydantic-extra-types>=2.11.0",
     "traitlets>=5.14.3",
 ]
 
@@ -53,7 +54,6 @@ Releases = "https://github.com/owenlamont/pyglobegl/releases"
 geopandas = [
     "geopandas>=1.1.2",
     "pandera>=0.28.1",
-    "webcolors",
 ]
 movingpandas = [
     "movingpandas>=0.22.4",

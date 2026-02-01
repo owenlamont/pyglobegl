@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     import pandera.pandas as pa
     from pandera.typing import Series
     from pandera.typing.geopandas import Geometry, GeoSeries
+    from pydantic import BaseModel
     from shapely.geometry.base import BaseGeometry
 
 
@@ -60,10 +61,6 @@ def _build_points_schema() -> type[pa.DataFrameModel]:
         geometry: GeoSeries[Geometry] = pa.Field(
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
-        altitude: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        radius: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        label: Series[str] | None = pa.Field(nullable=True, coerce=False)
 
         class Config:
             coerce = False
@@ -73,111 +70,7 @@ def _build_points_schema() -> type[pa.DataFrameModel]:
         def _points_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
             return series.geom_type == "Point"
 
-        @pa.check("altitude", "radius", error="column must be numeric.")
-        def _numeric_only(self, series: Series[float]) -> pd.Series:
-            return _is_numeric_series(series)
-
-        @pa.check("radius", error="column must be positive.")
-        def _radius_positive(self, series: Series[float]) -> pd.Series:
-            return _is_positive_series(series)
-
-        @pa.check("altitude", error="column must be non-negative.")
-        def _altitude_nonnegative(self, series: Series[float]) -> pd.Series:
-            return _is_nonnegative_series(series)
-
-        @pa.check("color", error="column must be strings.")
-        def _color_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
-        @pa.check("color", error="column must be valid CSS colors.")
-        def _color_css(self, series: Series[str]) -> pd.Series:
-            return _is_css_color_series(series)
-
-        @pa.check("label", error="column must be strings.")
-        def _label_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
     return PointsGeoDataFrameModel
-
-
-def _build_arcs_schema() -> type[pa.DataFrameModel]:
-    import pandera.pandas as pa
-    from pandera.typing import Series
-
-    globals().update({"Series": Series})
-
-    class ArcsGeoDataFrameModel(pa.DataFrameModel):
-        """Pandera schema for arcs layer data."""
-
-        start_lat: Series[float] = pa.Field(
-            in_range={"min_value": -90, "max_value": 90}, coerce=True
-        )
-        start_lng: Series[float] = pa.Field(
-            in_range={"min_value": -180, "max_value": 180}, coerce=True
-        )
-        end_lat: Series[float] = pa.Field(
-            in_range={"min_value": -90, "max_value": 90}, coerce=True
-        )
-        end_lng: Series[float] = pa.Field(
-            in_range={"min_value": -180, "max_value": 180}, coerce=True
-        )
-        altitude: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        altitude_auto_scale: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        stroke: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        dash_length: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        dash_gap: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        dash_initial_gap: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        dash_animate_time: Series[float] | None = pa.Field(nullable=True, coerce=True)
-        color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        label: Series[str] | None = pa.Field(nullable=True, coerce=False)
-
-        class Config:
-            coerce = False
-            strict = False
-
-        @pa.check(
-            "altitude",
-            "altitude_auto_scale",
-            "stroke",
-            "dash_length",
-            "dash_gap",
-            "dash_initial_gap",
-            "dash_animate_time",
-            error="column must be numeric.",
-        )
-        def _numeric_only(self, series: Series[float]) -> pd.Series:
-            return _is_numeric_series(series)
-
-        @pa.check(
-            "stroke",
-            "dash_length",
-            "dash_gap",
-            "dash_initial_gap",
-            "dash_animate_time",
-            error="column must be positive.",
-        )
-        def _positive_only(self, series: Series[float]) -> pd.Series:
-            return _is_positive_series(series)
-
-        @pa.check(
-            "altitude", "altitude_auto_scale", error="column must be non-negative."
-        )
-        def _nonnegative_only(self, series: Series[float]) -> pd.Series:
-            return _is_nonnegative_series(series)
-
-        @pa.check("color", error="column must be strings.")
-        def _color_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
-        @pa.check("color", error="column must be valid CSS colors.")
-        def _color_css(self, series: Series[str]) -> pd.Series:
-            return _is_css_color_series(series)
-
-        @pa.check("label", error="column must be strings.")
-        def _label_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
-    return ArcsGeoDataFrameModel
 
 
 def _build_polygons_schema() -> type[pa.DataFrameModel]:
@@ -193,15 +86,6 @@ def _build_polygons_schema() -> type[pa.DataFrameModel]:
         geometry: GeoSeries[Geometry] = pa.Field(
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
-        cap_color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        side_color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        stroke_color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        altitude: Series[float] | None = pa.Field(nullable=True, ge=0, coerce=True)
-        cap_curvature_resolution: Series[float] | None = pa.Field(
-            nullable=True, gt=0, coerce=True
-        )
-        label: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        name: Series[str] | None = pa.Field(nullable=True, coerce=False)
 
         class Config:
             coerce = False
@@ -210,28 +94,6 @@ def _build_polygons_schema() -> type[pa.DataFrameModel]:
         @pa.check("geometry", error="Geometry must be Polygon or MultiPolygon.")
         def _polygon_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
             return series.geom_type.isin(["Polygon", "MultiPolygon"])
-
-        @pa.check(
-            "cap_color",
-            "side_color",
-            "stroke_color",
-            error="Color columns must be valid CSS colors.",
-        )
-        def _colors_valid(self, series: Series[str]) -> pd.Series:
-            return _is_css_color_series(series)
-
-        @pa.check(
-            "cap_color",
-            "side_color",
-            "stroke_color",
-            error="Color columns must be strings.",
-        )
-        def _colors_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
-        @pa.check("label", "name", error="Column must be strings.")
-        def _label_name_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
 
     return PolygonsGeoDataFrameModel
 
@@ -249,17 +111,6 @@ def _build_paths_schema() -> type[pa.DataFrameModel]:
         geometry: GeoSeries[Geometry] = pa.Field(
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
-        dash_length: Series[float] | None = pa.Field(nullable=True, gt=0, coerce=True)
-        dash_gap: Series[float] | None = pa.Field(nullable=True, gt=0, coerce=True)
-        dash_initial_gap: Series[float] | None = pa.Field(
-            nullable=True, gt=0, coerce=True
-        )
-        dash_animate_time: Series[float] | None = pa.Field(
-            nullable=True, gt=0, coerce=True
-        )
-        color: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        label: Series[str] | None = pa.Field(nullable=True, coerce=False)
-        name: Series[str] | None = pa.Field(nullable=True, coerce=False)
 
         class Config:
             coerce = False
@@ -269,75 +120,7 @@ def _build_paths_schema() -> type[pa.DataFrameModel]:
         def _line_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
             return series.geom_type.isin(["LineString", "MultiLineString"])
 
-        @pa.check("color", error="Color column must be valid CSS colors.")
-        def _colors_valid(self, series: Series[str]) -> pd.Series:
-            return _is_css_color_series(series)
-
-        @pa.check("color", error="Color column must be strings.")
-        def _colors_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
-        @pa.check("label", "name", error="Column must be strings.")
-        def _label_name_strings(self, series: Series[str]) -> pd.Series:
-            return _is_string_series(series)
-
     return PathsGeoDataFrameModel
-
-
-def _css_color_names() -> set[str]:
-    try:
-        import webcolors
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            "webcolors is required for color validation. "
-            "Install with `uv add pyglobegl[geopandas]`."
-        ) from exc
-    return set(webcolors.names())
-
-
-def _is_numeric_series(series: pd.Series) -> pd.Series:
-    import numpy as np
-    import pandas as pd
-
-    coerced = pd.to_numeric(series, errors="coerce")
-    return coerced.notna() & np.isfinite(coerced)
-
-
-def _is_positive_series(series: pd.Series) -> pd.Series:
-    import numpy as np
-    import pandas as pd
-
-    coerced = pd.to_numeric(series, errors="coerce")
-    return coerced.notna() & np.isfinite(coerced) & (coerced > 0)
-
-
-def _is_nonnegative_series(series: pd.Series) -> pd.Series:
-    import numpy as np
-    import pandas as pd
-
-    coerced = pd.to_numeric(series, errors="coerce")
-    return coerced.notna() & np.isfinite(coerced) & (coerced >= 0)
-
-
-def _is_string_series(series: pd.Series) -> pd.Series:
-    return series.isna() | series.map(lambda value: isinstance(value, str))
-
-
-def _is_css_color_series(series: pd.Series) -> pd.Series:
-    import pandas as pd
-
-    valid = pd.Series(True, index=series.index)
-    is_null = series.isna()
-    valid[is_null] = True
-    is_str = series.map(lambda value: isinstance(value, str))
-    if is_str.any():
-        str_series = series[is_str].astype(str)
-        hex_match = str_series.str.match(
-            r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-        )
-        names = str_series.str.lower().isin(_css_color_names())
-        valid.loc[is_str] = hex_match | names
-    return valid
 
 
 def polygons_from_gdf(
@@ -390,6 +173,27 @@ def polygons_from_gdf(
     if missing:
         raise ValueError(f"GeoDataFrame missing columns: {missing}")
 
+    optional_columns = {
+        "name",
+        "label",
+        "cap_color",
+        "side_color",
+        "stroke_color",
+        "altitude",
+        "cap_curvature_resolution",
+    }
+    validation_columns = set(columns)
+    validation_columns.update(col for col in optional_columns if col in gdf.columns)
+    # Pandera's PydanticModel schema must only contain model fields, so validate a
+    # subset that matches the Pydantic model.
+    validation = (
+        gdf[list(validation_columns)].copy()
+        if validation_columns
+        else gdf.iloc[:, 0:0].copy()
+    )
+    validation["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
+    _validate_rows_with_pydantic(validation, PolygonDatum, "polygons_from_gdf")
+
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
     data["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
     return [PolygonDatum.model_validate(record) for record in data.to_dict("records")]
@@ -402,6 +206,32 @@ def _handle_schema_error(exc: Exception, message: str) -> None:
     if "expected series" in details and "type str" in details:
         details = f"column must be strings. {details}"
     raise ValueError(f"{message} ({details})") from exc
+
+
+def _validate_rows_with_pydantic(
+    data: pd.DataFrame, model: type[BaseModel], context: str
+) -> None:
+    from pandera.engines.pandas_engine import PydanticModel
+    import pandera.pandas as pa
+    from pydantic import ValidationError
+
+    schema = pa.DataFrameSchema(dtype=PydanticModel(model), coerce=False)
+    try:
+        schema.validate(data)
+    except Exception as exc:
+        records = data.to_dict("records")
+        for record in records:
+            try:
+                model.model_validate(record)
+            except ValidationError as val_exc:  # noqa: PERF203 - clarity over micro-optimization
+                error = val_exc.errors()[0]
+                location = ".".join(str(item) for item in error.get("loc", []))
+                message = error.get("msg", "Invalid value.")
+                detail = f"{location}: {message}" if location else message
+                raise ValueError(
+                    f"{context} schema validation failed. ({detail})"
+                ) from val_exc
+        raise ValueError(f"{context} schema validation failed.") from exc
 
 
 def _to_geojson_polygon_model(geom: BaseGeometry):
@@ -471,6 +301,20 @@ def points_from_gdf(
     if missing:
         raise ValueError(f"GeoDataFrame missing columns: {missing}")
 
+    optional_columns = {"altitude", "radius", "color", "label"}
+    validation_columns = set(columns)
+    validation_columns.update(col for col in optional_columns if col in gdf.columns)
+    # Pandera's PydanticModel schema must only contain model fields, so validate a
+    # subset that matches the Pydantic model.
+    validation = (
+        gdf[list(validation_columns)].copy()
+        if validation_columns
+        else gdf.iloc[:, 0:0].copy()
+    )
+    validation["lat"] = gdf.geometry.y
+    validation["lng"] = gdf.geometry.x
+    _validate_rows_with_pydantic(validation, PointDatum, "points_from_gdf")
+
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
     data["lat"] = gdf.geometry.y
     data["lng"] = gdf.geometry.x
@@ -529,21 +373,45 @@ def arcs_from_gdf(
     renamed["start_lng"] = start_series.x
     renamed["end_lat"] = end_series.y
     renamed["end_lng"] = end_series.x
-    try:
-        validated = _build_arcs_schema().validate(renamed)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame contains invalid arc coordinates.")
 
     columns = list(include_columns) if include_columns is not None else []
-    missing_extra = [col for col in columns if col not in validated.columns]
+    missing_extra = [col for col in columns if col not in renamed.columns]
     if missing_extra:
         raise ValueError(f"GeoDataFrame missing columns: {missing_extra}")
 
-    data = validated[columns].copy() if columns else validated.iloc[:, 0:0].copy()
-    data["start_lat"] = validated["start_lat"]
-    data["start_lng"] = validated["start_lng"]
-    data["end_lat"] = validated["end_lat"]
-    data["end_lng"] = validated["end_lng"]
+    optional_columns = {
+        "start_altitude",
+        "end_altitude",
+        "altitude",
+        "altitude_auto_scale",
+        "stroke",
+        "dash_length",
+        "dash_gap",
+        "dash_initial_gap",
+        "dash_animate_time",
+        "color",
+        "label",
+    }
+    validation_columns = set(columns)
+    validation_columns.update(col for col in optional_columns if col in renamed.columns)
+    # Pandera's PydanticModel schema must only contain model fields, so validate a
+    # subset that matches the Pydantic model.
+    validation = (
+        renamed[list(validation_columns)].copy()
+        if validation_columns
+        else renamed.iloc[:, 0:0].copy()
+    )
+    validation["start_lat"] = renamed["start_lat"]
+    validation["start_lng"] = renamed["start_lng"]
+    validation["end_lat"] = renamed["end_lat"]
+    validation["end_lng"] = renamed["end_lng"]
+    _validate_rows_with_pydantic(validation, ArcDatum, "arcs_from_gdf")
+
+    data = renamed[columns].copy() if columns else renamed.iloc[:, 0:0].copy()
+    data["start_lat"] = renamed["start_lat"]
+    data["start_lng"] = renamed["start_lng"]
+    data["end_lat"] = renamed["end_lat"]
+    data["end_lng"] = renamed["end_lng"]
     return [ArcDatum.model_validate(record) for record in data.to_dict("records")]
 
 
@@ -596,6 +464,27 @@ def paths_from_gdf(
     missing = [col for col in columns if col not in gdf.columns]
     if missing:
         raise ValueError(f"GeoDataFrame missing columns: {missing}")
+
+    optional_columns = {
+        "color",
+        "dash_length",
+        "dash_gap",
+        "dash_initial_gap",
+        "dash_animate_time",
+        "label",
+        "name",
+    }
+    validation_columns = set(columns)
+    validation_columns.update(col for col in optional_columns if col in gdf.columns)
+    # Pandera's PydanticModel schema must only contain model fields, so validate a
+    # subset that matches the Pydantic model.
+    validation = (
+        gdf[list(validation_columns)].copy()
+        if validation_columns
+        else gdf.iloc[:, 0:0].copy()
+    )
+    validation["path"] = [_to_path_coordinates(geom) for geom in gdf.geometry]
+    _validate_rows_with_pydantic(validation, PathDatum, "paths_from_gdf")
 
     data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
     data["path"] = [_to_path_coordinates(geom) for geom in gdf.geometry]

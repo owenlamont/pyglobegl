@@ -56,7 +56,7 @@ def test_points_from_gdf_validates_schema(
         assert point.lng == expect["lng"]
         assert point.altitude == 0.1
         assert point.radius == 0.25
-        assert point.color == "#ffffaa"
+        assert point.color.as_hex(format="long") == "#ffffaa"
         assert point.model_dump(
             exclude={"id", "lat", "lng", "altitude", "radius", "color", "label"}
         ) == {key: expect[key] for key in expect if key not in {"lat", "lng"}}
@@ -105,13 +105,15 @@ def test_points_from_gdf_missing_columns() -> None:
 @pytest.mark.parametrize(
     ("column", "value", "match"),
     [
-        pytest.param("altitude", "high", "must be numeric", id="altitude-string"),
-        pytest.param("radius", "wide", "must be numeric", id="radius-string"),
-        pytest.param("altitude", -1.0, "must be non-negative", id="altitude-negative"),
-        pytest.param("radius", -2.0, "must be positive", id="radius-negative"),
-        pytest.param("color", 123, "must be strings", id="color-non-string"),
-        pytest.param("color", "notacolor", "valid CSS colors", id="color-invalid"),
-        pytest.param("label", 456, "must be strings", id="label-non-string"),
+        pytest.param("altitude", "high", "valid number", id="altitude-string"),
+        pytest.param("radius", "wide", "valid number", id="radius-string"),
+        pytest.param(
+            "altitude", -1.0, "greater than or equal to 0", id="altitude-negative"
+        ),
+        pytest.param("radius", -2.0, "greater than 0", id="radius-negative"),
+        pytest.param("color", 123, "valid color", id="color-non-string"),
+        pytest.param("color", "notacolor", "valid color", id="color-invalid"),
+        pytest.param("label", 456, "valid string", id="label-non-string"),
     ],
 )
 def test_points_from_gdf_invalid_optional_column_types(

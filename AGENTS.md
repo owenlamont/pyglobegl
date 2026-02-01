@@ -70,6 +70,13 @@ and immediately use the widget without rebuilding JupyterLab.
   to work-arounds. Escalation is preferred over brittle fallback solutions.
 - Never `git commit`, `git push`, or open/create pull requests unless the user
   explicitly asks or gives consent for those actions.
+- Keep local reference clones in `/tmp` for:
+  - `https://github.com/vasturiano/globe.gl`
+  - `https://github.com/vasturiano/three-globe`
+  - `https://github.com/movingpandas/movingpandas`
+  - `https://github.com/geopandas/geopandas`
+  - `https://github.com/manzt/anywidget`
+  to cross-check behavior/docs.
 
 ## Automated Tests
 

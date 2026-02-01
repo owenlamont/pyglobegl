@@ -5,7 +5,36 @@ from typing import Annotated, Any
 from uuid import uuid4
 
 from geojson_pydantic import MultiPolygon, Polygon
-from pydantic import AnyUrl, BaseModel, Field, field_serializer, model_validator, UUID4
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    field_serializer,
+    model_validator,
+    StrictStr,
+    UUID4,
+)
+from pydantic_extra_types.color import Color
+
+
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+NonNegativeFloat = Annotated[float, Field(ge=0, allow_inf_nan=False)]
+PositiveFloat = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+Latitude = Annotated[float, Field(ge=-90, le=90, allow_inf_nan=False)]
+Longitude = Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)]
+PathCoordinate = (
+    tuple[FiniteFloat, FiniteFloat] | tuple[FiniteFloat, FiniteFloat, FiniteFloat]
+)
+
+
+def _to_color(value: Any) -> Color:
+    if isinstance(value, Color):
+        return value
+    return Color(value)
+
+
+ColorValue = Annotated[Color | str, BeforeValidator(_to_color)]
 
 
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
@@ -89,24 +118,24 @@ class PointDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a points layer entry."""
 
     id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
-    lat: float
-    lng: float
-    altitude: float = 0.1
-    radius: float = 0.25
-    color: str = "#ffffaa"
-    label: str | None = None
+    lat: Latitude
+    lng: Longitude
+    altitude: NonNegativeFloat = 0.1
+    radius: PositiveFloat = 0.25
+    color: ColorValue = Color("#ffffaa")
+    label: StrictStr | None = None
 
 
 class PointDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for a points layer entry."""
 
     id: UUID4
-    lat: float | None = None
-    lng: float | None = None
-    altitude: float | None = None
-    radius: float | None = None
-    color: str | None = None
-    label: str | None = None
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+    altitude: NonNegativeFloat | None = None
+    radius: PositiveFloat | None = None
+    color: ColorValue | None = None
+    label: StrictStr | None = None
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PointDatumPatch:
@@ -135,62 +164,70 @@ class ArcDatum(BaseModel, extra="allow", frozen=True):
     """Data model for an arcs layer entry."""
 
     id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
-    start_lat: Annotated[float, Field(serialization_alias="startLat")]
-    start_lng: Annotated[float, Field(serialization_alias="startLng")]
-    end_lat: Annotated[float, Field(serialization_alias="endLat")]
-    end_lng: Annotated[float, Field(serialization_alias="endLng")]
+    start_lat: Annotated[Latitude, Field(serialization_alias="startLat")]
+    start_lng: Annotated[Longitude, Field(serialization_alias="startLng")]
+    end_lat: Annotated[Latitude, Field(serialization_alias="endLat")]
+    end_lng: Annotated[Longitude, Field(serialization_alias="endLng")]
     start_altitude: Annotated[
-        float, Field(default=0.0, serialization_alias="startAltitude")
+        NonNegativeFloat, Field(default=0.0, serialization_alias="startAltitude")
     ] = 0.0
     end_altitude: Annotated[
-        float, Field(default=0.0, serialization_alias="endAltitude")
+        NonNegativeFloat, Field(default=0.0, serialization_alias="endAltitude")
     ] = 0.0
-    altitude: Annotated[float | None, Field(serialization_alias="altitude")] = None
+    altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="altitude")
+    ] = None
     altitude_auto_scale: Annotated[
-        float, Field(serialization_alias="altitudeAutoScale")
+        NonNegativeFloat, Field(serialization_alias="altitudeAutoScale")
     ] = 0.5
-    stroke: Annotated[float | None, Field(serialization_alias="stroke")] = None
-    dash_length: Annotated[float, Field(serialization_alias="dashLength")] = 1.0
-    dash_gap: Annotated[float, Field(serialization_alias="dashGap")] = 0.0
-    dash_initial_gap: Annotated[float, Field(serialization_alias="dashInitialGap")] = (
-        0.0
-    )
-    dash_animate_time: Annotated[
-        float, Field(serialization_alias="dashAnimateTime")
+    stroke: Annotated[PositiveFloat | None, Field(serialization_alias="stroke")] = None
+    dash_length: Annotated[PositiveFloat, Field(serialization_alias="dashLength")] = 1.0
+    dash_gap: Annotated[NonNegativeFloat, Field(serialization_alias="dashGap")] = 0.0
+    dash_initial_gap: Annotated[
+        NonNegativeFloat, Field(serialization_alias="dashInitialGap")
     ] = 0.0
-    color: str | list[str] = "#ffffaa"
-    label: str | None = None
+    dash_animate_time: Annotated[
+        NonNegativeFloat, Field(serialization_alias="dashAnimateTime")
+    ] = 0.0
+    color: ColorValue | list[ColorValue] = Color("#ffffaa")
+    label: StrictStr | None = None
 
 
 class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for an arcs layer entry."""
 
     id: UUID4
-    start_lat: Annotated[float | None, Field(serialization_alias="startLat")] = None
-    start_lng: Annotated[float | None, Field(serialization_alias="startLng")] = None
-    end_lat: Annotated[float | None, Field(serialization_alias="endLat")] = None
-    end_lng: Annotated[float | None, Field(serialization_alias="endLng")] = None
+    start_lat: Annotated[Latitude | None, Field(serialization_alias="startLat")] = None
+    start_lng: Annotated[Longitude | None, Field(serialization_alias="startLng")] = None
+    end_lat: Annotated[Latitude | None, Field(serialization_alias="endLat")] = None
+    end_lng: Annotated[Longitude | None, Field(serialization_alias="endLng")] = None
     start_altitude: Annotated[
-        float | None, Field(serialization_alias="startAltitude")
+        NonNegativeFloat | None, Field(serialization_alias="startAltitude")
     ] = None
-    end_altitude: Annotated[float | None, Field(serialization_alias="endAltitude")] = (
-        None
-    )
-    altitude: Annotated[float | None, Field(serialization_alias="altitude")] = None
+    end_altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="endAltitude")
+    ] = None
+    altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="altitude")
+    ] = None
     altitude_auto_scale: Annotated[
-        float | None, Field(serialization_alias="altitudeAutoScale")
+        NonNegativeFloat | None, Field(serialization_alias="altitudeAutoScale")
     ] = None
-    stroke: Annotated[float | None, Field(serialization_alias="stroke")] = None
-    dash_length: Annotated[float | None, Field(serialization_alias="dashLength")] = None
-    dash_gap: Annotated[float | None, Field(serialization_alias="dashGap")] = None
+    stroke: Annotated[PositiveFloat | None, Field(serialization_alias="stroke")] = None
+    dash_length: Annotated[
+        PositiveFloat | None, Field(serialization_alias="dashLength")
+    ] = None
+    dash_gap: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="dashGap")
+    ] = None
     dash_initial_gap: Annotated[
-        float | None, Field(serialization_alias="dashInitialGap")
+        NonNegativeFloat | None, Field(serialization_alias="dashInitialGap")
     ] = None
     dash_animate_time: Annotated[
-        float | None, Field(serialization_alias="dashAnimateTime")
+        NonNegativeFloat | None, Field(serialization_alias="dashAnimateTime")
     ] = None
-    color: str | list[str] | None = None
-    label: str | None = None
+    color: ColorValue | list[ColorValue] | None = None
+    label: StrictStr | None = None
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> ArcDatumPatch:
@@ -235,13 +272,13 @@ class PolygonDatum(BaseModel, extra="allow", frozen=True):
 
     id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
     geometry: Polygon | MultiPolygon
-    name: str | None = None
-    label: str | None = None
-    cap_color: str = "#ffffaa"
-    side_color: str = "#ffffaa"
-    stroke_color: str | None = None
-    altitude: float = 0.01
-    cap_curvature_resolution: float = 5.0
+    name: StrictStr | None = None
+    label: StrictStr | None = None
+    cap_color: ColorValue = Color("#ffffaa")
+    side_color: ColorValue = Color("#ffffaa")
+    stroke_color: ColorValue | None = None
+    altitude: NonNegativeFloat = 0.01
+    cap_curvature_resolution: PositiveFloat = 5.0
 
 
 class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
@@ -249,13 +286,13 @@ class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
 
     id: UUID4
     geometry: Polygon | MultiPolygon | None = None
-    name: str | None = None
-    label: str | None = None
-    cap_color: str | None = None
-    side_color: str | None = None
-    stroke_color: str | None = None
-    altitude: float | None = None
-    cap_curvature_resolution: float | None = None
+    name: StrictStr | None = None
+    label: StrictStr | None = None
+    cap_color: ColorValue | None = None
+    side_color: ColorValue | None = None
+    stroke_color: ColorValue | None = None
+    altitude: NonNegativeFloat | None = None
+    cap_curvature_resolution: PositiveFloat | None = None
 
     @model_validator(mode="after")
     def _reject_none_for_required_fields(self) -> PolygonDatumPatch:
@@ -292,17 +329,17 @@ class PathDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a paths layer entry."""
 
     id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
-    path: list[tuple[float, float] | tuple[float, float, float]]
-    name: str | None = None
-    label: str | None = None
-    color: str | list[str] = "#ffffaa"
-    dash_length: Annotated[float, Field(serialization_alias="dashLength")] = 1.0
-    dash_gap: Annotated[float, Field(serialization_alias="dashGap")] = 0.0
-    dash_initial_gap: Annotated[float, Field(serialization_alias="dashInitialGap")] = (
-        0.0
-    )
+    path: list[PathCoordinate]
+    name: StrictStr | None = None
+    label: StrictStr | None = None
+    color: ColorValue | list[ColorValue] = Color("#ffffaa")
+    dash_length: Annotated[PositiveFloat, Field(serialization_alias="dashLength")] = 1.0
+    dash_gap: Annotated[NonNegativeFloat, Field(serialization_alias="dashGap")] = 0.0
+    dash_initial_gap: Annotated[
+        NonNegativeFloat, Field(serialization_alias="dashInitialGap")
+    ] = 0.0
     dash_animate_time: Annotated[
-        float, Field(serialization_alias="dashAnimateTime")
+        NonNegativeFloat, Field(serialization_alias="dashAnimateTime")
     ] = 0.0
 
 
@@ -310,17 +347,21 @@ class PathDatumPatch(BaseModel, extra="allow", frozen=True):
     """Patch model for a paths layer entry."""
 
     id: UUID4
-    path: list[tuple[float, float] | tuple[float, float, float]] | None = None
-    name: str | None = None
-    label: str | None = None
-    color: str | list[str] | None = None
-    dash_length: Annotated[float | None, Field(serialization_alias="dashLength")] = None
-    dash_gap: Annotated[float | None, Field(serialization_alias="dashGap")] = None
+    path: list[PathCoordinate] | None = None
+    name: StrictStr | None = None
+    label: StrictStr | None = None
+    color: ColorValue | list[ColorValue] | None = None
+    dash_length: Annotated[
+        PositiveFloat | None, Field(serialization_alias="dashLength")
+    ] = None
+    dash_gap: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="dashGap")
+    ] = None
     dash_initial_gap: Annotated[
-        float | None, Field(serialization_alias="dashInitialGap")
+        NonNegativeFloat | None, Field(serialization_alias="dashInitialGap")
     ] = None
     dash_animate_time: Annotated[
-        float | None, Field(serialization_alias="dashAnimateTime")
+        NonNegativeFloat | None, Field(serialization_alias="dashAnimateTime")
     ] = None
 
     @model_validator(mode="after")
@@ -356,9 +397,9 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
-    lat: float
-    lng: float
-    altitude: float
+    lat: Latitude
+    lng: Longitude
+    altitude: FiniteFloat
 
 
 class GlobeViewConfig(BaseModel, extra="forbid", frozen=True):
