@@ -578,7 +578,10 @@ class GlobeWidget(anywidget.AnyWidget):
 
     def get_path_dash_length(self) -> float:
         """Return the path dash length."""
-        return float(self._paths_props.get("pathDashLength", 1.0))
+        value = self._paths_props.get("pathDashLength", 1.0)
+        if isinstance(value, (int, float)):
+            return float(value)
+        return 1.0
 
     def set_path_dash_length(self, value: float) -> None:
         """Set the path dash length."""
@@ -586,7 +589,10 @@ class GlobeWidget(anywidget.AnyWidget):
 
     def get_path_dash_gap(self) -> float:
         """Return the path dash gap."""
-        return float(self._paths_props.get("pathDashGap", 0.0))
+        value = self._paths_props.get("pathDashGap", 0.0)
+        if isinstance(value, (int, float)):
+            return float(value)
+        return 0.0
 
     def set_path_dash_gap(self, value: float) -> None:
         """Set the path dash gap."""
