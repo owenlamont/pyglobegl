@@ -14,6 +14,8 @@ from pyglobegl.config import (
     ArcDatumPatch,
     GlobeConfig,
     GlobeMaterialSpec,
+    PathDatum,
+    PathDatumPatch,
     PointDatum,
     PointDatumPatch,
     PolygonDatum,
@@ -83,6 +85,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._polygon_hover_handlers: list[
             Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
         ] = []
+        self._path_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._path_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._path_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
         self._message_handlers: dict[str, Callable[[Any], None]] = {
             "globe_ready": lambda _payload: self._dispatch_globe_ready(),
             "globe_click": self._dispatch_globe_click,
@@ -96,11 +107,15 @@ class GlobeWidget(anywidget.AnyWidget):
             "polygon_click": self._dispatch_polygon_click,
             "polygon_right_click": self._dispatch_polygon_right_click,
             "polygon_hover": self._dispatch_polygon_hover,
+            "path_click": self._dispatch_path_click,
+            "path_right_click": self._dispatch_path_right_click,
+            "path_hover": self._dispatch_path_hover,
         }
         self.on_msg(self._handle_frontend_message)
         self._points_data = self._normalize_layer_data(config.points.points_data)
         self._arcs_data = self._normalize_layer_data(config.arcs.arcs_data)
         self._polygons_data = self._normalize_layer_data(config.polygons.polygons_data)
+        self._paths_data = self._normalize_layer_data(config.paths.paths_data)
         self._globe_props = config.globe.model_dump(
             by_alias=True, exclude_none=True, exclude_unset=False, mode="json"
         )
@@ -165,18 +180,38 @@ class GlobeWidget(anywidget.AnyWidget):
                 "polygonLabel": "label",
             }
         )
+        self._paths_props = config.paths.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"paths_data"},
+            mode="json",
+        )
+        self._paths_props.update(
+            {
+                "pathColor": "color",
+                "pathDashLength": "dashLength",
+                "pathDashGap": "dashGap",
+                "pathDashInitialGap": "dashInitialGap",
+                "pathDashAnimateTime": "dashAnimateTime",
+                "pathLabel": "label",
+            }
+        )
         config_dict = config.model_dump(
             by_alias=True, exclude_none=True, exclude_defaults=True, mode="json"
         )
         config_dict.setdefault("points", {}).update(self._points_props)
         config_dict.setdefault("arcs", {}).update(self._arcs_props)
         config_dict.setdefault("polygons", {}).update(self._polygons_props)
+        config_dict.setdefault("paths", {}).update(self._paths_props)
         if self._points_data is not None:
             config_dict.setdefault("points", {})["pointsData"] = self._points_data
         if self._arcs_data is not None:
             config_dict.setdefault("arcs", {})["arcsData"] = self._arcs_data
         if self._polygons_data is not None:
             config_dict.setdefault("polygons", {})["polygonsData"] = self._polygons_data
+        if self._paths_data is not None:
+            config_dict.setdefault("paths", {})["pathsData"] = self._paths_data
         self.config = config_dict
 
     def on_globe_ready(self, handler: Callable[[], None]) -> None:
@@ -244,6 +279,24 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on polygon hover events."""
         self._polygon_hover_handlers.append(handler)
+
+    def on_path_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on path left-clicks."""
+        self._path_click_handlers.append(handler)
+
+    def on_path_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on path right-clicks."""
+        self._path_right_click_handlers.append(handler)
+
+    def on_path_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on path hover events."""
+        self._path_hover_handlers.append(handler)
 
     def globe_tile_engine_clear_cache(self) -> None:
         """Clear the globe tile engine cache."""
@@ -486,6 +539,75 @@ class GlobeWidget(anywidget.AnyWidget):
         patch = PolygonDatumPatch.model_validate({"id": polygon_id, **changes})
         self.patch_polygons_data([patch])
 
+    def get_paths_data(self) -> list[PathDatum] | None:
+        """Return a copy of the cached paths data."""
+        return self._denormalize_layer_data(self._paths_data, PathDatum)
+
+    def set_paths_data(self, data: Sequence[PathDatum]) -> None:
+        """Replace the paths data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._paths_data = normalized
+        self.send({"type": "paths_set_data", "payload": {"data": normalized}})
+
+    def patch_paths_data(self, patches: Sequence[PathDatumPatch]) -> None:
+        """Patch paths data by id."""
+        normalized = self._normalize_path_patches(patches)
+        self._apply_patches(self._paths_data, normalized, "paths")
+        self.send({"type": "paths_patch_data", "payload": {"patches": normalized}})
+
+    def update_path(self, path_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single path by id."""
+        patch = PathDatumPatch.model_validate({"id": path_id, **changes})
+        self.patch_paths_data([patch])
+
+    def get_path_resolution(self) -> int:
+        """Return the path resolution."""
+        return int(self._paths_props.get("pathResolution", 2))
+
+    def set_path_resolution(self, value: int) -> None:
+        """Set the path resolution."""
+        self._set_layer_prop("paths", self._paths_props, "pathResolution", value)
+
+    def get_path_stroke(self) -> float | None:
+        """Return the path stroke."""
+        return self._paths_props.get("pathStroke")
+
+    def set_path_stroke(self, value: float | None) -> None:
+        """Set the path stroke."""
+        self._set_layer_prop("paths", self._paths_props, "pathStroke", value)
+
+    def get_path_dash_length(self) -> float:
+        """Return the path dash length."""
+        value = self._paths_props.get("pathDashLength", 1.0)
+        if isinstance(value, (int, float)):
+            return float(value)
+        return 1.0
+
+    def set_path_dash_length(self, value: float) -> None:
+        """Set the path dash length."""
+        self._set_layer_prop("paths", self._paths_props, "pathDashLength", value)
+
+    def get_path_dash_gap(self) -> float:
+        """Return the path dash gap."""
+        value = self._paths_props.get("pathDashGap", 0.0)
+        if isinstance(value, (int, float)):
+            return float(value)
+        return 0.0
+
+    def set_path_dash_gap(self, value: float) -> None:
+        """Set the path dash gap."""
+        self._set_layer_prop("paths", self._paths_props, "pathDashGap", value)
+
+    def get_path_transition_duration(self) -> int:
+        """Return the path transition duration."""
+        return int(self._paths_props.get("pathTransitionDuration", 1000))
+
+    def set_path_transition_duration(self, value: int) -> None:
+        """Set the path transition duration."""
+        self._set_layer_prop(
+            "paths", self._paths_props, "pathTransitionDuration", value
+        )
+
     def _handle_frontend_message(
         self, _widget: "GlobeWidget", message: dict[str, Any], _buffers: list[bytes]
     ) -> None:
@@ -511,7 +633,7 @@ class GlobeWidget(anywidget.AnyWidget):
         return normalized
 
     def _normalize_layer_data(
-        self, data: Sequence[PointDatum | ArcDatum | PolygonDatum] | None
+        self, data: Sequence[PointDatum | ArcDatum | PolygonDatum | PathDatum] | None
     ) -> list[dict[str, Any]] | None:
         if data is None:
             return None
@@ -567,6 +689,22 @@ class GlobeWidget(anywidget.AnyWidget):
         for patch in patches:
             if not isinstance(patch, PolygonDatumPatch):
                 raise TypeError("Patch entries must be PolygonDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_path_patches(
+        self, patches: Sequence[PathDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, PathDatumPatch):
+                raise TypeError("Patch entries must be PathDatumPatch.")
             entry = patch.model_dump(
                 by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
             )
@@ -708,3 +846,33 @@ class GlobeWidget(anywidget.AnyWidget):
             return
         for handler in self._polygon_hover_handlers:
             handler(polygon, prev_polygon)
+
+    def _dispatch_path_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        path = payload.get("path")
+        coords = payload.get("coords")
+        if isinstance(path, dict) and isinstance(coords, dict):
+            for handler in self._path_click_handlers:
+                handler(path, coords)
+
+    def _dispatch_path_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        path = payload.get("path")
+        coords = payload.get("coords")
+        if isinstance(path, dict) and isinstance(coords, dict):
+            for handler in self._path_right_click_handlers:
+                handler(path, coords)
+
+    def _dispatch_path_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        path = payload.get("path")
+        prev_path = payload.get("prev_path")
+        if path is not None and not isinstance(path, dict):
+            return
+        if prev_path is not None and not isinstance(prev_path, dict):
+            return
+        for handler in self._path_hover_handlers:
+            handler(path, prev_path)

@@ -44,8 +44,12 @@ and immediately use the widget without rebuilding JupyterLab.
   must be `PointDatum`/`ArcDatum`/`PolygonDatum` (no raw dicts for public APIs).
 - Do not expose accessor remapping or string field-name accessors in Python.
   We keep the mapping internal to bridge Pythonic names to globe.gl keys.
+- Type hints must mirror the Python API, not JS accessors; avoid `str`
+  field-name accessor types in public models.
 - Defaults in data models mirror globe.gl so omitted values still render
   predictably.
+- Avoid `None`/`Optional` unless `null` has a specific, documented meaning in
+  globe.gl/three-globe; otherwise set the globe.gl default value directly.
 - Extra fields are allowed on models for metadata, but canonical fields are
   fixed (no aliasing to alternate names).
 
@@ -64,6 +68,15 @@ and immediately use the widget without rebuilding JupyterLab.
 - If a task fails due to network, file access, dependency install, or local
   system restrictions, request elevated permissions first rather than pivoting
   to work-arounds. Escalation is preferred over brittle fallback solutions.
+- Never `git commit`, `git push`, or open/create pull requests unless the user
+  explicitly asks or gives consent for those actions.
+- Keep local reference clones in `/tmp` for:
+  - `https://github.com/vasturiano/globe.gl`
+  - `https://github.com/vasturiano/three-globe`
+  - `https://github.com/movingpandas/movingpandas`
+  - `https://github.com/geopandas/geopandas`
+  - `https://github.com/manzt/anywidget`
+  to cross-check behavior/docs.
 
 ## Automated Tests
 
@@ -88,10 +101,6 @@ automate rendering checks, run Playwright on Windows and open the marimo server
 on `localhost` (don’t force `--host 0.0.0.0`, which can break localhost
 forwarding).
 
-- Configure Playwright MCP to use Windows PowerShell (config in
-  `~/.codex/config.toml`):
-  - `command = "pwsh.exe"`
-  - `args = ["-NoLogo", "-NoProfile", "-Command", "npx @playwright/mcp@latest"]`
 - Start marimo (edit mode) in WSL:
   - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
     `--skip-update-check`

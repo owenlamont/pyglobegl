@@ -1,6 +1,6 @@
 [project]
 name = "pyglobegl"
-version = "0.5.0"
+version = "0.6.0"
 description = "anywidget wrapper for globe.gl"
 readme = "README.md"
 authors = [
@@ -41,6 +41,7 @@ dependencies = [
     "geojson-pydantic>=2.1.0",
     "pillow>=12.1.0",
     "pydantic>=2.12.5",
+    "pydantic-extra-types>=2.11.0",
     "traitlets>=5.14.3",
 ]
 
@@ -53,7 +54,11 @@ Releases = "https://github.com/owenlamont/pyglobegl/releases"
 geopandas = [
     "geopandas>=1.1.2",
     "pandera>=0.28.1",
-    "webcolors",
+]
+movingpandas = [
+    "geopandas>=1.1.2",
+    "movingpandas>=0.22.4",
+    "pandera>=0.28.1",
 ]
 
 [build-system]
@@ -66,6 +71,7 @@ dev = [
     "ipykernel>=7.1.0",
     "jupyterlab>=4.5.1",
     "marimo>=0.19.0",
+    "movingpandas>=0.22.4",
     "notebook>=7.5.1",
     "pandera>=0.28.1",
     "pytest>=9.0.2",

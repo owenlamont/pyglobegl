@@ -26,6 +26,16 @@ pip install pyglobegl[geopandas]
 uv add pyglobegl[geopandas]
 ```
 
+Optional MovingPandas extra (includes GeoPandas + Pandera):
+
+```bash
+pip install pyglobegl[movingpandas]
+```
+
+```bash
+uv add pyglobegl[movingpandas]
+```
+
 ## Quickstart
 
 ```python

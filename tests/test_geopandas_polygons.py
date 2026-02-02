@@ -5,6 +5,7 @@ from geojson_pydantic import (
     Polygon as GeoJsonPolygon,
 )
 import geopandas as gpd
+from pydantic_extra_types.color import Color
 import pytest
 from shapely.geometry import MultiPolygon, Point, Polygon
 
@@ -39,7 +40,8 @@ def test_polygons_from_gdf_validates_schema() -> None:
     assert polygon.name == "Zone A"
     assert polygon.model_dump(exclude={"id", "geometry"})["population"] == 120
     assert polygon.altitude == 0.05
-    assert polygon.cap_color == "#ffcc00"
+    assert isinstance(polygon.cap_color, Color)
+    assert polygon.cap_color.as_hex(format="long") == "#ffcc00"
     assert isinstance(polygon.geometry, GeoJsonPolygon)
 
 

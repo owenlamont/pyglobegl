@@ -65,7 +65,7 @@ def test_arcs_from_gdf_invalid_ranges() -> None:
         {"start": [Point(0, 100)], "end": [Point(0, 0)]}, geometry="start", crs=4326
     )
 
-    with pytest.raises(ValueError, match="invalid arc coordinates"):
+    with pytest.raises(ValueError, match="arcs_from_gdf schema validation failed"):
         arcs_from_gdf(gdf)
 
 
@@ -96,48 +96,48 @@ def test_arcs_from_gdf_include_columns() -> None:
 @pytest.mark.parametrize(
     ("column", "value", "match"),
     [
-        pytest.param("altitude", "high", "must be numeric", id="altitude-string"),
+        pytest.param("altitude", "high", "valid number", id="altitude-string"),
         pytest.param(
-            "altitude_auto_scale", "auto", "must be numeric", id="auto-scale-string"
+            "altitude_auto_scale", "auto", "valid number", id="auto-scale-string"
         ),
-        pytest.param("stroke", "wide", "must be numeric", id="stroke-string"),
+        pytest.param("stroke", "wide", "valid number", id="stroke-string"),
+        pytest.param("dash_length", "short", "valid number", id="dash-length-string"),
+        pytest.param("dash_gap", "gap", "valid number", id="dash-gap-string"),
         pytest.param(
-            "dash_length", "short", "must be numeric", id="dash-length-string"
-        ),
-        pytest.param("dash_gap", "gap", "must be numeric", id="dash-gap-string"),
-        pytest.param(
-            "dash_initial_gap", "gap", "must be numeric", id="dash-initial-gap-string"
+            "dash_initial_gap", "gap", "valid number", id="dash-initial-gap-string"
         ),
         pytest.param(
-            "dash_animate_time",
-            "fast",
-            "must be numeric",
-            id="dash-animate-time-string",
+            "dash_animate_time", "fast", "valid number", id="dash-animate-time-string"
         ),
-        pytest.param("altitude", -0.2, "must be non-negative", id="altitude-negative"),
+        pytest.param(
+            "altitude", -0.2, "greater than or equal to 0", id="altitude-negative"
+        ),
         pytest.param(
             "altitude_auto_scale",
             -0.1,
-            "must be non-negative",
+            "greater than or equal to 0",
             id="auto-scale-negative",
         ),
-        pytest.param("stroke", -0.3, "must be positive", id="stroke-negative"),
+        pytest.param("stroke", -0.3, "greater than 0", id="stroke-negative"),
+        pytest.param("dash_length", -0.1, "greater than 0", id="dash-length-negative"),
         pytest.param(
-            "dash_length", -0.1, "must be positive", id="dash-length-negative"
+            "dash_gap", -0.1, "greater than or equal to 0", id="dash-gap-negative"
         ),
-        pytest.param("dash_gap", -0.1, "must be positive", id="dash-gap-negative"),
         pytest.param(
-            "dash_initial_gap", -0.1, "must be positive", id="dash-initial-gap-negative"
+            "dash_initial_gap",
+            -0.1,
+            "greater than or equal to 0",
+            id="dash-initial-gap-negative",
         ),
         pytest.param(
             "dash_animate_time",
             -1.0,
-            "must be positive",
+            "greater than or equal to 0",
             id="dash-animate-time-negative",
         ),
-        pytest.param("color", 123, "must be strings", id="color-non-string"),
-        pytest.param("color", "notacolor", "valid CSS colors", id="color-invalid"),
-        pytest.param("label", 456, "must be strings", id="label-non-string"),
+        pytest.param("color", 123, "valid color", id="color-non-string"),
+        pytest.param("color", "notacolor", "valid color", id="color-invalid"),
+        pytest.param("label", 456, "valid string", id="label-non-string"),
     ],
 )
 def test_arcs_from_gdf_invalid_optional_column_types(
