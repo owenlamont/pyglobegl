@@ -179,6 +179,24 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
+### Paths Example
+
+```python
+from pyglobegl import GlobeConfig, GlobeWidget, PathDatum, PathsLayerConfig
+
+paths = [
+    PathDatum(
+        path=[(0, 0), (5, 5), (10, 0)], color="#66ccff", dash_length=0.02
+    ),
+]
+
+config = GlobeConfig(
+    paths=PathsLayerConfig(paths_data=paths, path_transition_duration=0),
+)
+
+display(GlobeWidget(config=config))
+```
+
 ## Runtime Updates and Callbacks
 
 Use `GlobeWidget` setters to update data and accessors after the widget is
@@ -216,6 +234,17 @@ widget.on_polygon_hover(on_polygon_hover)
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
 These helpers return Pydantic models (`PointDatum`, `ArcDatum`, `PolygonDatum`).
 Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
+`points_from_gdf` defaults to a point geometry column named `point` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`point_geometry=`). `arcs_from_gdf` expects point geometry columns named
+`start` and `end` (override with `start_geometry=` and `end_geometry=`).
+`polygons_from_gdf` defaults to a geometry column named `polygons` if present,
+otherwise it uses the active GeoDataFrame geometry column (override with
+`geometry_column=`). `paths_from_gdf` defaults to a geometry column named
+`paths` if present, otherwise it uses the active GeoDataFrame geometry column
+(override with `geometry_column=`).
+
+### Points Example
 
 ```python
 import geopandas as gpd
@@ -234,6 +263,8 @@ gdf = gpd.GeoDataFrame(
 )
 points = points_from_gdf(gdf, include_columns=["name", "population"])
 ```
+
+### Arcs Example
 
 ```python
 import geopandas as gpd
@@ -254,6 +285,8 @@ gdf = gpd.GeoDataFrame(
 arcs = arcs_from_gdf(gdf, include_columns=["name", "value"])
 ```
 
+### Polygons Example
+
 ```python
 import geopandas as gpd
 from shapely.geometry import Polygon
@@ -273,13 +306,49 @@ gdf = gpd.GeoDataFrame(
 polygons = polygons_from_gdf(gdf, include_columns=["name"])
 ```
 
-`points_from_gdf` defaults to a point geometry column named `point` if present,
-otherwise it uses the active GeoDataFrame geometry column (override with
-`point_geometry=`). `arcs_from_gdf` expects point geometry columns named
-`start` and `end` (override with `start_geometry=` and `end_geometry=`).
-`polygons_from_gdf` defaults to a geometry column named `polygons` if present,
-otherwise it uses the active GeoDataFrame geometry column (override with
-`geometry_column=`).
+### Paths Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import LineString
+
+from pyglobegl import paths_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Route A"],
+        "paths": [LineString([(0, 0), (5, 5), (10, 0)])],
+    },
+    geometry="paths",
+    crs="EPSG:4326",
+)
+paths = paths_from_gdf(gdf, include_columns=["name"])
+```
+
+## MovingPandas Helpers (Optional)
+
+### MovingPandas Example
+
+```python
+import geopandas as gpd
+import movingpandas as mpd
+import pandas as pd
+from shapely.geometry import Point
+
+from pyglobegl import paths_from_mpd
+
+df = pd.DataFrame(
+    [
+        {"geometry": Point(0, 0), "t": pd.Timestamp("2023-01-01 12:00:00")},
+        {"geometry": Point(1, 1), "t": pd.Timestamp("2023-01-01 12:01:00")},
+        {"geometry": Point(2, 0), "t": pd.Timestamp("2023-01-01 12:02:00")},
+    ]
+).set_index("t")
+gdf = gpd.GeoDataFrame(df, crs="EPSG:4326")
+traj = mpd.Trajectory(gdf, 1)
+
+paths = paths_from_mpd(traj)
+```
 
 ## Goals
 
@@ -299,7 +368,7 @@ otherwise it uses the active GeoDataFrame geometry column (override with
     - [x] Points layer
     - [x] Arcs layer
     - [x] Polygons layer
-    - [ ] Paths layer
+    - [x] Paths layer
     - [ ] Heatmaps layer
     - [ ] Hex bin layer
     - [ ] Hexed polygons layer
