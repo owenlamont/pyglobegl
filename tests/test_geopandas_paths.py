@@ -27,7 +27,7 @@ def test_paths_from_gdf_linestring() -> None:
 
     assert len(paths) == 2
     assert isinstance(paths[0], PathDatum)
-    assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]
+    assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (0.0, 2.0)]
     assert isinstance(paths[0].color, Color)
     assert paths[0].color.as_hex(format="long") == "#ff0000"
     assert paths[0].dash_length == 0.5

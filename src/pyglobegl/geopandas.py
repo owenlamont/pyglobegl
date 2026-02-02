@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 from pyglobegl.config import ArcDatum, PathDatum, PointDatum, PolygonDatum
 
@@ -494,10 +494,22 @@ def paths_from_gdf(
 def _to_path_coordinate_groups(
     geom: BaseGeometry,
 ) -> list[list[tuple[float, float] | tuple[float, float, float]]]:
+    def _is_xyz(
+        coord: tuple[float, float] | tuple[float, float, float],
+    ) -> TypeGuard[tuple[float, float, float]]:
+        return len(coord) == 3
+
+    def _swap_xy(
+        coord: tuple[float, float] | tuple[float, float, float],
+    ) -> tuple[float, float] | tuple[float, float, float]:
+        if _is_xyz(coord):
+            return (coord[1], coord[0], coord[2])
+        return (coord[1], coord[0])
+
     if geom.geom_type == "LineString":
-        return [list(geom.coords)]
+        return [[_swap_xy(coord) for coord in geom.coords]]
     if geom.geom_type == "MultiLineString":
-        return [list(part.coords) for part in geom.geoms]
+        return [[_swap_xy(coord) for coord in part.coords] for part in geom.geoms]
     raise ValueError("Geometry must be LineString or MultiLineString.")
 
 
@@ -506,7 +518,7 @@ def _expand_path_records(
 ) -> list[dict[str, object]]:
     records: list[dict[str, object]] = []
     for idx, geom in enumerate(gdf.geometry):
-        base = {col: gdf.loc[idx, col] for col in columns} if columns else {}
+        base = {col: gdf.iloc[idx][col] for col in columns} if columns else {}
         for path in _to_path_coordinate_groups(geom):
             record = dict(base)
             record["path"] = path

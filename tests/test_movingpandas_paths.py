@@ -28,7 +28,7 @@ def test_paths_from_mpd_trajectory() -> None:
     paths = paths_from_mpd(traj, include_columns=["color"])
 
     assert len(paths) == 1
-    assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (2.0, 0.0)]
+    assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (0.0, 2.0)]
     assert isinstance(paths[0].color, Color)
     assert paths[0].color.as_hex(format="long") == "#0000ff"
 
