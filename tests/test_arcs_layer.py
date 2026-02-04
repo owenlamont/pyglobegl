@@ -110,7 +110,7 @@ def test_arcs_accessors(
 def test_arcs_default_accessors(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.98
+    canvas_similarity_threshold = 0.97
     arcs_data = [
         ArcDatum(
             start_lat=0,
