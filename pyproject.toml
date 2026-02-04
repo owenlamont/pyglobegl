@@ -1,6 +1,6 @@
 [project]
 name = "pyglobegl"
-version = "0.6.0"
+version = "0.7.0"
 description = "anywidget wrapper for globe.gl"
 readme = "README.md"
 authors = [
@@ -81,4 +81,5 @@ dev = [
     "pytest-randomly>=4.0.1",
     "pytest-xdist>=3.8.0",
     "scikit-image>=0.25.2",
+    "sgp4>=2.25",
 ]

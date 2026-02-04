@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
 from geojson_pydantic import MultiPolygon, Polygon
@@ -59,6 +59,13 @@ def _serialize_color_list_required(
     if isinstance(value, list):
         return [str(item) for item in value]
     return str(value)
+
+
+def _default_tile_material() -> GlobeMaterialSpec:
+    return GlobeMaterialSpec(
+        type="MeshLambertMaterial",
+        params={"color": "#ffbb88", "opacity": 0.4, "transparent": True},
+    )
 
 
 class GlobeInitConfig(BaseModel, extra="forbid", frozen=True):
@@ -454,6 +461,424 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
     ] = 1000
 
 
+class HeatmapPointDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a heatmap point entry."""
+
+    lat: Latitude
+    lng: Longitude
+    weight: FiniteFloat = 1.0
+
+
+class HeatmapDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a heatmap layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    points: Annotated[list[HeatmapPointDatum], Field(min_length=1)]
+    bandwidth: PositiveFloat = 2.5
+    color_saturation: Annotated[
+        PositiveFloat, Field(serialization_alias="colorSaturation")
+    ] = 1.5
+    base_altitude: Annotated[
+        NonNegativeFloat, Field(serialization_alias="baseAltitude")
+    ] = 0.01
+    top_altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="topAltitude")
+    ] = None
+
+
+class HeatmapDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a heatmap layer entry."""
+
+    id: UUID4
+    points: list[HeatmapPointDatum] | None = None
+    bandwidth: PositiveFloat | None = None
+    color_saturation: Annotated[
+        PositiveFloat | None, Field(serialization_alias="colorSaturation")
+    ] = None
+    base_altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="baseAltitude")
+    ] = None
+    top_altitude: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="topAltitude")
+    ] = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> HeatmapDatumPatch:
+        for field in ("points", "bandwidth", "color_saturation", "base_altitude"):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class HeatmapsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Heatmaps layer settings for globe.gl."""
+
+    heatmaps_data: Annotated[
+        list[HeatmapDatum] | None, Field(serialization_alias="heatmapsData")
+    ] = None
+    heatmaps_transition_duration: Annotated[
+        int, Field(serialization_alias="heatmapsTransitionDuration")
+    ] = 0
+
+
+class HexPolygonDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a hexed polygon layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    geometry: Polygon | MultiPolygon
+    label: StrictStr | None = None
+    color: ColorValue = Color("#ffffaa")
+    altitude: NonNegativeFloat = 0.001
+    resolution: Annotated[int, Field(ge=0, le=15)] = 3
+    margin: NonNegativeFloat = 0.2
+    use_dots: Annotated[bool, Field(serialization_alias="useDots")] = False
+    curvature_resolution: Annotated[
+        PositiveFloat, Field(serialization_alias="curvatureResolution")
+    ] = 5.0
+    dot_resolution: Annotated[
+        PositiveFloat, Field(serialization_alias="dotResolution")
+    ] = 12.0
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue) -> str:
+        return str(value)
+
+
+class HexPolygonDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a hexed polygon layer entry."""
+
+    id: UUID4
+    geometry: Polygon | MultiPolygon | None = None
+    label: StrictStr | None = None
+    color: ColorValue | None = None
+    altitude: NonNegativeFloat | None = None
+    resolution: Annotated[int | None, Field(ge=0, le=15)] = None
+    margin: NonNegativeFloat | None = None
+    use_dots: Annotated[bool | None, Field(serialization_alias="useDots")] = None
+    curvature_resolution: Annotated[
+        PositiveFloat | None, Field(serialization_alias="curvatureResolution")
+    ] = None
+    dot_resolution: Annotated[
+        PositiveFloat | None, Field(serialization_alias="dotResolution")
+    ] = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> HexPolygonDatumPatch:
+        for field in (
+            "geometry",
+            "color",
+            "altitude",
+            "resolution",
+            "margin",
+            "use_dots",
+            "curvature_resolution",
+            "dot_resolution",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class HexedPolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Hexed polygons layer settings for globe.gl."""
+
+    hex_polygons_data: Annotated[
+        list[HexPolygonDatum] | None, Field(serialization_alias="hexPolygonsData")
+    ] = None
+    hex_polygons_transition_duration: Annotated[
+        int, Field(serialization_alias="hexPolygonsTransitionDuration")
+    ] = 0
+
+
+class TileDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a tiles layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    lat: Latitude
+    lng: Longitude
+    altitude: NonNegativeFloat = 0.01
+    width: PositiveFloat = 1.0
+    height: PositiveFloat = 1.0
+    use_globe_projection: Annotated[
+        bool, Field(serialization_alias="useGlobeProjection")
+    ] = True
+    material: Annotated[
+        GlobeMaterialSpec, Field(default_factory=_default_tile_material)
+    ] = Field(default_factory=_default_tile_material)
+    curvature_resolution: Annotated[
+        PositiveFloat, Field(serialization_alias="curvatureResolution")
+    ] = 5.0
+    label: StrictStr | None = None
+
+
+class TileDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a tiles layer entry."""
+
+    id: UUID4
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+    altitude: NonNegativeFloat | None = None
+    width: PositiveFloat | None = None
+    height: PositiveFloat | None = None
+    use_globe_projection: Annotated[
+        bool | None, Field(serialization_alias="useGlobeProjection")
+    ] = None
+    material: GlobeMaterialSpec | None = None
+    curvature_resolution: Annotated[
+        PositiveFloat | None, Field(serialization_alias="curvatureResolution")
+    ] = None
+    label: StrictStr | None = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> TileDatumPatch:
+        for field in (
+            "lat",
+            "lng",
+            "altitude",
+            "width",
+            "height",
+            "use_globe_projection",
+            "material",
+            "curvature_resolution",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class TilesLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Tiles layer settings for globe.gl."""
+
+    tiles_data: Annotated[
+        list[TileDatum] | None, Field(serialization_alias="tilesData")
+    ] = None
+    tiles_transition_duration: Annotated[
+        int, Field(serialization_alias="tilesTransitionDuration")
+    ] = 1000
+
+
+class ParticlePointDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a particles layer point entry."""
+
+    lat: Latitude
+    lng: Longitude
+    altitude: NonNegativeFloat = 0.01
+    label: StrictStr | None = None
+
+
+class ParticleDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a particles layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    particles: Annotated[list[ParticlePointDatum], Field(min_length=1)]
+    size: PositiveFloat = 0.5
+    size_attenuation: Annotated[bool, Field(serialization_alias="sizeAttenuation")] = (
+        True
+    )
+    color: ColorValue = Color("white")
+    texture: StrictStr | None = None
+    label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue) -> str:
+        return str(value)
+
+
+class ParticleDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a particles layer entry."""
+
+    id: UUID4
+    particles: list[ParticlePointDatum] | None = None
+    size: PositiveFloat | None = None
+    size_attenuation: Annotated[
+        bool | None, Field(serialization_alias="sizeAttenuation")
+    ] = None
+    color: ColorValue | None = None
+    texture: StrictStr | None = None
+    label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> ParticleDatumPatch:
+        for field in ("particles", "size", "size_attenuation", "color"):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class ParticlesLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Particles layer settings for globe.gl."""
+
+    particles_data: Annotated[
+        list[ParticleDatum] | None, Field(serialization_alias="particlesData")
+    ] = None
+
+
+class RingDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a rings layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    lat: Latitude
+    lng: Longitude
+    altitude: NonNegativeFloat = 0.0015
+    color: ColorValue | list[ColorValue] = Color("#ffffaa")
+    max_radius: Annotated[NonNegativeFloat, Field(serialization_alias="maxRadius")] = 2
+    propagation_speed: Annotated[
+        FiniteFloat, Field(serialization_alias="propagationSpeed")
+    ] = 1.0
+    repeat_period: Annotated[
+        NonNegativeFloat, Field(serialization_alias="repeatPeriod")
+    ] = 700
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | list[ColorValue]) -> str | list[str]:
+        return _serialize_color_list_required(value)
+
+
+class RingDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a rings layer entry."""
+
+    id: UUID4
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+    altitude: NonNegativeFloat | None = None
+    color: ColorValue | list[ColorValue] | None = None
+    max_radius: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="maxRadius")
+    ] = None
+    propagation_speed: Annotated[
+        FiniteFloat | None, Field(serialization_alias="propagationSpeed")
+    ] = None
+    repeat_period: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="repeatPeriod")
+    ] = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(
+        self, value: ColorValue | list[ColorValue] | None
+    ) -> str | list[str] | None:
+        return _serialize_color_list(value)
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> RingDatumPatch:
+        for field in (
+            "lat",
+            "lng",
+            "altitude",
+            "color",
+            "max_radius",
+            "propagation_speed",
+            "repeat_period",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class RingsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Rings layer settings for globe.gl."""
+
+    rings_data: Annotated[
+        list[RingDatum] | None, Field(serialization_alias="ringsData")
+    ] = None
+    ring_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="ringResolution")
+    ] = 64
+
+
+class LabelDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a labels layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    lat: Latitude
+    lng: Longitude
+    altitude: NonNegativeFloat = 0.002
+    text: StrictStr
+    size: NonNegativeFloat = 0.5
+    rotation: FiniteFloat = 0.0
+    color: ColorValue = Color("lightgrey")
+    include_dot: Annotated[bool, Field(serialization_alias="includeDot")] = True
+    dot_radius: Annotated[NonNegativeFloat, Field(serialization_alias="dotRadius")] = (
+        0.1
+    )
+    dot_orientation: Annotated[
+        Literal["right", "top", "bottom"], Field(serialization_alias="dotOrientation")
+    ] = "bottom"
+    label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue) -> str:
+        return str(value)
+
+
+class LabelDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a labels layer entry."""
+
+    id: UUID4
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+    altitude: NonNegativeFloat | None = None
+    text: StrictStr | None = None
+    size: NonNegativeFloat | None = None
+    rotation: FiniteFloat | None = None
+    color: ColorValue | None = None
+    include_dot: Annotated[bool | None, Field(serialization_alias="includeDot")] = None
+    dot_radius: Annotated[
+        NonNegativeFloat | None, Field(serialization_alias="dotRadius")
+    ] = None
+    dot_orientation: Annotated[
+        Literal["right", "top", "bottom"] | None,
+        Field(serialization_alias="dotOrientation"),
+    ] = None
+    label: StrictStr | None = None
+
+    @field_serializer("color", when_used="always")
+    def _serialize_color(self, value: ColorValue | None) -> str | None:
+        return _serialize_color_single(value)
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> LabelDatumPatch:
+        for field in (
+            "lat",
+            "lng",
+            "altitude",
+            "text",
+            "size",
+            "rotation",
+            "color",
+            "include_dot",
+            "dot_radius",
+            "dot_orientation",
+        ):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class LabelsLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Labels layer settings for globe.gl."""
+
+    labels_data: Annotated[
+        list[LabelDatum] | None, Field(serialization_alias="labelsData")
+    ] = None
+    label_type_face: Annotated[
+        dict[str, Any] | None, Field(serialization_alias="labelTypeFace")
+    ] = None
+    label_resolution: Annotated[
+        int, Field(gt=0, serialization_alias="labelResolution")
+    ] = 3
+    labels_transition_duration: Annotated[
+        int, Field(serialization_alias="labelsTransitionDuration")
+    ] = 1000
+
+
 class PointOfView(BaseModel, extra="forbid", frozen=True):
     """Point-of-view parameters for the globe camera."""
 
@@ -496,6 +921,24 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     ] = Field(default_factory=PolygonsLayerConfig)
     paths: Annotated[PathsLayerConfig, Field(default_factory=PathsLayerConfig)] = Field(
         default_factory=PathsLayerConfig
+    )
+    heatmaps: Annotated[
+        HeatmapsLayerConfig, Field(default_factory=HeatmapsLayerConfig)
+    ] = Field(default_factory=HeatmapsLayerConfig)
+    hexed_polygons: Annotated[
+        HexedPolygonsLayerConfig, Field(default_factory=HexedPolygonsLayerConfig)
+    ] = Field(default_factory=HexedPolygonsLayerConfig)
+    tiles: Annotated[TilesLayerConfig, Field(default_factory=TilesLayerConfig)] = Field(
+        default_factory=TilesLayerConfig
+    )
+    particles: Annotated[
+        ParticlesLayerConfig, Field(default_factory=ParticlesLayerConfig)
+    ] = Field(default_factory=ParticlesLayerConfig)
+    rings: Annotated[RingsLayerConfig, Field(default_factory=RingsLayerConfig)] = Field(
+        default_factory=RingsLayerConfig
+    )
+    labels: Annotated[LabelsLayerConfig, Field(default_factory=LabelsLayerConfig)] = (
+        Field(default_factory=LabelsLayerConfig)
     )
     view: Annotated[GlobeViewConfig, Field(default_factory=GlobeViewConfig)] = Field(
         default_factory=GlobeViewConfig
