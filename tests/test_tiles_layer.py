@@ -11,6 +11,7 @@ from pyglobegl import (
     GlobeInitConfig,
     GlobeLayerConfig,
     GlobeLayoutConfig,
+    GlobeMaterialSpec,
     GlobeViewConfig,
     GlobeWidget,
     PointOfView,
@@ -57,7 +58,17 @@ def test_tiles_accessors(
     canvas_similarity_threshold = 0.97
     tiles = [
         TileDatum(
-            lat=0, lng=0, width=60, height=30, altitude=0.02, use_globe_projection=True
+            lat=0,
+            lng=0,
+            width=60,
+            height=30,
+            altitude=0.02,
+            use_globe_projection=True,
+            curvature_resolution=2,
+            material=GlobeMaterialSpec(
+                type="MeshLambertMaterial",
+                params={"color": "#ffcc00", "opacity": 0.6, "transparent": True},
+            ),
         )
     ]
     updated = [
@@ -68,6 +79,11 @@ def test_tiles_accessors(
             height=20,
             altitude=0.05,
             use_globe_projection=False,
+            curvature_resolution=8,
+            material=GlobeMaterialSpec(
+                type="MeshLambertMaterial",
+                params={"color": "#00ccff", "opacity": 0.85, "transparent": True},
+            ),
         )
     ]
 

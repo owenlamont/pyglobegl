@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from IPython.display import display
@@ -23,6 +25,12 @@ if TYPE_CHECKING:
     from playwright.sync_api import Page
 
 _URL_ADAPTER = TypeAdapter(AnyUrl)
+_FONT_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "fonts"
+    / "optimer_regular.typeface.json"
+)
 
 
 def _make_config(labels: LabelsLayerConfig, globe_texture_url: str) -> GlobeConfig:
@@ -59,6 +67,7 @@ def test_labels_accessors(
         LabelDatum(
             lat=0,
             lng=0,
+            altitude=0.02,
             text="Alpha",
             size=2.4,
             color="#ffcc00",
@@ -69,6 +78,7 @@ def test_labels_accessors(
         LabelDatum(
             lat=-12,
             lng=18,
+            altitude=0.03,
             text="Gamma",
             size=1.8,
             color="#ff66cc",
@@ -81,6 +91,7 @@ def test_labels_accessors(
         LabelDatum(
             lat=15,
             lng=-8,
+            altitude=0.05,
             text="Beta",
             size=2.8,
             color="#00ccff",
@@ -92,6 +103,7 @@ def test_labels_accessors(
         LabelDatum(
             lat=-5,
             lng=-20,
+            altitude=0.01,
             text="Delta",
             size=2.0,
             color="#66ff99",
@@ -112,6 +124,7 @@ def test_labels_accessors(
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
 
     widget.set_label_resolution(8)
+    widget.set_label_type_face(json.loads(_FONT_PATH.read_text()))
     widget.set_labels_data(updated)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

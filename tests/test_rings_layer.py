@@ -60,7 +60,8 @@ def test_rings_accessors(
             lat=0,
             lng=0,
             color="#ff0000",
-            max_radius=10,
+            altitude=0.02,
+            max_radius=12,
             propagation_speed=0,
             repeat_period=0,
         )
@@ -70,9 +71,10 @@ def test_rings_accessors(
             lat=10,
             lng=10,
             color="#00ccff",
-            max_radius=20,
-            propagation_speed=0,
-            repeat_period=0,
+            altitude=0.06,
+            max_radius=18,
+            propagation_speed=4,
+            repeat_period=1000,
         )
     ]
 
@@ -88,5 +90,5 @@ def test_rings_accessors(
 
     widget.set_ring_resolution(96)
     widget.set_rings_data(updated)
-    page_session.wait_for_timeout(500)
+    page_session.wait_for_timeout(1300)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)

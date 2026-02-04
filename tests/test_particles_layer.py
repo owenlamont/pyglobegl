@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from IPython.display import display
+from PIL import Image, ImageDraw
 from pydantic import AnyUrl, TypeAdapter
 import pytest
 
@@ -18,6 +19,7 @@ from pyglobegl import (
     ParticlesLayerConfig,
     PointOfView,
 )
+from pyglobegl.images import image_to_data_url
 
 
 if TYPE_CHECKING:
@@ -53,6 +55,13 @@ def _await_globe_ready(page_session: Page) -> None:
     page_session.wait_for_timeout(250)
 
 
+def _make_particle_texture() -> str:
+    image = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((4, 4, 28, 28), fill=(255, 255, 255, 255))
+    return image_to_data_url(image)
+
+
 @pytest.mark.usefixtures("solara_test")
 def test_particles_accessors(
     page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
@@ -67,11 +76,12 @@ def test_particles_accessors(
                 ParticlePointDatum(lat=20, lng=-14, altitude=0.2),
                 ParticlePointDatum(lat=-20, lng=14, altitude=0.2),
             ],
-            size=18.0,
-            size_attenuation=False,
+            size=10.0,
+            size_attenuation=True,
             color="#ff3333",
         )
     ]
+    texture_url = _make_particle_texture()
     updated = [
         ParticleDatum(
             particles=[
@@ -80,9 +90,10 @@ def test_particles_accessors(
                 ParticlePointDatum(lat=-20, lng=26, altitude=0.22),
                 ParticlePointDatum(lat=-26, lng=-24, altitude=0.22),
             ],
-            size=20.0,
+            size=18.0,
             size_attenuation=False,
             color="#00ccff",
+            texture=texture_url,
         )
     ]
 
