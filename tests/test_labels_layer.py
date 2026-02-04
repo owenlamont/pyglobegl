@@ -124,7 +124,7 @@ def test_labels_accessors(
     canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
 
     widget.set_label_resolution(8)
-    widget.set_label_type_face(json.loads(_FONT_PATH.read_text()))
+    widget.set_label_type_face(json.loads(_FONT_PATH.read_text(encoding="utf-8")))
     widget.set_labels_data(updated)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
