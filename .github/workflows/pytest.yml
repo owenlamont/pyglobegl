@@ -31,8 +31,6 @@ jobs:
           restore-keys: venv-${{ runner.os }}-py${{ matrix.python-version }}-
       - name: Install the project
         run: uv sync
-      - name: Install pytest-timeout
-        run: uv run python -m pip install pytest-timeout
       - name: Install Playwright browsers
         run: uv run playwright install chromium
       - name: Run tests with Coverage
