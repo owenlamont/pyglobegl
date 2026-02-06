@@ -1105,11 +1105,54 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 						payload?.patches ?? [],
 					);
 				} else if (type === "particles_patch_data") {
-					patchLayerData(
-						() => globe.particlesData() ?? [],
-						(data) => globe.particlesData(normalizeParticlesData(data)),
-						payload?.patches ?? [],
+					// Particles data is normalized to arrays so globe.gl can index
+					// hover items correctly. When patches include a new `particles`
+					// list we must replace the array contents in-place (instead of
+					// attaching a `particles` property) so globe.gl reads the update.
+					const data = globe.particlesData() ?? [];
+					const index = new Map(
+						data
+							.map((datum) => {
+								const id = (datum as { id?: unknown }).id;
+								if (id === undefined || id === null) {
+									return null;
+								}
+								return [String(id), datum] as const;
+							})
+							.filter(
+								(entry): entry is [string, Record<string, unknown>] =>
+									entry !== null,
+							),
 					);
+					for (const patch of payload?.patches ?? []) {
+						if (!patch || typeof patch !== "object") {
+							continue;
+						}
+						const patchId = (patch as { id?: unknown }).id;
+						if (patchId === undefined || patchId === null) {
+							continue;
+						}
+						const target = index.get(String(patchId));
+						if (!target) {
+							continue;
+						}
+						const patchCopy: Record<string, unknown> = { ...patch };
+						if (
+							Array.isArray(target) &&
+							Array.isArray((patchCopy as { particles?: unknown }).particles)
+						) {
+							const particles = (patchCopy as { particles: unknown[] })
+								.particles;
+							target.length = 0;
+							target.push(...particles);
+							delete patchCopy.particles;
+						}
+						if ("texture" in patchCopy) {
+							patchCopy.texture = textureFromSpec(patchCopy.texture);
+						}
+						Object.assign(target, patchCopy);
+					}
+					globe.particlesData(normalizeParticlesData(data));
 				} else if (type === "rings_patch_data") {
 					patchLayerData(
 						() => globe.ringsData() ?? [],

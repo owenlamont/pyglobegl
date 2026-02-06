@@ -641,6 +641,7 @@ paths = paths_from_mpd(traj)
     - [x] Polygons layer
     - [x] Paths layer
     - [x] Heatmaps layer
+    - [ ] Hex bin layer
     - [x] Hexed polygons layer
     - [x] Tiles layer
     - [x] Particles layer
