@@ -62,6 +62,14 @@ def _make_particle_texture() -> str:
     return image_to_data_url(image)
 
 
+def _make_particle_stripe_texture() -> str:
+    image = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    for x in range(0, 48, 8):
+        draw.rectangle((x, 0, x + 3, 47), fill=(255, 255, 255, 255))
+    return image_to_data_url(image)
+
+
 @pytest.mark.usefixtures("solara_test")
 def test_particles_accessors(
     page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
@@ -109,3 +117,54 @@ def test_particles_accessors(
     widget.set_particles_data(updated)
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_particles_texture_added_via_set_data_uses_texture_accessor(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.97
+    initial = [
+        ParticleDatum(
+            particles=[
+                ParticlePointDatum(lat=5, lng=-24, altitude=0.18),
+                ParticlePointDatum(lat=8, lng=-8, altitude=0.18),
+                ParticlePointDatum(lat=2, lng=10, altitude=0.18),
+                ParticlePointDatum(lat=6, lng=24, altitude=0.18),
+            ],
+            size=12.0,
+            size_attenuation=False,
+            color="#ff6600",
+        )
+    ]
+    updated = [
+        ParticleDatum(
+            particles=[
+                ParticlePointDatum(lat=5, lng=-24, altitude=0.18),
+                ParticlePointDatum(lat=8, lng=-8, altitude=0.18),
+                ParticlePointDatum(lat=2, lng=10, altitude=0.18),
+                ParticlePointDatum(lat=6, lng=24, altitude=0.18),
+            ],
+            size=20.0,
+            size_attenuation=False,
+            color="#66ff66",
+            texture=_make_particle_stripe_texture(),
+        )
+    ]
+
+    config = _make_config(
+        ParticlesLayerConfig(particles_data=initial), globe_flat_texture_data_url
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    canvas_assert_capture(
+        page_session, "texture-runtime-initial", canvas_similarity_threshold
+    )
+
+    widget.set_particles_data(updated)
+    page_session.wait_for_timeout(150)
+    canvas_assert_capture(
+        page_session, "texture-runtime-updated", canvas_similarity_threshold
+    )

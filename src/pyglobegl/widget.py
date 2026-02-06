@@ -1185,10 +1185,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "particleLabel": "label",
             }
         )
-        if not particles_data or not any(
-            "texture" in entry for entry in particles_data
-        ):
-            props.pop("particlesTexture", None)
         return props
 
     def _normalize_tile_data(
