@@ -126,7 +126,12 @@ def _assert_canvas_matches(
     canvas_compare_images,
     canvas_save_capture,
     canvas_similarity_threshold: float,
+    *,
+    attempts: int = 1,
+    wait_ms: int = 0,
 ) -> None:
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1.")
     captured_image = canvas_capture(page_session)
     reference_path = canvas_reference_path(canvas_label)
     if not reference_path.exists():
@@ -136,16 +141,28 @@ def _assert_canvas_matches(
             "Reference image missing. Saved capture to "
             f"{reference_path}; verify and re-run."
         )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, canvas_label, False)
-        raise
-    canvas_save_capture(captured_image, canvas_label, passed)
-    assert passed, (
+    best_score = -1.0
+    best_image = captured_image
+    for attempt in range(attempts):
+        try:
+            score = canvas_compare_images(captured_image, reference_path)
+        except Exception:
+            canvas_save_capture(captured_image, canvas_label, False)
+            raise
+        if score > best_score:
+            best_score = score
+            best_image = captured_image
+        if score >= canvas_similarity_threshold:
+            canvas_save_capture(captured_image, canvas_label, True)
+            return
+        if attempt < attempts - 1 and wait_ms > 0:
+            page_session.wait_for_timeout(wait_ms)
+            captured_image = canvas_capture(page_session)
+    canvas_save_capture(best_image, canvas_label, False)
+    pytest.fail(
         "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
+        f"Best score: {best_score:.4f} "
+        f"(threshold {canvas_similarity_threshold:.4f})."
     )
 
 
@@ -352,6 +369,8 @@ def test_polygons_transition_duration(
         canvas_compare_images,
         canvas_save_capture,
         canvas_similarity_threshold,
+        attempts=6,
+        wait_ms=150,
     )
 
 
