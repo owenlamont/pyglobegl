@@ -135,15 +135,15 @@ def _load_countries() -> list[PolygonDatum]:
 
 
 _COUNTRIES = _load_countries()
-_COUNTRY_INDEX = {
-    str(country.id): {
+_COUNTRY_INDEX = {}
+for country in _COUNTRIES:
+    extra = country.model_extra or {}
+    _COUNTRY_INDEX[str(country.id)] = {
         "cap_color": country.cap_color,
         "altitude": country.altitude,
-        "hover_color": country.hover_color,
-        "hover_altitude": country.hover_altitude,
+        "hover_color": extra.get("hover_color", country.cap_color),
+        "hover_altitude": extra.get("hover_altitude", country.altitude),
     }
-    for country in _COUNTRIES
-}
 
 config = GlobeConfig(
     layout=GlobeLayoutConfig(

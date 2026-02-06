@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, TypeGuard
+from typing import Any, TYPE_CHECKING, TypeGuard
 
 from pyglobegl.config import (
     ArcDatum,
@@ -165,11 +165,9 @@ def _prepare_point_gdf(
     if not gdf.geometry.geom_type.eq("Point").all():
         raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_points_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, f"GeoDataFrame failed {context} schema validation.")
-    return gdf
+    return _validate_schema(
+        _build_points_schema(), gdf, f"GeoDataFrame failed {context} schema validation."
+    )
 
 
 def polygons_from_gdf(
@@ -212,10 +210,9 @@ def polygons_from_gdf(
         raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
 
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_polygons_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "polygons_from_gdf schema validation failed.")
+    gdf = _validate_schema(
+        _build_polygons_schema(), gdf, "polygons_from_gdf schema validation failed."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -255,6 +252,16 @@ def _handle_schema_error(exc: Exception, message: str) -> None:
     if "expected series" in details and "type str" in details:
         details = f"column must be strings. {details}"
     raise ValueError(f"{message} ({details})") from exc
+
+
+def _validate_schema(
+    schema: Any, gdf: gpd.GeoDataFrame, context: str
+) -> gpd.GeoDataFrame:
+    try:
+        validated = schema.validate(gdf)
+    except Exception as exc:
+        _handle_schema_error(exc, context)
+    return validated
 
 
 def _validate_rows_with_pydantic(
@@ -340,10 +347,9 @@ def points_from_gdf(
     if not gdf.geometry.geom_type.eq("Point").all():
         raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_points_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame failed point schema validation.")
+    gdf = _validate_schema(
+        _build_points_schema(), gdf, "GeoDataFrame failed point schema validation."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -505,10 +511,9 @@ def paths_from_gdf(
         raise ValueError("Geometry column must contain LineString or MultiLineString.")
 
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_paths_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame failed path schema validation.")
+    gdf = _validate_schema(
+        _build_paths_schema(), gdf, "GeoDataFrame failed path schema validation."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -639,10 +644,11 @@ def hexed_polygons_from_gdf(
         raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
 
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_polygons_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "hexed_polygons_from_gdf schema validation failed.")
+    gdf = _validate_schema(
+        _build_polygons_schema(),
+        gdf,
+        "hexed_polygons_from_gdf schema validation failed.",
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -715,10 +721,9 @@ def tiles_from_gdf(
     if not gdf.geometry.geom_type.eq("Point").all():
         raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_points_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame failed tiles schema validation.")
+    gdf = _validate_schema(
+        _build_points_schema(), gdf, "GeoDataFrame failed tiles schema validation."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -858,10 +863,9 @@ def rings_from_gdf(
     if not gdf.geometry.geom_type.eq("Point").all():
         raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_points_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame failed rings schema validation.")
+    gdf = _validate_schema(
+        _build_points_schema(), gdf, "GeoDataFrame failed rings schema validation."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
@@ -936,10 +940,9 @@ def labels_from_gdf(
     if not gdf.geometry.geom_type.eq("Point").all():
         raise ValueError("Geometry column must contain Point geometries.")
     gdf = gdf.to_crs(4326)
-    try:
-        gdf = _build_points_schema().validate(gdf)
-    except Exception as exc:
-        _handle_schema_error(exc, "GeoDataFrame failed labels schema validation.")
+    gdf = _validate_schema(
+        _build_points_schema(), gdf, "GeoDataFrame failed labels schema validation."
+    )
 
     columns = list(include_columns) if include_columns is not None else []
     missing = [col for col in columns if col not in gdf.columns]
