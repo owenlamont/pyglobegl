@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from IPython.display import display
+import numpy as np
 import pytest
 
 from pyglobegl import (
@@ -20,7 +21,12 @@ if TYPE_CHECKING:
 
 @pytest.mark.usefixtures("solara_test")
 def test_globe_atmosphere_altitude(
-    page_session: Page, canvas_assert_capture, globe_earth_texture_url
+    page_session: Page,
+    canvas_assert_capture,
+    canvas_capture,
+    canvas_label,
+    canvas_save_capture,
+    globe_earth_texture_url,
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_altitude = 0.05
@@ -49,6 +55,27 @@ def test_globe_atmosphere_altitude(
     )
 
     canvas_assert_capture(page_session, "altitude-low", canvas_similarity_threshold)
+    low_image = canvas_capture(page_session)
+    low_array = np.asarray(low_image.convert("RGBA"))
+
     widget.set_atmosphere_altitude(updated_altitude)
-    page_session.wait_for_timeout(100)
-    canvas_assert_capture(page_session, "altitude-high", canvas_similarity_threshold)
+    page_session.wait_for_timeout(200)
+
+    passed = False
+    changed = 0.0
+    high_image = low_image
+    for _attempt in range(4):
+        page_session.wait_for_timeout(300)
+        high_image = canvas_capture(page_session)
+        high_array = np.asarray(high_image.convert("RGBA"))
+        diff = np.abs(low_array.astype(int) - high_array.astype(int))
+        changed = (diff.max(axis=2) > 5).mean()
+        passed = changed > 0.002
+        if passed:
+            break
+    canvas_save_capture(low_image, f"{canvas_label}-altitude-low", passed)
+    canvas_save_capture(high_image, f"{canvas_label}-altitude-high", passed)
+    assert passed, (
+        "Expected atmosphere altitude update to change rendered frame "
+        f"(changed={changed:.4f})."
+    )

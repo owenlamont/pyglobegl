@@ -88,11 +88,12 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
-pyglobegl expects layer data as Pydantic models (`PointDatum`, `ArcDatum`,
-`PolygonDatum`). Dynamic accessor remapping is not supported; per-datum values
-are read from the model field names. Numeric fields reject string values, and
-data model defaults mirror globe.gl defaults so omitted values still render
-predictably.
+pyglobegl expects layer data as Pydantic models (for example: `PointDatum`,
+`ArcDatum`, `PolygonDatum`, `PathDatum`, `HeatmapDatum`, `HexPolygonDatum`,
+`TileDatum`, `ParticleDatum`, `RingDatum`, `LabelDatum`).
+Dynamic accessor remapping is not supported; per-datum values are read from the
+model field names. Numeric fields reject string values, and data model defaults
+mirror globe.gl defaults so omitted values still render predictably.
 
 ## Arcs Layer
 
@@ -197,6 +198,147 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
+## Heatmaps Layer
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeWidget,
+    HeatmapDatum,
+    HeatmapPointDatum,
+    HeatmapsLayerConfig,
+)
+
+heatmap = HeatmapDatum(
+    points=[
+        HeatmapPointDatum(lat=0, lng=0, weight=1.0),
+        HeatmapPointDatum(lat=10, lng=10, weight=0.6),
+    ],
+    bandwidth=0.8,
+    color_saturation=2.5,
+)
+
+config = GlobeConfig(heatmaps=HeatmapsLayerConfig(heatmaps_data=[heatmap]))
+
+display(GlobeWidget(config=config))
+```
+
+## Hexed Polygons Layer
+
+```python
+from geojson_pydantic import Polygon
+
+from pyglobegl import (
+    GlobeConfig,
+    GlobeWidget,
+    HexPolygonDatum,
+    HexedPolygonsLayerConfig,
+)
+
+geometry = Polygon(
+    type="Polygon",
+    coordinates=[
+        [(-10, 0), (-10, 10), (10, 10), (10, 0), (-10, 0)],
+    ],
+)
+
+hexed = [
+    HexPolygonDatum(geometry=geometry, color="#ffcc00", altitude=0.05),
+]
+
+config = GlobeConfig(
+    hexed_polygons=HexedPolygonsLayerConfig(hex_polygons_data=hexed)
+)
+
+display(GlobeWidget(config=config))
+```
+
+## Tiles Layer
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeMaterialSpec,
+    GlobeWidget,
+    TileDatum,
+    TilesLayerConfig,
+)
+
+tiles = [
+    TileDatum(
+        lat=0,
+        lng=0,
+        width=10,
+        height=10,
+        material=GlobeMaterialSpec(
+            type="MeshLambertMaterial",
+            params={"color": "#66ccff", "opacity": 0.6, "transparent": True},
+        ),
+    )
+]
+
+config = GlobeConfig(tiles=TilesLayerConfig(tiles_data=tiles))
+
+display(GlobeWidget(config=config))
+```
+
+## Particles Layer
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeWidget,
+    ParticleDatum,
+    ParticlePointDatum,
+    ParticlesLayerConfig,
+)
+
+particles = [
+    ParticleDatum(
+        particles=[
+            ParticlePointDatum(lat=0, lng=0, altitude=0.2, label="Alpha"),
+            ParticlePointDatum(lat=10, lng=10, altitude=0.2, label="Beta"),
+        ],
+        color="palegreen",
+        size=2.0,
+    )
+]
+
+config = GlobeConfig(particles=ParticlesLayerConfig(particles_data=particles))
+
+display(GlobeWidget(config=config))
+```
+
+## Rings Layer
+
+```python
+from pyglobegl import GlobeConfig, GlobeWidget, RingDatum, RingsLayerConfig
+
+rings = [
+    RingDatum(lat=0, lng=0, max_radius=4, color="#ff66cc"),
+    RingDatum(lat=20, lng=10, max_radius=6, color="#66ccff"),
+]
+
+config = GlobeConfig(rings=RingsLayerConfig(rings_data=rings))
+
+display(GlobeWidget(config=config))
+```
+
+## Labels Layer
+
+```python
+from pyglobegl import GlobeConfig, GlobeWidget, LabelDatum, LabelsLayerConfig
+
+labels = [
+    LabelDatum(lat=0, lng=0, text="Center", color="#ffcc00"),
+    LabelDatum(lat=15, lng=20, text="North", color="#66ccff", include_dot=True),
+]
+
+config = GlobeConfig(labels=LabelsLayerConfig(labels_data=labels))
+
+display(GlobeWidget(config=config))
+```
+
 ## Runtime Updates and Callbacks
 
 Use `GlobeWidget` setters to update data and accessors after the widget is
@@ -205,8 +347,10 @@ Callback payloads include the datum (and its `id`) so you can update visuals in
 response to user input.
 Runtime update helpers validate UUID4 ids; invalid ids raise a validation error.
 Batch updates use the patch models (`PointDatumPatch`, `ArcDatumPatch`,
-`PolygonDatumPatch`) so updates are serialized with the correct globe.gl field
-names.
+`PolygonDatumPatch`, `PathDatumPatch`, `HeatmapDatumPatch`,
+`HexPolygonDatumPatch`, `TileDatumPatch`, `ParticleDatumPatch`,
+`RingDatumPatch`, `LabelDatumPatch`) so updates are
+serialized with the correct globe.gl field names.
 
 ```python
 widget = GlobeWidget(config=config)
@@ -229,10 +373,16 @@ def on_polygon_hover(current, previous):
 widget.on_polygon_hover(on_polygon_hover)
 ```
 
+Hover callbacks are only wired when you register a hover handler. This avoids
+continuous hover traffic for layers you are not interacting with, and matches
+globe.gl behavior (no hover cursor when no hover callback is registered).
+
 ## GeoPandas Helpers (Optional)
 
 Convert GeoDataFrames into layer data using Pandera DataFrameModel validation.
-These helpers return Pydantic models (`PointDatum`, `ArcDatum`, `PolygonDatum`).
+These helpers return Pydantic models (`PointDatum`, `ArcDatum`, `PolygonDatum`,
+`PathDatum`, `HeatmapDatum`, `HexPolygonDatum`, `TileDatum`, `ParticleDatum`,
+`RingDatum`, `LabelDatum`).
 Point geometries are reprojected to EPSG:4326 before extracting lat/lng.
 `points_from_gdf` defaults to a point geometry column named `point` if present,
 otherwise it uses the active GeoDataFrame geometry column (override with
@@ -325,6 +475,127 @@ gdf = gpd.GeoDataFrame(
 paths = paths_from_gdf(gdf, include_columns=["name"])
 ```
 
+### Heatmaps Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import heatmaps_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "weight": [1.0, 0.6],
+        "point": [Point(0, 0), Point(10, 10)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+heatmaps = heatmaps_from_gdf(gdf, weight_column="weight", bandwidth=0.8)
+```
+
+### Hexed Polygons Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Polygon
+
+from pyglobegl import hexed_polygons_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "name": ["Zone A"],
+        "polygons": [
+            Polygon([(-10, 0), (-10, 10), (10, 10), (10, 0), (-10, 0)]),
+        ],
+    },
+    geometry="polygons",
+    crs="EPSG:4326",
+)
+hexed = hexed_polygons_from_gdf(gdf, include_columns=["name"])
+```
+
+### Tiles Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import tiles_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "width": [10.0],
+        "height": [10.0],
+        "point": [Point(0, 0)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+tiles = tiles_from_gdf(gdf, include_columns=["width", "height"])
+```
+
+### Particles Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import particles_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "altitude": [0.2, 0.2],
+        "point": [Point(0, 0), Point(10, 10)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+particles = particles_from_gdf(
+    gdf, altitude_column="altitude", color="palegreen"
+)
+```
+
+### Rings Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import rings_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "max_radius": [4.0, 6.0],
+        "color": ["#ff66cc", "#66ccff"],
+        "point": [Point(0, 0), Point(20, 10)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+rings = rings_from_gdf(gdf, include_columns=["max_radius", "color"])
+```
+
+### Labels Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import labels_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "text": ["Center", "North"],
+        "color": ["#ffcc00", "#66ccff"],
+        "point": [Point(0, 0), Point(15, 20)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+labels = labels_from_gdf(gdf, include_columns=["color"])
+```
+
 ## MovingPandas Helpers (Optional)
 
 ### MovingPandas Example
@@ -369,13 +640,13 @@ paths = paths_from_mpd(traj)
     - [x] Arcs layer
     - [x] Polygons layer
     - [x] Paths layer
-    - [ ] Heatmaps layer
+    - [x] Heatmaps layer
     - [ ] Hex bin layer
-    - [ ] Hexed polygons layer
-    - [ ] Tiles layer
-    - [ ] Particles layer
-    - [ ] Rings layer
-    - [ ] Labels layer
+    - [x] Hexed polygons layer
+    - [x] Tiles layer
+    - [x] Particles layer
+    - [x] Rings layer
+    - [x] Labels layer
     - [ ] HTML elements layer
     - [ ] 3D objects layer
     - [ ] Custom layer

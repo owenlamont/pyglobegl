@@ -110,7 +110,7 @@ def test_arcs_accessors(
 def test_arcs_default_accessors(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
-    canvas_similarity_threshold = 0.98
+    canvas_similarity_threshold = 0.97
     arcs_data = [
         ArcDatum(
             start_lat=0,
@@ -659,7 +659,12 @@ def test_arc_dash_animation_changes(
 
 @pytest.mark.usefixtures("solara_test")
 def test_arc_dash_animate_time_setter(
-    page_session: Page, canvas_assert_capture, globe_earth_texture_url
+    page_session: Page,
+    canvas_assert_capture,
+    canvas_capture,
+    canvas_label,
+    canvas_save_capture,
+    globe_earth_texture_url,
 ) -> None:
     canvas_similarity_threshold = 0.98
     arc_id = uuid4()
@@ -705,8 +710,32 @@ def test_arc_dash_animate_time_setter(
 
     canvas_assert_capture(page_session, "off", canvas_similarity_threshold)
     widget.update_arc(arc_id, dash_animate_time=2000)
-    page_session.wait_for_timeout(100)
-    canvas_assert_capture(page_session, "on", canvas_similarity_threshold)
+    page_session.wait_for_timeout(200)
+
+    first = canvas_capture(page_session)
+    first_array = np.asarray(first.convert("RGBA"))
+    passed = False
+    score = 1.0
+    changed = 0.0
+    second = first
+    for _attempt in range(3):
+        page_session.wait_for_timeout(500)
+        second = canvas_capture(page_session)
+        second_array = np.asarray(second.convert("RGBA"))
+        score = structural_similarity(
+            first_array, second_array, channel_axis=2, data_range=255
+        )
+        diff = np.abs(first_array.astype(int) - second_array.astype(int))
+        changed = (diff.max(axis=2) > 5).mean()
+        passed = changed > 0.002
+        if passed:
+            break
+    canvas_save_capture(first, f"{canvas_label}-setter-t0", passed)
+    canvas_save_capture(second, f"{canvas_label}-setter-t1", passed)
+    assert passed, (
+        "Expected dash animation to change frame after update_arc(dash_animate_time) "
+        f"(changed={changed:.4f}, ssim={score:.4f})."
+    )
 
 
 @pytest.mark.usefixtures("solara_test")

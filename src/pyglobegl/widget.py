@@ -14,12 +14,25 @@ from pyglobegl.config import (
     ArcDatumPatch,
     GlobeConfig,
     GlobeMaterialSpec,
+    HeatmapDatum,
+    HeatmapDatumPatch,
+    HexPolygonDatum,
+    HexPolygonDatumPatch,
+    LabelDatum,
+    LabelDatumPatch,
+    ParticleDatum,
+    ParticleDatumPatch,
+    ParticlesLayerConfig,
     PathDatum,
     PathDatumPatch,
     PointDatum,
     PointDatumPatch,
     PolygonDatum,
     PolygonDatumPatch,
+    RingDatum,
+    RingDatumPatch,
+    TileDatum,
+    TileDatumPatch,
 )
 
 
@@ -40,6 +53,7 @@ class GlobeWidget(anywidget.AnyWidget):
 
     _esm = Path(__file__).with_name("_static") / "index.js"
     config = traitlets.Dict().tag(sync=True)
+    event_config = traitlets.Dict().tag(sync=True)
 
     def __init__(
         self,
@@ -94,6 +108,51 @@ class GlobeWidget(anywidget.AnyWidget):
         self._path_hover_handlers: list[
             Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
         ] = []
+        self._heatmap_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._heatmap_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._heatmap_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
+        self._hex_polygon_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._hex_polygon_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._hex_polygon_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
+        self._tile_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._tile_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._tile_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
+        self._particle_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._particle_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._particle_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
+        self._label_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._label_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._label_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
         self._message_handlers: dict[str, Callable[[Any], None]] = {
             "globe_ready": lambda _payload: self._dispatch_globe_ready(),
             "globe_click": self._dispatch_globe_click,
@@ -110,12 +169,38 @@ class GlobeWidget(anywidget.AnyWidget):
             "path_click": self._dispatch_path_click,
             "path_right_click": self._dispatch_path_right_click,
             "path_hover": self._dispatch_path_hover,
+            "heatmap_click": self._dispatch_heatmap_click,
+            "heatmap_right_click": self._dispatch_heatmap_right_click,
+            "heatmap_hover": self._dispatch_heatmap_hover,
+            "hex_polygon_click": self._dispatch_hex_polygon_click,
+            "hex_polygon_right_click": self._dispatch_hex_polygon_right_click,
+            "hex_polygon_hover": self._dispatch_hex_polygon_hover,
+            "tile_click": self._dispatch_tile_click,
+            "tile_right_click": self._dispatch_tile_right_click,
+            "tile_hover": self._dispatch_tile_hover,
+            "particle_click": self._dispatch_particle_click,
+            "particle_right_click": self._dispatch_particle_right_click,
+            "particle_hover": self._dispatch_particle_hover,
+            "label_click": self._dispatch_label_click,
+            "label_right_click": self._dispatch_label_right_click,
+            "label_hover": self._dispatch_label_hover,
         }
         self.on_msg(self._handle_frontend_message)
+        self.event_config = {}
         self._points_data = self._normalize_layer_data(config.points.points_data)
         self._arcs_data = self._normalize_layer_data(config.arcs.arcs_data)
         self._polygons_data = self._normalize_layer_data(config.polygons.polygons_data)
         self._paths_data = self._normalize_layer_data(config.paths.paths_data)
+        self._heatmaps_data = self._normalize_layer_data(config.heatmaps.heatmaps_data)
+        self._hex_polygons_data = self._normalize_layer_data(
+            config.hexed_polygons.hex_polygons_data
+        )
+        self._tiles_data = self._normalize_tile_data(config.tiles.tiles_data)
+        self._particles_data = self._normalize_layer_data(
+            config.particles.particles_data
+        )
+        self._rings_data = self._normalize_layer_data(config.rings.rings_data)
+        self._labels_data = self._normalize_layer_data(config.labels.labels_data)
         self._globe_props = config.globe.model_dump(
             by_alias=True, exclude_none=True, exclude_unset=False, mode="json"
         )
@@ -197,6 +282,108 @@ class GlobeWidget(anywidget.AnyWidget):
                 "pathLabel": "label",
             }
         )
+        self._heatmaps_props = config.heatmaps.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"heatmaps_data"},
+            mode="json",
+        )
+        self._heatmaps_props.update(
+            {
+                "heatmapPoints": "points",
+                "heatmapPointLat": "lat",
+                "heatmapPointLng": "lng",
+                "heatmapPointWeight": "weight",
+                "heatmapBandwidth": "bandwidth",
+                "heatmapColorSaturation": "colorSaturation",
+                "heatmapBaseAltitude": "baseAltitude",
+                "heatmapTopAltitude": "topAltitude",
+            }
+        )
+        self._hex_polygons_props = config.hexed_polygons.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"hex_polygons_data"},
+            mode="json",
+        )
+        self._hex_polygons_props.update(
+            {
+                "hexPolygonGeoJsonGeometry": "geometry",
+                "hexPolygonColor": "color",
+                "hexPolygonAltitude": "altitude",
+                "hexPolygonResolution": "resolution",
+                "hexPolygonMargin": "margin",
+                "hexPolygonUseDots": "useDots",
+                "hexPolygonCurvatureResolution": "curvatureResolution",
+                "hexPolygonDotResolution": "dotResolution",
+                "hexPolygonLabel": "label",
+            }
+        )
+        self._tiles_props = config.tiles.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"tiles_data"},
+            mode="json",
+        )
+        self._tiles_props.update(
+            {
+                "tileLat": "lat",
+                "tileLng": "lng",
+                "tileAltitude": "altitude",
+                "tileWidth": "width",
+                "tileHeight": "height",
+                "tileUseGlobeProjection": "useGlobeProjection",
+                "tileMaterial": "material",
+                "tileCurvatureResolution": "curvatureResolution",
+                "tileLabel": "label",
+            }
+        )
+        self._particles_props = self._build_particles_props(
+            config.particles, self._particles_data
+        )
+        self._rings_props = config.rings.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"rings_data"},
+            mode="json",
+        )
+        self._rings_props.update(
+            {
+                "ringLat": "lat",
+                "ringLng": "lng",
+                "ringAltitude": "altitude",
+                "ringColor": "color",
+                "ringMaxRadius": "maxRadius",
+                "ringPropagationSpeed": "propagationSpeed",
+                "ringRepeatPeriod": "repeatPeriod",
+            }
+        )
+        self._labels_props = config.labels.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"labels_data"},
+            mode="json",
+        )
+        self._labels_props.update(
+            {
+                "labelLat": "lat",
+                "labelLng": "lng",
+                "labelAltitude": "altitude",
+                "labelText": "text",
+                "labelSize": "size",
+                "labelRotation": "rotation",
+                "labelColor": "color",
+                "labelIncludeDot": "includeDot",
+                "labelDotRadius": "dotRadius",
+                "labelDotOrientation": "dotOrientation",
+                "labelLabel": "label",
+            }
+        )
         config_dict = config.model_dump(
             by_alias=True, exclude_none=True, exclude_defaults=True, mode="json"
         )
@@ -204,6 +391,12 @@ class GlobeWidget(anywidget.AnyWidget):
         config_dict.setdefault("arcs", {}).update(self._arcs_props)
         config_dict.setdefault("polygons", {}).update(self._polygons_props)
         config_dict.setdefault("paths", {}).update(self._paths_props)
+        config_dict.setdefault("heatmaps", {}).update(self._heatmaps_props)
+        config_dict.setdefault("hexed_polygons", {}).update(self._hex_polygons_props)
+        config_dict.setdefault("tiles", {}).update(self._tiles_props)
+        config_dict.setdefault("particles", {}).update(self._particles_props)
+        config_dict.setdefault("rings", {}).update(self._rings_props)
+        config_dict.setdefault("labels", {}).update(self._labels_props)
         if self._points_data is not None:
             config_dict.setdefault("points", {})["pointsData"] = self._points_data
         if self._arcs_data is not None:
@@ -212,6 +405,22 @@ class GlobeWidget(anywidget.AnyWidget):
             config_dict.setdefault("polygons", {})["polygonsData"] = self._polygons_data
         if self._paths_data is not None:
             config_dict.setdefault("paths", {})["pathsData"] = self._paths_data
+        if self._heatmaps_data is not None:
+            config_dict.setdefault("heatmaps", {})["heatmapsData"] = self._heatmaps_data
+        if self._hex_polygons_data is not None:
+            config_dict.setdefault("hexed_polygons", {})["hexPolygonsData"] = (
+                self._hex_polygons_data
+            )
+        if self._tiles_data is not None:
+            config_dict.setdefault("tiles", {})["tilesData"] = self._tiles_data
+        if self._particles_data is not None:
+            config_dict.setdefault("particles", {})["particlesData"] = (
+                self._particles_data
+            )
+        if self._rings_data is not None:
+            config_dict.setdefault("rings", {})["ringsData"] = self._rings_data
+        if self._labels_data is not None:
+            config_dict.setdefault("labels", {})["labelsData"] = self._labels_data
         self.config = config_dict
 
     def on_globe_ready(self, handler: Callable[[], None]) -> None:
@@ -243,6 +452,7 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on point hover events."""
         self._point_hover_handlers.append(handler)
+        self._set_event_flag("pointHover", True)
 
     def on_arc_click(
         self, handler: Callable[[dict[str, Any], dict[str, float]], None]
@@ -261,6 +471,7 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on arc hover events."""
         self._arc_hover_handlers.append(handler)
+        self._set_event_flag("arcHover", True)
 
     def on_polygon_click(
         self, handler: Callable[[dict[str, Any], dict[str, float]], None]
@@ -279,6 +490,7 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on polygon hover events."""
         self._polygon_hover_handlers.append(handler)
+        self._set_event_flag("polygonHover", True)
 
     def on_path_click(
         self, handler: Callable[[dict[str, Any], dict[str, float]], None]
@@ -297,6 +509,102 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Register a callback fired on path hover events."""
         self._path_hover_handlers.append(handler)
+        self._set_event_flag("pathHover", True)
+
+    def on_heatmap_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on heatmap left-clicks."""
+        self._heatmap_click_handlers.append(handler)
+
+    def on_heatmap_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on heatmap right-clicks."""
+        self._heatmap_right_click_handlers.append(handler)
+
+    def on_heatmap_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on heatmap hover events."""
+        self._heatmap_hover_handlers.append(handler)
+        self._set_event_flag("heatmapHover", True)
+
+    def on_hex_polygon_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on hexed polygon left-clicks."""
+        self._hex_polygon_click_handlers.append(handler)
+
+    def on_hex_polygon_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on hexed polygon right-clicks."""
+        self._hex_polygon_right_click_handlers.append(handler)
+
+    def on_hex_polygon_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on hexed polygon hover events."""
+        self._hex_polygon_hover_handlers.append(handler)
+        self._set_event_flag("hexPolygonHover", True)
+
+    def on_tile_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on tile left-clicks."""
+        self._tile_click_handlers.append(handler)
+
+    def on_tile_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on tile right-clicks."""
+        self._tile_right_click_handlers.append(handler)
+
+    def on_tile_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on tile hover events."""
+        self._tile_hover_handlers.append(handler)
+        self._set_event_flag("tileHover", True)
+
+    def on_particle_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on particle left-clicks."""
+        self._particle_click_handlers.append(handler)
+
+    def on_particle_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on particle right-clicks."""
+        self._particle_right_click_handlers.append(handler)
+
+    def on_particle_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on particle hover events."""
+        self._particle_hover_handlers.append(handler)
+        self._set_event_flag("particleHover", True)
+
+    def on_label_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on label left-clicks."""
+        self._label_click_handlers.append(handler)
+
+    def on_label_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on label right-clicks."""
+        self._label_right_click_handlers.append(handler)
+
+    def on_label_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on label hover events."""
+        self._label_hover_handlers.append(handler)
+        self._set_event_flag("labelHover", True)
 
     def globe_tile_engine_clear_cache(self) -> None:
         """Clear the globe tile engine cache."""
@@ -608,6 +916,202 @@ class GlobeWidget(anywidget.AnyWidget):
             "paths", self._paths_props, "pathTransitionDuration", value
         )
 
+    def get_heatmaps_data(self) -> list[HeatmapDatum] | None:
+        """Return a copy of the cached heatmaps data."""
+        return self._denormalize_layer_data(self._heatmaps_data, HeatmapDatum)
+
+    def set_heatmaps_data(self, data: Sequence[HeatmapDatum]) -> None:
+        """Replace the heatmaps data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._heatmaps_data = normalized
+        self.send({"type": "heatmaps_set_data", "payload": {"data": normalized}})
+
+    def patch_heatmaps_data(self, patches: Sequence[HeatmapDatumPatch]) -> None:
+        """Patch heatmaps data by id."""
+        normalized = self._normalize_heatmap_patches(patches)
+        self._apply_patches(self._heatmaps_data, normalized, "heatmaps")
+        self.send({"type": "heatmaps_patch_data", "payload": {"patches": normalized}})
+
+    def update_heatmap(self, heatmap_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single heatmap by id."""
+        patch = HeatmapDatumPatch.model_validate({"id": heatmap_id, **changes})
+        self.patch_heatmaps_data([patch])
+
+    def get_heatmaps_transition_duration(self) -> int:
+        """Return the heatmaps transition duration."""
+        return int(self._heatmaps_props.get("heatmapsTransitionDuration", 0))
+
+    def set_heatmaps_transition_duration(self, value: int) -> None:
+        """Set the heatmaps transition duration."""
+        self._set_layer_prop(
+            "heatmaps", self._heatmaps_props, "heatmapsTransitionDuration", value
+        )
+
+    def get_hex_polygons_data(self) -> list[HexPolygonDatum] | None:
+        """Return a copy of the cached hexed polygons data."""
+        return self._denormalize_layer_data(self._hex_polygons_data, HexPolygonDatum)
+
+    def set_hex_polygons_data(self, data: Sequence[HexPolygonDatum]) -> None:
+        """Replace the hexed polygons data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._hex_polygons_data = normalized
+        self.send({"type": "hex_polygons_set_data", "payload": {"data": normalized}})
+
+    def patch_hex_polygons_data(self, patches: Sequence[HexPolygonDatumPatch]) -> None:
+        """Patch hexed polygons data by id."""
+        normalized = self._normalize_hex_polygon_patches(patches)
+        self._apply_patches(self._hex_polygons_data, normalized, "hex_polygons")
+        self.send(
+            {"type": "hex_polygons_patch_data", "payload": {"patches": normalized}}
+        )
+
+    def update_hex_polygon(self, polygon_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single hexed polygon by id."""
+        patch = HexPolygonDatumPatch.model_validate({"id": polygon_id, **changes})
+        self.patch_hex_polygons_data([patch])
+
+    def get_hex_polygons_transition_duration(self) -> int:
+        """Return the hexed polygons transition duration."""
+        return int(self._hex_polygons_props.get("hexPolygonsTransitionDuration", 0))
+
+    def set_hex_polygons_transition_duration(self, value: int) -> None:
+        """Set the hexed polygons transition duration."""
+        self._set_layer_prop(
+            "hex_polygons",
+            self._hex_polygons_props,
+            "hexPolygonsTransitionDuration",
+            value,
+        )
+
+    def get_tiles_data(self) -> list[TileDatum] | None:
+        """Return a copy of the cached tiles data."""
+        return self._denormalize_layer_data(self._tiles_data, TileDatum)
+
+    def set_tiles_data(self, data: Sequence[TileDatum]) -> None:
+        """Replace the tiles data at runtime."""
+        normalized = self._normalize_tile_data(data)
+        self._tiles_data = normalized
+        self.send({"type": "tiles_set_data", "payload": {"data": normalized}})
+
+    def patch_tiles_data(self, patches: Sequence[TileDatumPatch]) -> None:
+        """Patch tiles data by id."""
+        normalized = self._normalize_tile_patches(patches)
+        self._apply_patches(self._tiles_data, normalized, "tiles")
+        self.send({"type": "tiles_patch_data", "payload": {"patches": normalized}})
+
+    def update_tile(self, tile_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single tile by id."""
+        patch = TileDatumPatch.model_validate({"id": tile_id, **changes})
+        self.patch_tiles_data([patch])
+
+    def get_tiles_transition_duration(self) -> int:
+        """Return the tiles transition duration."""
+        return int(self._tiles_props.get("tilesTransitionDuration", 1000))
+
+    def set_tiles_transition_duration(self, value: int) -> None:
+        """Set the tiles transition duration."""
+        self._set_layer_prop(
+            "tiles", self._tiles_props, "tilesTransitionDuration", value
+        )
+
+    def get_particles_data(self) -> list[ParticleDatum] | None:
+        """Return a copy of the cached particles data."""
+        return self._denormalize_layer_data(self._particles_data, ParticleDatum)
+
+    def set_particles_data(self, data: Sequence[ParticleDatum]) -> None:
+        """Replace the particles data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._particles_data = normalized
+        self.send({"type": "particles_set_data", "payload": {"data": normalized}})
+
+    def patch_particles_data(self, patches: Sequence[ParticleDatumPatch]) -> None:
+        """Patch particles data by id."""
+        normalized = self._normalize_particle_patches(patches)
+        self._apply_patches(self._particles_data, normalized, "particles")
+        self.send({"type": "particles_patch_data", "payload": {"patches": normalized}})
+
+    def update_particle(self, particle_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single particles entry by id."""
+        patch = ParticleDatumPatch.model_validate({"id": particle_id, **changes})
+        self.patch_particles_data([patch])
+
+    def get_rings_data(self) -> list[RingDatum] | None:
+        """Return a copy of the cached rings data."""
+        return self._denormalize_layer_data(self._rings_data, RingDatum)
+
+    def set_rings_data(self, data: Sequence[RingDatum]) -> None:
+        """Replace the rings data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._rings_data = normalized
+        self.send({"type": "rings_set_data", "payload": {"data": normalized}})
+
+    def patch_rings_data(self, patches: Sequence[RingDatumPatch]) -> None:
+        """Patch rings data by id."""
+        normalized = self._normalize_ring_patches(patches)
+        self._apply_patches(self._rings_data, normalized, "rings")
+        self.send({"type": "rings_patch_data", "payload": {"patches": normalized}})
+
+    def update_ring(self, ring_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single ring by id."""
+        patch = RingDatumPatch.model_validate({"id": ring_id, **changes})
+        self.patch_rings_data([patch])
+
+    def get_ring_resolution(self) -> int:
+        """Return the ring resolution."""
+        return int(self._rings_props.get("ringResolution", 64))
+
+    def set_ring_resolution(self, value: int) -> None:
+        """Set the ring resolution."""
+        self._set_layer_prop("rings", self._rings_props, "ringResolution", value)
+
+    def get_labels_data(self) -> list[LabelDatum] | None:
+        """Return a copy of the cached labels data."""
+        return self._denormalize_layer_data(self._labels_data, LabelDatum)
+
+    def set_labels_data(self, data: Sequence[LabelDatum]) -> None:
+        """Replace the labels data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._labels_data = normalized
+        self.send({"type": "labels_set_data", "payload": {"data": normalized}})
+
+    def patch_labels_data(self, patches: Sequence[LabelDatumPatch]) -> None:
+        """Patch labels data by id."""
+        normalized = self._normalize_label_patches(patches)
+        self._apply_patches(self._labels_data, normalized, "labels")
+        self.send({"type": "labels_patch_data", "payload": {"patches": normalized}})
+
+    def update_label(self, label_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single label by id."""
+        patch = LabelDatumPatch.model_validate({"id": label_id, **changes})
+        self.patch_labels_data([patch])
+
+    def get_label_type_face(self) -> dict[str, Any] | None:
+        """Return the label type face JSON."""
+        value = self._labels_props.get("labelTypeFace")
+        return value if isinstance(value, dict) else None
+
+    def set_label_type_face(self, value: dict[str, Any] | None) -> None:
+        """Set the label type face JSON."""
+        self._set_layer_prop("labels", self._labels_props, "labelTypeFace", value)
+
+    def get_label_resolution(self) -> int:
+        """Return the label resolution."""
+        return int(self._labels_props.get("labelResolution", 3))
+
+    def set_label_resolution(self, value: int) -> None:
+        """Set the label resolution."""
+        self._set_layer_prop("labels", self._labels_props, "labelResolution", value)
+
+    def get_labels_transition_duration(self) -> int:
+        """Return the labels transition duration."""
+        return int(self._labels_props.get("labelsTransitionDuration", 1000))
+
+    def set_labels_transition_duration(self, value: int) -> None:
+        """Set the labels transition duration."""
+        self._set_layer_prop(
+            "labels", self._labels_props, "labelsTransitionDuration", value
+        )
+
     def _handle_frontend_message(
         self, _widget: "GlobeWidget", message: dict[str, Any], _buffers: list[bytes]
     ) -> None:
@@ -633,7 +1137,7 @@ class GlobeWidget(anywidget.AnyWidget):
         return normalized
 
     def _normalize_layer_data(
-        self, data: Sequence[PointDatum | ArcDatum | PolygonDatum | PathDatum] | None
+        self, data: Sequence[BaseModel] | None
     ) -> list[dict[str, Any]] | None:
         if data is None:
             return None
@@ -649,6 +1153,44 @@ class GlobeWidget(anywidget.AnyWidget):
                 entry["id"] = str(entry["id"])
             normalized.append(entry)
         return normalized
+
+    def _set_event_flag(self, name: str, enabled: bool) -> None:
+        updated = dict(self.event_config or {})
+        if updated.get(name) == enabled:
+            return
+        updated[name] = enabled
+        self.event_config = updated
+
+    def _build_particles_props(
+        self,
+        particles_config: ParticlesLayerConfig,
+        particles_data: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        props = particles_config.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"particles_data"},
+            mode="json",
+        )
+        props.update(
+            {
+                "particleLat": "lat",
+                "particleLng": "lng",
+                "particleAltitude": "altitude",
+                "particlesSize": "size",
+                "particlesSizeAttenuation": "sizeAttenuation",
+                "particlesColor": "color",
+                "particlesTexture": "texture",
+                "particleLabel": "label",
+            }
+        )
+        return props
+
+    def _normalize_tile_data(
+        self, data: Sequence[TileDatum] | None
+    ) -> list[dict[str, Any]] | None:
+        return self._normalize_layer_data(data)
 
     def _normalize_point_patches(
         self, patches: Sequence[PointDatumPatch]
@@ -705,6 +1247,102 @@ class GlobeWidget(anywidget.AnyWidget):
         for patch in patches:
             if not isinstance(patch, PathDatumPatch):
                 raise TypeError("Patch entries must be PathDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_heatmap_patches(
+        self, patches: Sequence[HeatmapDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, HeatmapDatumPatch):
+                raise TypeError("Patch entries must be HeatmapDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_hex_polygon_patches(
+        self, patches: Sequence[HexPolygonDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, HexPolygonDatumPatch):
+                raise TypeError("Patch entries must be HexPolygonDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_tile_patches(
+        self, patches: Sequence[TileDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, TileDatumPatch):
+                raise TypeError("Patch entries must be TileDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_particle_patches(
+        self, patches: Sequence[ParticleDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, ParticleDatumPatch):
+                raise TypeError("Patch entries must be ParticleDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_ring_patches(
+        self, patches: Sequence[RingDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, RingDatumPatch):
+                raise TypeError("Patch entries must be RingDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
+    def _normalize_label_patches(
+        self, patches: Sequence[LabelDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, LabelDatumPatch):
+                raise TypeError("Patch entries must be LabelDatumPatch.")
             entry = patch.model_dump(
                 by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
             )
@@ -876,3 +1514,153 @@ class GlobeWidget(anywidget.AnyWidget):
             return
         for handler in self._path_hover_handlers:
             handler(path, prev_path)
+
+    def _dispatch_heatmap_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        heatmap = payload.get("heatmap")
+        coords = payload.get("coords")
+        if isinstance(heatmap, dict) and isinstance(coords, dict):
+            for handler in self._heatmap_click_handlers:
+                handler(heatmap, coords)
+
+    def _dispatch_heatmap_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        heatmap = payload.get("heatmap")
+        coords = payload.get("coords")
+        if isinstance(heatmap, dict) and isinstance(coords, dict):
+            for handler in self._heatmap_right_click_handlers:
+                handler(heatmap, coords)
+
+    def _dispatch_heatmap_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        heatmap = payload.get("heatmap")
+        prev_heatmap = payload.get("prev_heatmap")
+        if heatmap is not None and not isinstance(heatmap, dict):
+            return
+        if prev_heatmap is not None and not isinstance(prev_heatmap, dict):
+            return
+        for handler in self._heatmap_hover_handlers:
+            handler(heatmap, prev_heatmap)
+
+    def _dispatch_hex_polygon_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hex_polygon = payload.get("hex_polygon")
+        coords = payload.get("coords")
+        if isinstance(hex_polygon, dict) and isinstance(coords, dict):
+            for handler in self._hex_polygon_click_handlers:
+                handler(hex_polygon, coords)
+
+    def _dispatch_hex_polygon_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hex_polygon = payload.get("hex_polygon")
+        coords = payload.get("coords")
+        if isinstance(hex_polygon, dict) and isinstance(coords, dict):
+            for handler in self._hex_polygon_right_click_handlers:
+                handler(hex_polygon, coords)
+
+    def _dispatch_hex_polygon_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hex_polygon = payload.get("hex_polygon")
+        prev_hex_polygon = payload.get("prev_hex_polygon")
+        if hex_polygon is not None and not isinstance(hex_polygon, dict):
+            return
+        if prev_hex_polygon is not None and not isinstance(prev_hex_polygon, dict):
+            return
+        for handler in self._hex_polygon_hover_handlers:
+            handler(hex_polygon, prev_hex_polygon)
+
+    def _dispatch_tile_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        tile = payload.get("tile")
+        coords = payload.get("coords")
+        if isinstance(tile, dict) and isinstance(coords, dict):
+            for handler in self._tile_click_handlers:
+                handler(tile, coords)
+
+    def _dispatch_tile_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        tile = payload.get("tile")
+        coords = payload.get("coords")
+        if isinstance(tile, dict) and isinstance(coords, dict):
+            for handler in self._tile_right_click_handlers:
+                handler(tile, coords)
+
+    def _dispatch_tile_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        tile = payload.get("tile")
+        prev_tile = payload.get("prev_tile")
+        if tile is not None and not isinstance(tile, dict):
+            return
+        if prev_tile is not None and not isinstance(prev_tile, dict):
+            return
+        for handler in self._tile_hover_handlers:
+            handler(tile, prev_tile)
+
+    def _dispatch_particle_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        particle = payload.get("particle")
+        coords = payload.get("coords")
+        if isinstance(particle, dict) and isinstance(coords, dict):
+            for handler in self._particle_click_handlers:
+                handler(particle, coords)
+
+    def _dispatch_particle_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        particle = payload.get("particle")
+        coords = payload.get("coords")
+        if isinstance(particle, dict) and isinstance(coords, dict):
+            for handler in self._particle_right_click_handlers:
+                handler(particle, coords)
+
+    def _dispatch_particle_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        particle = payload.get("particle")
+        prev_particle = payload.get("prev_particle")
+        if particle is not None and not isinstance(particle, dict):
+            return
+        if prev_particle is not None and not isinstance(prev_particle, dict):
+            return
+        for handler in self._particle_hover_handlers:
+            handler(particle, prev_particle)
+
+    def _dispatch_label_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        label = payload.get("label")
+        coords = payload.get("coords")
+        if isinstance(label, dict) and isinstance(coords, dict):
+            for handler in self._label_click_handlers:
+                handler(label, coords)
+
+    def _dispatch_label_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        label = payload.get("label")
+        coords = payload.get("coords")
+        if isinstance(label, dict) and isinstance(coords, dict):
+            for handler in self._label_right_click_handlers:
+                handler(label, coords)
+
+    def _dispatch_label_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        label = payload.get("label")
+        prev_label = payload.get("prev_label")
+        if label is not None and not isinstance(label, dict):
+            return
+        if prev_label is not None and not isinstance(prev_label, dict):
+            return
+        for handler in self._label_hover_handlers:
+            handler(label, prev_label)
