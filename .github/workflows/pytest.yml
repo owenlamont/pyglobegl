@@ -31,10 +31,12 @@ jobs:
           restore-keys: venv-${{ runner.os }}-py${{ matrix.python-version }}-
       - name: Install the project
         run: uv sync
+      - name: Install pytest-timeout
+        run: uv run python -m pip install pytest-timeout
       - name: Install Playwright browsers
         run: uv run playwright install chromium
       - name: Run tests with Coverage
-        run: uv run pytest --color=no tests --cov=. --cov-branch --cov-report=term-missing
+        run: uv run pytest --color=no tests --timeout=120 --timeout-method=thread --cov=. --cov-branch --cov-report=term-missing
       - name: Upload UI artifacts
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
