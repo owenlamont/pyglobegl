@@ -54,8 +54,8 @@ def test_points_from_gdf_validates_schema(
         assert isinstance(point, PointDatum)
         assert point.lat == expect["lat"]
         assert point.lng == expect["lng"]
-        assert point.altitude == 0.1
-        assert point.radius == 0.25
+        assert point.altitude == pytest.approx(0.1)
+        assert point.radius == pytest.approx(0.25)
         assert point.color.as_hex(format="long") == "#ffffaa"
         assert point.model_dump(
             exclude={"id", "lat", "lng", "altitude", "radius", "color", "label"}
