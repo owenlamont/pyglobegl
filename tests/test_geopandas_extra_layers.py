@@ -33,9 +33,9 @@ def test_heatmaps_from_gdf_builds_single_heatmap() -> None:
     heatmap = heatmaps[0]
     assert isinstance(heatmap, HeatmapDatum)
     assert len(heatmap.points) == 2
-    assert heatmap.points[0].lat == 5.0
-    assert heatmap.points[0].lng == 10.0
-    assert heatmap.points[0].weight == 1.5
+    assert heatmap.points[0].lat == pytest.approx(5.0)
+    assert heatmap.points[0].lng == pytest.approx(10.0)
+    assert heatmap.points[0].weight == pytest.approx(1.5)
 
 
 def test_hexed_polygons_from_gdf_builds_polygons() -> None:
@@ -95,8 +95,8 @@ def test_rings_from_gdf_builds_rings() -> None:
     rings = rings_from_gdf(gdf)
     assert len(rings) == 1
     assert isinstance(rings[0], RingDatum)
-    assert rings[0].lat == 5.0
-    assert rings[0].lng == 10.0
+    assert rings[0].lat == pytest.approx(5.0)
+    assert rings[0].lng == pytest.approx(10.0)
 
 
 def test_labels_from_gdf_builds_labels() -> None:

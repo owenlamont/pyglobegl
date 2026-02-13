@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pydantic_extra_types.color import Color
+import pytest
 
 from pyglobegl import PathDatum
 from pyglobegl.geopandas import paths_from_gdf
@@ -30,13 +31,13 @@ def test_paths_from_gdf_linestring() -> None:
     assert paths[0].path == [(0.0, 0.0), (1.0, 1.0), (0.0, 2.0)]
     assert isinstance(paths[0].color, Color)
     assert paths[0].color.as_hex(format="long") == "#ff0000"
-    assert paths[0].dash_length == 0.5
+    assert paths[0].dash_length == pytest.approx(0.5)
 
     assert isinstance(paths[1], PathDatum)
     assert paths[1].path == [(10.0, 10.0), (11.0, 11.0)]
     assert isinstance(paths[1].color, Color)
     assert paths[1].color.as_hex(format="long") == "#00ff00"
-    assert paths[1].dash_length == 1.0
+    assert paths[1].dash_length == pytest.approx(1.0)
 
 
 def test_paths_from_gdf_multilinestring() -> None:
