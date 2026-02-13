@@ -6,7 +6,7 @@ export default defineConfig({
 	build: {
 		outDir: "../src/pyglobegl/_static",
 		emptyOutDir: true,
-		target: "es2020",
+		target: "esnext",
 		rollupOptions: {
 			output: {
 				banner:

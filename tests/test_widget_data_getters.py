@@ -15,6 +15,8 @@ from pyglobegl import (
     GlobeWidget,
     HeatmapDatum,
     HeatmapsLayerConfig,
+    HexBinLayerConfig,
+    HexBinPointDatum,
     HexedPolygonsLayerConfig,
     HexPolygonDatum,
     LabelDatum,
@@ -38,6 +40,7 @@ def _make_widget(
     arcs_data=None,
     polygons_data=None,
     heatmaps_data=None,
+    hexbin_points_data=None,
     hex_polygons_data=None,
     tiles_data=None,
     particles_data=None,
@@ -53,6 +56,7 @@ def _make_widget(
             arcs=ArcsLayerConfig(arcs_data=arcs_data),
             polygons=PolygonsLayerConfig(polygons_data=polygons_data),
             heatmaps=HeatmapsLayerConfig(heatmaps_data=heatmaps_data),
+            hex_bin=HexBinLayerConfig(hex_bin_points_data=hexbin_points_data),
             hexed_polygons=HexedPolygonsLayerConfig(
                 hex_polygons_data=hex_polygons_data
             ),
@@ -157,6 +161,26 @@ def test_get_heatmaps_data_returns_copy() -> None:
     assert refreshed is not None
     assert refreshed[0].model_extra is not None
     assert refreshed[0].model_extra["meta"]["name"] == "Heatmap"
+
+
+def test_get_hexbin_points_data_returns_copy() -> None:
+    points = [
+        HexBinPointDatum.model_validate(
+            {"lat": 10, "lng": 20, "weight": 2.5, "meta": {"name": "HexPoint"}}
+        )
+    ]
+    widget = _make_widget(hexbin_points_data=points)
+
+    snapshot = widget.get_hex_bin_points_data()
+    assert snapshot is not None
+    assert isinstance(snapshot[0].id, UUID)
+    assert snapshot[0].model_extra is not None
+    snapshot[0].model_extra["meta"]["name"] = "Changed"
+
+    refreshed = widget.get_hex_bin_points_data()
+    assert refreshed is not None
+    assert refreshed[0].model_extra is not None
+    assert refreshed[0].model_extra["meta"]["name"] == "HexPoint"
 
 
 def test_get_hex_polygons_data_returns_copy() -> None:

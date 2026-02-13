@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@micropython/micropython-webassembly-pyscript':
+        specifier: ^1.27.0
+        version: 1.27.0
       globe.gl:
         specifier: ^2.45.0
         version: 2.45.0
@@ -250,6 +253,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@micropython/micropython-webassembly-pyscript@1.27.0':
+    resolution: {integrity: sha512-DnXx4EqxgkeaFESrS3uKrL7mLMk4mRTd0mMzaOd3HUSiZUOAE7t11uLnjf3ftF87N2xm4knHnWEKcVK4IYIUDA==}
 
   '@rollup/rollup-android-arm-eabi@4.57.1':
     resolution: {integrity: sha512-A6ehUVSiSaaliTxai040ZpZ2zTevHYbvu/lDoeAteHI8QnaosIzm4qwtezfRg1jOYaUmnzLX1AOD6Z+UJjtifg==}
@@ -767,6 +773,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@micropython/micropython-webassembly-pyscript@1.27.0': {}
 
   '@rollup/rollup-android-arm-eabi@4.57.1':
     optional: true

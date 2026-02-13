@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -16,6 +16,11 @@ from pydantic import (
     UUID4,
 )
 from pydantic_extra_types.color import Color
+
+from pyglobegl.frontend_python import (
+    FrontendPythonFunction,
+    resolve_frontend_python_function,
+)
 
 
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
@@ -35,6 +40,7 @@ def _to_color(value: Any) -> Color:
 
 
 ColorValue = Annotated[Color | str, BeforeValidator(_to_color)]
+FrontendPythonFunctionInput = FrontendPythonFunction | Callable[..., Any]
 
 
 def _serialize_color_single(value: ColorValue | None) -> str | None:
@@ -59,6 +65,30 @@ def _serialize_color_list_required(
     if isinstance(value, list):
         return [str(item) for item in value]
     return str(value)
+
+
+def _serialize_hexbin_accessor(
+    value: ColorValue | FrontendPythonFunction | str | float | None,
+) -> str | float | dict[str, str] | None:
+    if value is None:
+        return None
+    if callable(value):
+        value = resolve_frontend_python_function(value)
+    if isinstance(value, FrontendPythonFunction):
+        return value.to_wire()
+    if isinstance(value, Color):
+        return str(value)
+    return value
+
+
+def _default_hex_altitude_accessor() -> FrontendPythonFunction:
+    return FrontendPythonFunction(
+        name="pyglobegl_default_hex_altitude",
+        source=(
+            "def pyglobegl_default_hex_altitude(hexbin):\n"
+            '    return hexbin["sumWeight"] * 0.01'
+        ),
+    )
 
 
 def _default_tile_material() -> GlobeMaterialSpec:
@@ -521,6 +551,144 @@ class HeatmapsLayerConfig(BaseModel, extra="forbid", frozen=True):
     ] = 0
 
 
+class HexBinPointDatum(BaseModel, extra="allow", frozen=True):
+    """Data model for a hex bin points layer entry."""
+
+    id: Annotated[UUID4, Field(default_factory=uuid4)] = Field(default_factory=uuid4)
+    lat: Latitude
+    lng: Longitude
+    weight: FiniteFloat = 1.0
+
+
+class HexBinPointDatumPatch(BaseModel, extra="allow", frozen=True):
+    """Patch model for a hex bin points layer entry."""
+
+    id: UUID4
+    lat: Latitude | None = None
+    lng: Longitude | None = None
+    weight: FiniteFloat | None = None
+
+    @model_validator(mode="after")
+    def _reject_none_for_required_fields(self) -> HexBinPointDatumPatch:
+        for field in ("lat", "lng", "weight"):
+            if field in self.__pydantic_fields_set__ and getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be None.")
+        return self
+
+
+class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
+    """Hex bin layer settings for globe.gl.
+
+    Frontend callback fields (`hex_top_color`, `hex_side_color`, `hex_altitude`,
+    `hex_label`) accept ``FrontendPythonFunction`` values (or callables decorated
+    with ``@frontend_python``). Those callbacks run in browser-side MicroPython
+    and receive a single ``hexbin`` argument shaped like:
+
+    ``{"points": list[dict], "sumWeight": float,``
+    ``"center": {"lat": float, "lng": float}}``
+
+    Expected callback returns:
+    - ``hex_top_color``: CSS color string.
+    - ``hex_side_color``: CSS color string.
+    - ``hex_altitude``: non-negative numeric altitude in globe-radius units.
+    - ``hex_label``: HTML/text string for hover tooltip content.
+
+    Reference:
+    https://github.com/vasturiano/globe.gl?tab=readme-ov-file#hex-bin-layer
+    """
+
+    hex_bin_points_data: Annotated[
+        list[HexBinPointDatum] | None, Field(serialization_alias="hexBinPointsData")
+    ] = None
+    hex_bin_resolution: Annotated[
+        int, Field(ge=0, le=15, serialization_alias="hexBinResolution")
+    ] = 4
+    hex_margin: Annotated[NonNegativeFloat, Field(serialization_alias="hexMargin")] = (
+        0.2
+    )
+    hex_top_curvature_resolution: Annotated[
+        PositiveFloat, Field(serialization_alias="hexTopCurvatureResolution")
+    ] = 5.0
+    # Hex top face color accessor; callback returns a CSS color string.
+    hex_top_color: Annotated[
+        ColorValue | FrontendPythonFunctionInput,
+        Field(serialization_alias="hexTopColor"),
+    ] = Color("#ffffaa")
+    # Hex side face color accessor; callback returns a CSS color string.
+    hex_side_color: Annotated[
+        ColorValue | FrontendPythonFunctionInput,
+        Field(serialization_alias="hexSideColor"),
+    ] = Color("#ffffaa")
+    # Hex extrusion accessor; callback returns a non-negative numeric altitude.
+    hex_altitude: Annotated[
+        NonNegativeFloat | FrontendPythonFunctionInput,
+        Field(serialization_alias="hexAltitude"),
+    ] = Field(default_factory=_default_hex_altitude_accessor)
+    # Hex hover label accessor; callback returns a tooltip HTML/text string.
+    hex_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="hexLabel"),
+    ] = None
+    hex_bin_merge: Annotated[bool, Field(serialization_alias="hexBinMerge")] = False
+    hex_transition_duration: Annotated[
+        int, Field(serialization_alias="hexTransitionDuration")
+    ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        normalized = dict(data)
+        for field_name in (
+            "hex_top_color",
+            "hex_side_color",
+            "hex_altitude",
+            "hex_label",
+        ):
+            value = normalized.get(field_name)
+            if callable(value) or isinstance(value, FrontendPythonFunction):
+                normalized[field_name] = resolve_frontend_python_function(value)
+        return normalized
+
+    @field_serializer("hex_top_color", "hex_side_color", when_used="always")
+    def _serialize_hex_colors(
+        self, value: ColorValue | FrontendPythonFunction
+    ) -> str | dict[str, str]:
+        serialized = _serialize_hexbin_accessor(value)
+        if isinstance(serialized, str):
+            return serialized
+        if isinstance(serialized, dict):
+            return serialized
+        raise TypeError(
+            "hex color accessor must serialize to color string or function."
+        )
+
+    @field_serializer("hex_altitude", when_used="always")
+    def _serialize_hex_altitude(
+        self, value: NonNegativeFloat | FrontendPythonFunction
+    ) -> float | dict[str, str]:
+        serialized = _serialize_hexbin_accessor(value)
+        if isinstance(serialized, dict):
+            return serialized
+        if isinstance(serialized, (int, float)):
+            return float(serialized)
+        raise TypeError("hex altitude accessor must serialize to float or function.")
+
+    @field_serializer("hex_label", when_used="always")
+    def _serialize_hex_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        serialized = _serialize_hexbin_accessor(value)
+        if serialized is None:
+            return None
+        if isinstance(serialized, str):
+            return serialized
+        if isinstance(serialized, dict):
+            return serialized
+        raise TypeError("hex label accessor must serialize to string or function.")
+
+
 class HexPolygonDatum(BaseModel, extra="allow", frozen=True):
     """Data model for a hexed polygon layer entry."""
 
@@ -896,6 +1064,12 @@ class GlobeViewConfig(BaseModel, extra="forbid", frozen=True):
     transition_ms: Annotated[int | None, Field(serialization_alias="transitionMs")] = (
         None
     )
+    controls_auto_rotate: Annotated[
+        bool | None, Field(serialization_alias="controlsAutoRotate")
+    ] = None
+    controls_auto_rotate_speed: Annotated[
+        FiniteFloat | None, Field(serialization_alias="controlsAutoRotateSpeed")
+    ] = None
 
 
 class GlobeConfig(BaseModel, extra="forbid", frozen=True):
@@ -925,6 +1099,9 @@ class GlobeConfig(BaseModel, extra="forbid", frozen=True):
     heatmaps: Annotated[
         HeatmapsLayerConfig, Field(default_factory=HeatmapsLayerConfig)
     ] = Field(default_factory=HeatmapsLayerConfig)
+    hex_bin: Annotated[HexBinLayerConfig, Field(default_factory=HexBinLayerConfig)] = (
+        Field(default_factory=HexBinLayerConfig)
+    )
     hexed_polygons: Annotated[
         HexedPolygonsLayerConfig, Field(default_factory=HexedPolygonsLayerConfig)
     ] = Field(default_factory=HexedPolygonsLayerConfig)

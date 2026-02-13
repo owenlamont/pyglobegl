@@ -9,6 +9,8 @@ type AnyWidgetRenderProps = {
 	};
 };
 
+import { loadMicroPython } from "@micropython/micropython-webassembly-pyscript";
+import microPythonWasmUrl from "@micropython/micropython-webassembly-pyscript/micropython.wasm?url";
 import * as THREE from "three";
 
 type GlobeInitConfig = {
@@ -114,6 +116,28 @@ type HeatmapsLayerConfig = {
 	heatmapsTransitionDuration?: number;
 };
 
+type FrontendPythonFunctionSpec = {
+	__pyglobegl_type: "frontend_python_function";
+	name: string;
+	source: string;
+};
+
+type HexBinLayerConfig = {
+	hexBinPointsData?: Array<Record<string, unknown>>;
+	hexBinPointLat?: number | string;
+	hexBinPointLng?: number | string;
+	hexBinPointWeight?: number | string;
+	hexBinResolution?: number;
+	hexMargin?: number | string;
+	hexTopCurvatureResolution?: number | string;
+	hexTopColor?: string | FrontendPythonFunctionSpec | null;
+	hexSideColor?: string | FrontendPythonFunctionSpec | null;
+	hexAltitude?: number | string | FrontendPythonFunctionSpec | null;
+	hexLabel?: string | FrontendPythonFunctionSpec | null;
+	hexBinMerge?: boolean;
+	hexTransitionDuration?: number;
+};
+
 type HexedPolygonsLayerConfig = {
 	hexPolygonsData?: Array<Record<string, unknown>>;
 	hexPolygonGeoJsonGeometry?: string;
@@ -194,6 +218,7 @@ type GlobeConfig = {
 	polygons?: PolygonsLayerConfig;
 	paths?: PathsLayerConfig;
 	heatmaps?: HeatmapsLayerConfig;
+	hex_bin?: HexBinLayerConfig;
 	hexed_polygons?: HexedPolygonsLayerConfig;
 	tiles?: TilesLayerConfig;
 	particles?: ParticlesLayerConfig;
@@ -211,6 +236,8 @@ type PointOfView = {
 type GlobeViewConfig = {
 	pointOfView?: PointOfView;
 	transitionMs?: number;
+	controlsAutoRotate?: boolean;
+	controlsAutoRotateSpeed?: number;
 };
 
 const buildMaterial = (spec: unknown): unknown => {
@@ -257,6 +284,30 @@ const materialFromSpec = (value: unknown): unknown => {
 };
 
 const textureLoader = new THREE.TextureLoader();
+let microPythonPromise: Promise<
+	Awaited<ReturnType<typeof loadMicroPython>>
+> | null = null;
+
+const isFrontendPythonFunctionSpec = (
+	value: unknown,
+): value is FrontendPythonFunctionSpec =>
+	!!value &&
+	typeof value === "object" &&
+	(value as { __pyglobegl_type?: unknown }).__pyglobegl_type ===
+		"frontend_python_function";
+
+const ensureMicroPython = async (): Promise<
+	Awaited<ReturnType<typeof loadMicroPython>>
+> => {
+	if (!microPythonPromise) {
+		// Use the bundled wasm asset so frontend callbacks work offline.
+		microPythonPromise = loadMicroPython({
+			linebuffer: false,
+			url: microPythonWasmUrl,
+		});
+	}
+	return microPythonPromise;
+};
 
 const textureFromSpec = (value: unknown): unknown => {
 	if (!value) {
@@ -396,6 +447,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			polygon: false,
 			path: false,
 			heatmap: false,
+			hexbin: false,
 			hexPolygon: false,
 			tile: false,
 			particle: false,
@@ -481,6 +533,20 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					},
 				);
 				hoverBindings.heatmap = true;
+			}
+			if (config.hexbinHover && !hoverBindings.hexbin) {
+				globe.onHexHover(
+					(
+						hexbin: Record<string, unknown> | null,
+						prevHexbin: Record<string, unknown> | null,
+					) => {
+						model.send({
+							type: "hexbin_hover",
+							payload: { hexbin, prev_hexbin: prevHexbin },
+						});
+					},
+				);
+				hoverBindings.hexbin = true;
 			}
 			if (config.hexPolygonHover && !hoverBindings.hexPolygon) {
 				globe.onHexPolygonHover(
@@ -625,6 +691,29 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				model.send({
 					type: "heatmap_right_click",
 					payload: { heatmap, coords },
+				});
+			},
+		);
+
+		globe.onHexClick(
+			(
+				hexbin: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({ type: "hexbin_click", payload: { hexbin, coords } });
+			},
+		);
+
+		globe.onHexRightClick(
+			(
+				hexbin: Record<string, unknown>,
+				_event: unknown,
+				coords: { lat: number; lng: number; altitude: number },
+			) => {
+				model.send({
+					type: "hexbin_right_click",
+					payload: { hexbin, coords },
 				});
 			},
 		);
@@ -832,6 +921,21 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"heatmapsTransitionDuration",
 		]);
 
+		const hexbinProps = new Set([
+			"hexBinPointLat",
+			"hexBinPointLng",
+			"hexBinPointWeight",
+			"hexBinResolution",
+			"hexMargin",
+			"hexTopCurvatureResolution",
+			"hexTopColor",
+			"hexSideColor",
+			"hexAltitude",
+			"hexLabel",
+			"hexBinMerge",
+			"hexTransitionDuration",
+		]);
+
 		const hexPolygonProps = new Set([
 			"hexPolygonGeoJsonGeometry",
 			"hexPolygonColor",
@@ -908,7 +1012,37 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexTopColor",
 			"hexSideColor",
 			"hexAltitude",
+			"hexLabel",
 		]);
+		let configApplyToken = 0;
+		const hexbinAccessorTokens = new Map<string, number>();
+
+		const nextHexbinAccessorToken = (prop: string): number => {
+			const token = (hexbinAccessorTokens.get(prop) ?? 0) + 1;
+			hexbinAccessorTokens.set(prop, token);
+			return token;
+		};
+
+		const isCurrentHexbinAccessorToken = (
+			prop: string,
+			token: number,
+		): boolean => hexbinAccessorTokens.get(prop) === token;
+
+		const toHexBinAccessor = async (value: unknown): Promise<unknown> => {
+			if (!isFrontendPythonFunctionSpec(value)) {
+				return () => value;
+			}
+			const mp = await ensureMicroPython();
+			mp.runPython(value.source);
+			const main = mp.pyimport("__main__") as Record<string, unknown>;
+			const callable = main[value.name];
+			if (typeof callable !== "function") {
+				throw new Error(
+					`MicroPython callback '${value.name}' was not defined by provided source.`,
+				);
+			}
+			return callable;
+		};
 
 		const applyLayerProp = (
 			props: Set<string>,
@@ -920,12 +1054,25 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			const setter = (globe as Record<string, unknown>)[prop];
 			if (typeof setter === "function") {
-				const nextValue = materialProps.has(prop)
-					? buildMaterial(value)
-					: constantAccessorProps.has(prop)
-						? () => value
-						: value;
-				(setter as (arg: unknown) => void)(nextValue);
+				if (materialProps.has(prop)) {
+					(setter as (arg: unknown) => void)(buildMaterial(value));
+					return;
+				}
+				if (constantAccessorProps.has(prop)) {
+					const token = nextHexbinAccessorToken(prop);
+					void toHexBinAccessor(value)
+						.then((nextValue) => {
+							if (!isCurrentHexbinAccessorToken(prop, token)) {
+								return;
+							}
+							(setter as (arg: unknown) => void)(nextValue);
+						})
+						.catch((error) => {
+							console.error("Failed to apply hexbin accessor.", error);
+						});
+					return;
+				}
+				(setter as (arg: unknown) => void)(value);
 			}
 		};
 
@@ -1052,6 +1199,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					globe.pathsData(payload?.data ?? []);
 				} else if (type === "heatmaps_set_data") {
 					globe.heatmapsData(payload?.data ?? []);
+				} else if (type === "hexbin_set_data") {
+					globe.hexBinPointsData(payload?.data ?? []);
 				} else if (type === "hex_polygons_set_data") {
 					globe.hexPolygonsData(payload?.data ?? []);
 				} else if (type === "tiles_set_data") {
@@ -1090,6 +1239,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					patchLayerData(
 						() => globe.heatmapsData() ?? [],
 						(data) => globe.heatmapsData(data),
+						payload?.patches ?? [],
+					);
+				} else if (type === "hexbin_patch_data") {
+					patchLayerData(
+						() => globe.hexBinPointsData() ?? [],
+						(data) => globe.hexBinPointsData(data),
 						payload?.patches ?? [],
 					);
 				} else if (type === "hex_polygons_patch_data") {
@@ -1175,6 +1330,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					applyLayerProp(pathProps, payload?.prop, payload?.value);
 				} else if (type === "heatmaps_prop") {
 					applyLayerProp(heatmapProps, payload?.prop, payload?.value);
+				} else if (type === "hexbin_prop") {
+					applyLayerProp(hexbinProps, payload?.prop, payload?.value);
 				} else if (type === "hex_polygons_prop") {
 					applyLayerProp(hexPolygonProps, payload?.prop, payload?.value);
 				} else if (type === "tiles_prop") {
@@ -1558,6 +1715,84 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 		};
 
+		const applyHexBinProps = async (
+			hexbinConfig?: HexBinLayerConfig,
+			configToken?: number,
+		): Promise<void> => {
+			if (!hexbinConfig) {
+				return;
+			}
+			if (hexbinConfig.hexBinPointsData !== undefined) {
+				globe.hexBinPointsData(hexbinConfig.hexBinPointsData ?? []);
+			}
+			if (hexbinConfig.hexBinPointLat !== undefined) {
+				globe.hexBinPointLat(hexbinConfig.hexBinPointLat ?? null);
+			}
+			if (hexbinConfig.hexBinPointLng !== undefined) {
+				globe.hexBinPointLng(hexbinConfig.hexBinPointLng ?? null);
+			}
+			if (hexbinConfig.hexBinPointWeight !== undefined) {
+				globe.hexBinPointWeight(hexbinConfig.hexBinPointWeight ?? null);
+			}
+			if (hexbinConfig.hexBinResolution !== undefined) {
+				globe.hexBinResolution(hexbinConfig.hexBinResolution);
+			}
+			if (hexbinConfig.hexMargin !== undefined) {
+				globe.hexMargin(hexbinConfig.hexMargin ?? null);
+			}
+			if (hexbinConfig.hexTopCurvatureResolution !== undefined) {
+				globe.hexTopCurvatureResolution(
+					hexbinConfig.hexTopCurvatureResolution ?? null,
+				);
+			}
+			if (hexbinConfig.hexTopColor !== undefined) {
+				const token = nextHexbinAccessorToken("hexTopColor");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexTopColor);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexTopColor", token)) {
+					globe.hexTopColor(accessor);
+				}
+			}
+			if (hexbinConfig.hexSideColor !== undefined) {
+				const token = nextHexbinAccessorToken("hexSideColor");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexSideColor);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexSideColor", token)) {
+					globe.hexSideColor(accessor);
+				}
+			}
+			if (hexbinConfig.hexAltitude !== undefined) {
+				const token = nextHexbinAccessorToken("hexAltitude");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexAltitude);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexAltitude", token)) {
+					globe.hexAltitude(accessor);
+				}
+			}
+			if (hexbinConfig.hexLabel !== undefined) {
+				const token = nextHexbinAccessorToken("hexLabel");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexLabel);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexLabel", token)) {
+					globe.hexLabel(accessor);
+				}
+			}
+			if (hexbinConfig.hexBinMerge !== undefined) {
+				globe.hexBinMerge(hexbinConfig.hexBinMerge);
+			}
+			if (hexbinConfig.hexTransitionDuration !== undefined) {
+				globe.hexTransitionDuration(hexbinConfig.hexTransitionDuration);
+			}
+		};
+
 		const applyHexedPolygonsProps = (
 			hexPolygonsConfig?: HexedPolygonsLayerConfig,
 		): void => {
@@ -1777,13 +2012,22 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		};
 
 		const applyViewProps = (viewConfig?: GlobeViewConfig): void => {
-			if (!viewConfig || !viewConfig.pointOfView) {
+			if (!viewConfig) {
 				return;
 			}
-			const transitionMs = viewConfig.transitionMs ?? 0;
-			globe.pointOfView(viewConfig.pointOfView, transitionMs);
-			(globalThis as { __pyglobegl_pov?: PointOfView }).__pyglobegl_pov =
-				globe.pointOfView();
+			if (viewConfig.pointOfView) {
+				const transitionMs = viewConfig.transitionMs ?? 0;
+				globe.pointOfView(viewConfig.pointOfView, transitionMs);
+				(globalThis as { __pyglobegl_pov?: PointOfView }).__pyglobegl_pov =
+					globe.pointOfView();
+			}
+			const controls = globe.controls();
+			if (viewConfig.controlsAutoRotate !== undefined) {
+				controls.autoRotate = viewConfig.controlsAutoRotate;
+			}
+			if (viewConfig.controlsAutoRotateSpeed !== undefined) {
+				controls.autoRotateSpeed = viewConfig.controlsAutoRotateSpeed;
+			}
 		};
 
 		const enableAutoResize = () => {
@@ -1800,7 +2044,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			resizeObserver = undefined;
 		};
 
-		const applyConfig = (config?: GlobeConfig) => {
+		const applyConfig = async (config?: GlobeConfig): Promise<void> => {
+			const applyToken = ++configApplyToken;
 			const layout = config?.layout;
 			const globeConfig = config?.globe;
 			const pointsConfig = config?.points;
@@ -1808,6 +2053,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			const polygonsConfig = config?.polygons;
 			const pathsConfig = config?.paths;
 			const heatmapsConfig = config?.heatmaps;
+			const hexbinConfig = config?.hex_bin;
 			const hexPolygonsConfig = config?.hexed_polygons;
 			const tilesConfig = config?.tiles;
 			const particlesConfig = config?.particles;
@@ -1827,6 +2073,10 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyPolygonsProps(polygonsConfig);
 			applyPathsProps(pathsConfig);
 			applyHeatmapsProps(heatmapsConfig);
+			await applyHexBinProps(hexbinConfig, applyToken);
+			if (applyToken !== configApplyToken) {
+				return;
+			}
 			applyHexedPolygonsProps(hexPolygonsConfig);
 			applyTilesProps(tilesConfig);
 			applyParticlesProps(particlesConfig);
@@ -1835,10 +2085,10 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			applyViewProps(viewConfig);
 		};
 
-		applyConfig(initialConfig);
+		void applyConfig(initialConfig);
 
 		model.on("change:config", () => {
-			applyConfig(getConfig());
+			void applyConfig(getConfig());
 		});
 	});
 

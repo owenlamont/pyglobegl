@@ -5,6 +5,8 @@ import pytest
 from pyglobegl import (
     HeatmapDatum,
     heatmaps_from_gdf,
+    hexbin_points_from_gdf,
+    HexBinPointDatum,
     hexed_polygons_from_gdf,
     HexPolygonDatum,
     LabelDatum,
@@ -51,6 +53,22 @@ def test_hexed_polygons_from_gdf_builds_polygons() -> None:
     assert len(polygons) == 1
     assert isinstance(polygons[0], HexPolygonDatum)
     assert polygons[0].label == "A"
+
+
+def test_hexbin_points_from_gdf_builds_points() -> None:
+    geopandas = pytest.importorskip("geopandas")
+    from shapely.geometry import Point
+
+    gdf = geopandas.GeoDataFrame(
+        {"weight": [2.0], "point": [Point(10, 5)]}, geometry="point", crs="EPSG:4326"
+    )
+
+    points = hexbin_points_from_gdf(gdf, weight_column="weight")
+    assert len(points) == 1
+    assert isinstance(points[0], HexBinPointDatum)
+    assert points[0].lat == pytest.approx(5.0)
+    assert points[0].lng == pytest.approx(10.0)
+    assert points[0].weight == pytest.approx(2.0)
 
 
 def test_tiles_from_gdf_builds_tiles() -> None:
