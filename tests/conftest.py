@@ -335,7 +335,11 @@ def globe_tile_server() -> Generator[tuple[str, Callable[[bytes], None]], None, 
 
     class TileHandler(socketserver.BaseRequestHandler):
         def handle(self) -> None:
-            data = self.request.recv(1024)
+            self.request.settimeout(1.0)
+            try:
+                data = self.request.recv(1024)
+            except TimeoutError:
+                return
             if not data:
                 return
             request_line = data.split(b"\r\n", 1)[0]
@@ -365,7 +369,11 @@ def globe_tile_server() -> Generator[tuple[str, Callable[[bytes], None]], None, 
             )
             self.request.sendall(headers + body)
 
-    server = socketserver.TCPServer(("127.0.0.1", 0), TileHandler)
+    class _ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        daemon_threads = True
+        allow_reuse_address = True
+
+    server = _ThreadedTCPServer(("127.0.0.1", 0), TileHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     host = server.server_address[0]
