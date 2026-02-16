@@ -9,6 +9,7 @@ from pyglobegl.config import (
     ArcDatum,
     HeatmapDatum,
     HeatmapPointDatum,
+    HexBinPointDatum,
     HexPolygonDatum,
     LabelDatum,
     ParticleDatum,
@@ -603,6 +604,61 @@ def heatmaps_from_gdf(
         heatmap_payload["top_altitude"] = top_altitude
 
     return [HeatmapDatum.model_validate(heatmap_payload)]
+
+
+def hexbin_points_from_gdf(
+    gdf: gpd.GeoDataFrame,
+    *,
+    include_columns: Iterable[str] | None = None,
+    weight_column: str | None = None,
+    geometry_column: str | None = None,
+) -> list[HexBinPointDatum]:
+    """Convert a GeoDataFrame of point geometries into hex bin point data models.
+
+    Args:
+        gdf: GeoDataFrame containing point geometries.
+        include_columns: Optional iterable of column names to copy onto each point.
+        weight_column: Optional column name for per-point weights.
+        geometry_column: Optional name of the point geometry column to use.
+
+    Returns:
+        A list of HexBinPointDatum models.
+
+    """
+    _require_geopandas()
+    _require_pandas()
+    _require_pandera()
+
+    gdf = _prepare_point_gdf(
+        gdf, geometry_column=geometry_column, default_column="point", context="hexbin"
+    )
+
+    columns = list(include_columns) if include_columns is not None else []
+    _require_columns(gdf, columns)
+
+    weight_series = None
+    if weight_column is not None:
+        _require_columns(gdf, [weight_column])
+        weight_series = gdf[weight_column]
+
+    validation_columns = set(columns)
+    validation = (
+        gdf[list(validation_columns)].copy()
+        if validation_columns
+        else gdf.iloc[:, 0:0].copy()
+    )
+    validation["lat"] = gdf.geometry.y
+    validation["lng"] = gdf.geometry.x
+    validation["weight"] = weight_series if weight_series is not None else 1.0
+    _validate_rows_with_pydantic(validation, HexBinPointDatum, "hexbin_points_from_gdf")
+
+    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    data["lat"] = gdf.geometry.y
+    data["lng"] = gdf.geometry.x
+    data["weight"] = weight_series if weight_series is not None else 1.0
+    return [
+        HexBinPointDatum.model_validate(record) for record in data.to_dict("records")
+    ]
 
 
 def hexed_polygons_from_gdf(

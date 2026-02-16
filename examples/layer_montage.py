@@ -31,6 +31,7 @@ import solara
 
 from pyglobegl import (
     ArcDatum,
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -40,6 +41,7 @@ from pyglobegl import (
     GlobeWidget,
     HeatmapDatum,
     HeatmapPointDatum,
+    HexBinPointDatum,
     HexPolygonDatum,
     LabelDatum,
     ParticleDatum,
@@ -97,6 +99,7 @@ class Stage:
     globe: GlobeLayerConfig | None
     base_view: PointOfView
     apply: Callable[[GlobeWidget], None]
+    pre_rotate_wait_seconds: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -305,6 +308,66 @@ def _load_population_heatmap() -> HeatmapDatum:
         raise ValueError("Population dataset returned no usable rows.")
 
     return HeatmapDatum(points=points, bandwidth=0.9, color_saturation=2.8)
+
+
+@lru_cache(maxsize=1)
+def _load_population_hexbin_points() -> list[HexBinPointDatum]:
+    heatmap = _load_population_heatmap()
+    return [
+        HexBinPointDatum(lat=point.lat, lng=point.lng, weight=point.weight)
+        for point in heatmap.points
+    ]
+
+
+@frontend_python
+def _population_hex_altitude(hexbin: dict) -> float:
+    """Return altitude scaled from aggregate hex population."""
+    return hexbin["sumWeight"] * 6e-8
+
+
+@frontend_python
+def _population_hex_color(hexbin: dict) -> str:
+    """Return a YlOrRd color interpolated by sqrt-scaled aggregate population."""
+    # Keep this self-contained so frontend MicroPython has all required symbols.
+    palette = (
+        (255, 255, 204),
+        (255, 237, 160),
+        (254, 217, 118),
+        (254, 178, 76),
+        (253, 141, 60),
+        (252, 78, 42),
+        (227, 26, 28),
+        (189, 0, 38),
+        (128, 0, 38),
+    )
+    weight = float(hexbin["sumWeight"])
+    if weight < 0:
+        weight = 0.0
+    normalized = (weight / 1e7) ** 0.5
+    if normalized > 1:
+        normalized = 1.0
+    scaled = normalized * (len(palette) - 1)
+    lower = int(scaled)
+    upper = min(len(palette) - 1, lower + 1)
+    blend = scaled - lower
+    low = palette[lower]
+    high = palette[upper]
+    r = round(low[0] + (high[0] - low[0]) * blend)
+    g = round(low[1] + (high[1] - low[1]) * blend)
+    b = round(low[2] + (high[2] - low[2]) * blend)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _apply_population_hexbin(
+    widget: GlobeWidget, points: list[HexBinPointDatum]
+) -> None:
+    widget.set_hex_bin_resolution(4)
+    widget.set_hex_altitude(_population_hex_altitude)
+    widget.set_hex_top_color(_population_hex_color)
+    widget.set_hex_side_color(_population_hex_color)
+    widget.set_hex_bin_merge(True)
+    widget.set_hex_transition_duration(0)
+    widget.set_hex_bin_points_data(points)
 
 
 @lru_cache(maxsize=1)
@@ -567,6 +630,7 @@ def _clear_layers(widget: GlobeWidget) -> None:
     widget.set_paths_data([])
     widget.set_polygons_data([])
     widget.set_heatmaps_data([])
+    widget.set_hex_bin_points_data([])
     widget.set_hex_polygons_data([])
     widget.set_tiles_data([])
     widget.set_particles_data([])
@@ -612,20 +676,37 @@ def _build_stages() -> list[Stage]:
             apply=lambda widget: widget.set_arcs_data(arcs),
         ),
         Stage(
-            name="paths",
-            layout=GlobeLayoutConfig(background_color="#000000"),
+            name="world_population_hexbin",
+            layout=GlobeLayoutConfig(
+                background_color="#000000",
+                background_image_url=_URL_ADAPTER.validate_python(
+                    "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
+                ),
+            ),
             globe=GlobeLayerConfig(
                 globe_image_url=_URL_ADAPTER.validate_python(
-                    "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-dark.jpg"
+                    "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
                 ),
                 bump_image_url=_URL_ADAPTER.validate_python(
                     "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png"
                 ),
-                show_atmosphere=False,
-                show_graticules=False,
             ),
             base_view=PointOfView(lat=0, lng=_START_LNG, altitude=_START_ALTITUDE),
-            apply=lambda widget: widget.set_paths_data(paths),
+            apply=lambda widget: _apply_population_hexbin(
+                widget, _load_population_hexbin_points()
+            ),
+            pre_rotate_wait_seconds=PAUSE_SECONDS,
+        ),
+        Stage(
+            name="heatmaps",
+            layout=GlobeLayoutConfig(background_color="#000000"),
+            globe=GlobeLayerConfig(
+                globe_image_url=_URL_ADAPTER.validate_python(
+                    "https://unpkg.com/three-globe/example/img/earth-night.jpg"
+                )
+            ),
+            base_view=PointOfView(lat=0, lng=_START_LNG, altitude=_START_ALTITUDE),
+            apply=lambda widget: widget.set_heatmaps_data([heatmap]),
         ),
         Stage(
             name="polygons",
@@ -646,17 +727,6 @@ def _build_stages() -> list[Stage]:
             apply=lambda widget: widget.set_polygons_data(polygons),
         ),
         Stage(
-            name="heatmaps",
-            layout=GlobeLayoutConfig(background_color="#000000"),
-            globe=GlobeLayerConfig(
-                globe_image_url=_URL_ADAPTER.validate_python(
-                    "https://unpkg.com/three-globe/example/img/earth-night.jpg"
-                )
-            ),
-            base_view=PointOfView(lat=0, lng=_START_LNG, altitude=_START_ALTITUDE),
-            apply=lambda widget: widget.set_heatmaps_data([heatmap]),
-        ),
-        Stage(
             name="hexed_polygons",
             layout=GlobeLayoutConfig(background_color="#000000"),
             globe=GlobeLayerConfig(
@@ -666,6 +736,22 @@ def _build_stages() -> list[Stage]:
             ),
             base_view=PointOfView(lat=0, lng=_START_LNG, altitude=_START_ALTITUDE),
             apply=lambda widget: widget.set_hex_polygons_data(hexed),
+        ),
+        Stage(
+            name="paths",
+            layout=GlobeLayoutConfig(background_color="#000000"),
+            globe=GlobeLayerConfig(
+                globe_image_url=_URL_ADAPTER.validate_python(
+                    "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-dark.jpg"
+                ),
+                bump_image_url=_URL_ADAPTER.validate_python(
+                    "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png"
+                ),
+                show_atmosphere=False,
+                show_graticules=False,
+            ),
+            base_view=PointOfView(lat=0, lng=_START_LNG, altitude=_START_ALTITUDE),
+            apply=lambda widget: widget.set_paths_data(paths),
         ),
         Stage(
             name="tiles",
@@ -772,6 +858,9 @@ def _run_montage(
         )
         stage_index = (stage_index + 1) % len(stages)
         yield StageUpdate(stage_index=stage_index, pov=None, apply_stage=True)
+        next_stage = stages[stage_index]
+        if next_stage.pre_rotate_wait_seconds > 0:
+            stop_event.wait(next_stage.pre_rotate_wait_seconds)
         stop_event.wait(PAUSE_SECONDS)
 
 

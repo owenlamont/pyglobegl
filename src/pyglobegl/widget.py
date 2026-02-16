@@ -7,6 +7,7 @@ from uuid import uuid4
 import anywidget
 from ipywidgets import Layout
 from pydantic import BaseModel, UUID4
+from pydantic_extra_types.color import Color
 import traitlets
 
 from pyglobegl.config import (
@@ -16,6 +17,8 @@ from pyglobegl.config import (
     GlobeMaterialSpec,
     HeatmapDatum,
     HeatmapDatumPatch,
+    HexBinPointDatum,
+    HexBinPointDatumPatch,
     HexPolygonDatum,
     HexPolygonDatumPatch,
     LabelDatum,
@@ -33,6 +36,11 @@ from pyglobegl.config import (
     RingDatumPatch,
     TileDatum,
     TileDatumPatch,
+)
+from pyglobegl.frontend_python import (
+    FrontendPythonFunction,
+    parse_frontend_python_wire_payload,
+    resolve_frontend_python_function,
 )
 
 
@@ -117,6 +125,15 @@ class GlobeWidget(anywidget.AnyWidget):
         self._heatmap_hover_handlers: list[
             Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
         ] = []
+        self._hexbin_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._hexbin_right_click_handlers: list[
+            Callable[[dict[str, Any], dict[str, float]], None]
+        ] = []
+        self._hexbin_hover_handlers: list[
+            Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+        ] = []
         self._hex_polygon_click_handlers: list[
             Callable[[dict[str, Any], dict[str, float]], None]
         ] = []
@@ -172,6 +189,9 @@ class GlobeWidget(anywidget.AnyWidget):
             "heatmap_click": self._dispatch_heatmap_click,
             "heatmap_right_click": self._dispatch_heatmap_right_click,
             "heatmap_hover": self._dispatch_heatmap_hover,
+            "hexbin_click": self._dispatch_hexbin_click,
+            "hexbin_right_click": self._dispatch_hexbin_right_click,
+            "hexbin_hover": self._dispatch_hexbin_hover,
             "hex_polygon_click": self._dispatch_hex_polygon_click,
             "hex_polygon_right_click": self._dispatch_hex_polygon_right_click,
             "hex_polygon_hover": self._dispatch_hex_polygon_hover,
@@ -192,6 +212,9 @@ class GlobeWidget(anywidget.AnyWidget):
         self._polygons_data = self._normalize_layer_data(config.polygons.polygons_data)
         self._paths_data = self._normalize_layer_data(config.paths.paths_data)
         self._heatmaps_data = self._normalize_layer_data(config.heatmaps.heatmaps_data)
+        self._hexbin_points_data = self._normalize_layer_data(
+            config.hex_bin.hex_bin_points_data
+        )
         self._hex_polygons_data = self._normalize_layer_data(
             config.hexed_polygons.hex_polygons_data
         )
@@ -301,6 +324,20 @@ class GlobeWidget(anywidget.AnyWidget):
                 "heatmapTopAltitude": "topAltitude",
             }
         )
+        self._hexbin_props = config.hex_bin.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=True,
+            exclude={"hex_bin_points_data"},
+            mode="json",
+        )
+        self._hexbin_props.update(
+            {
+                "hexBinPointLat": "lat",
+                "hexBinPointLng": "lng",
+                "hexBinPointWeight": "weight",
+            }
+        )
         self._hex_polygons_props = config.hexed_polygons.model_dump(
             by_alias=True,
             exclude_none=True,
@@ -392,6 +429,7 @@ class GlobeWidget(anywidget.AnyWidget):
         config_dict.setdefault("polygons", {}).update(self._polygons_props)
         config_dict.setdefault("paths", {}).update(self._paths_props)
         config_dict.setdefault("heatmaps", {}).update(self._heatmaps_props)
+        config_dict.setdefault("hex_bin", {}).update(self._hexbin_props)
         config_dict.setdefault("hexed_polygons", {}).update(self._hex_polygons_props)
         config_dict.setdefault("tiles", {}).update(self._tiles_props)
         config_dict.setdefault("particles", {}).update(self._particles_props)
@@ -407,6 +445,10 @@ class GlobeWidget(anywidget.AnyWidget):
             config_dict.setdefault("paths", {})["pathsData"] = self._paths_data
         if self._heatmaps_data is not None:
             config_dict.setdefault("heatmaps", {})["heatmapsData"] = self._heatmaps_data
+        if self._hexbin_points_data is not None:
+            config_dict.setdefault("hex_bin", {})["hexBinPointsData"] = (
+                self._hexbin_points_data
+            )
         if self._hex_polygons_data is not None:
             config_dict.setdefault("hexed_polygons", {})["hexPolygonsData"] = (
                 self._hex_polygons_data
@@ -529,6 +571,25 @@ class GlobeWidget(anywidget.AnyWidget):
         """Register a callback fired on heatmap hover events."""
         self._heatmap_hover_handlers.append(handler)
         self._set_event_flag("heatmapHover", True)
+
+    def on_hexbin_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on hex bin left-clicks."""
+        self._hexbin_click_handlers.append(handler)
+
+    def on_hexbin_right_click(
+        self, handler: Callable[[dict[str, Any], dict[str, float]], None]
+    ) -> None:
+        """Register a callback fired on hex bin right-clicks."""
+        self._hexbin_right_click_handlers.append(handler)
+
+    def on_hexbin_hover(
+        self, handler: Callable[[dict[str, Any] | None, dict[str, Any] | None], None]
+    ) -> None:
+        """Register a callback fired on hex bin hover events."""
+        self._hexbin_hover_handlers.append(handler)
+        self._set_event_flag("hexbinHover", True)
 
     def on_hex_polygon_click(
         self, handler: Callable[[dict[str, Any], dict[str, float]], None]
@@ -947,6 +1008,200 @@ class GlobeWidget(anywidget.AnyWidget):
             "heatmaps", self._heatmaps_props, "heatmapsTransitionDuration", value
         )
 
+    def get_hex_bin_points_data(self) -> list[HexBinPointDatum] | None:
+        """Return a copy of the cached hex bin points data."""
+        return self._denormalize_layer_data(self._hexbin_points_data, HexBinPointDatum)
+
+    def set_hex_bin_points_data(self, data: Sequence[HexBinPointDatum]) -> None:
+        """Replace the hex bin points data at runtime."""
+        normalized = self._normalize_layer_data(data)
+        self._hexbin_points_data = normalized
+        self.send({"type": "hexbin_set_data", "payload": {"data": normalized}})
+
+    def patch_hex_bin_points_data(
+        self, patches: Sequence[HexBinPointDatumPatch]
+    ) -> None:
+        """Patch hex bin points data by id."""
+        normalized = self._normalize_hexbin_patches(patches)
+        self._apply_patches(self._hexbin_points_data, normalized, "hexbin")
+        self.send({"type": "hexbin_patch_data", "payload": {"patches": normalized}})
+
+    def update_hex_bin_point(self, point_id: UUID4 | str, **changes: Any) -> None:
+        """Update a single hex bin point by id."""
+        patch = HexBinPointDatumPatch.model_validate({"id": point_id, **changes})
+        self.patch_hex_bin_points_data([patch])
+
+    def get_hex_bin_resolution(self) -> int:
+        """Return the hex bin resolution."""
+        return int(self._hexbin_props.get("hexBinResolution", 4))
+
+    def set_hex_bin_resolution(self, value: int) -> None:
+        """Set the hex bin resolution."""
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinResolution", value)
+
+    def get_hex_bin_point_lat(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point latitude accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointLat")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_hex_bin_point_lat(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point latitude accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinPointLat", serialized)
+
+    def get_hex_bin_point_lng(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point longitude accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointLng")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_hex_bin_point_lng(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point longitude accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinPointLng", serialized)
+
+    def get_hex_bin_point_weight(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point weight accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointWeight")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_hex_bin_point_weight(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point weight accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "hexbin", self._hexbin_props, "hexBinPointWeight", serialized
+        )
+
+    def get_hex_margin(self) -> float | FrontendPythonFunction | None:
+        """Return the hex bin margin accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexMargin", 0.2)
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return 0.2
+
+    def set_hex_margin(
+        self, value: float | FrontendPythonFunction | Callable[..., Any]
+    ) -> None:
+        """Set the hex bin margin accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexMargin", serialized)
+
+    def get_hex_top_curvature_resolution(self) -> float:
+        """Return the hex top curvature resolution."""
+        value = self._hexbin_props.get("hexTopCurvatureResolution", 5.0)
+        return float(value) if isinstance(value, (int, float)) else 5.0
+
+    def set_hex_top_curvature_resolution(self, value: float) -> None:
+        """Set the hex top curvature resolution."""
+        self._set_layer_prop(
+            "hexbin", self._hexbin_props, "hexTopCurvatureResolution", value
+        )
+
+    def get_hex_top_color(self) -> str | FrontendPythonFunction | None:
+        """Return the hex top color constant or frontend callback."""
+        return self._decode_frontend_python_function(
+            self._hexbin_props.get("hexTopColor")
+        )
+
+    def set_hex_top_color(
+        self, value: Color | FrontendPythonFunction | Callable[..., Any]
+    ) -> None:
+        """Set the hex top color constant or frontend callback."""
+        normalized = str(value) if isinstance(value, Color) else value
+        serialized = self._encode_frontend_python_function(normalized)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexTopColor", serialized)
+
+    def get_hex_side_color(self) -> str | FrontendPythonFunction | None:
+        """Return the hex side color constant or frontend callback."""
+        return self._decode_frontend_python_function(
+            self._hexbin_props.get("hexSideColor")
+        )
+
+    def set_hex_side_color(
+        self, value: Color | FrontendPythonFunction | Callable[..., Any]
+    ) -> None:
+        """Set the hex side color constant or frontend callback."""
+        normalized = str(value) if isinstance(value, Color) else value
+        serialized = self._encode_frontend_python_function(normalized)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexSideColor", serialized)
+
+    def get_hex_altitude(self) -> float | FrontendPythonFunction | None:
+        """Return the hex altitude constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexAltitude")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        return value
+
+    def set_hex_altitude(
+        self, value: float | FrontendPythonFunction | Callable[..., Any]
+    ) -> None:
+        """Set the hex altitude constant or frontend callback."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexAltitude", serialized)
+
+    def get_hex_label(self) -> str | FrontendPythonFunction | None:
+        """Return the hex label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_hex_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex label constant or frontend callback."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexLabel", serialized)
+
+    def get_hex_bin_merge(self) -> bool:
+        """Return whether hex bins are merged."""
+        return bool(self._hexbin_props.get("hexBinMerge", False))
+
+    def set_hex_bin_merge(self, value: bool) -> None:
+        """Set whether hex bins are merged."""
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinMerge", value)
+
+    def get_hex_transition_duration(self) -> int:
+        """Return the hex transition duration."""
+        return int(self._hexbin_props.get("hexTransitionDuration", 1000))
+
+    def set_hex_transition_duration(self, value: int) -> None:
+        """Set the hex transition duration."""
+        self._set_layer_prop(
+            "hexbin", self._hexbin_props, "hexTransitionDuration", value
+        )
+
     def get_hex_polygons_data(self) -> list[HexPolygonDatum] | None:
         """Return a copy of the cached hexed polygons data."""
         return self._denormalize_layer_data(self._hex_polygons_data, HexPolygonDatum)
@@ -1272,6 +1527,22 @@ class GlobeWidget(anywidget.AnyWidget):
             normalized.append(entry)
         return normalized
 
+    def _normalize_hexbin_patches(
+        self, patches: Sequence[HexBinPointDatumPatch]
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for patch in patches:
+            if not isinstance(patch, HexBinPointDatumPatch):
+                raise TypeError("Patch entries must be HexBinPointDatumPatch.")
+            entry = patch.model_dump(
+                by_alias=True, exclude_unset=True, exclude_none=False, mode="json"
+            )
+            if entry.get("id") is None:
+                raise ValueError("Patch entries must include an id.")
+            entry["id"] = str(entry["id"])
+            normalized.append(entry)
+        return normalized
+
     def _normalize_hex_polygon_patches(
         self, patches: Sequence[HexPolygonDatumPatch]
     ) -> list[dict[str, Any]]:
@@ -1378,6 +1649,19 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         props[prop] = value
         self.send({"type": f"{layer}_prop", "payload": {"prop": prop, "value": value}})
+
+    def _encode_frontend_python_function(self, value: Any) -> Any:
+        if value is None or isinstance(value, (str, int, float)):
+            return value
+        if isinstance(value, FrontendPythonFunction):
+            return value.to_wire()
+        return resolve_frontend_python_function(value).to_wire()
+
+    def _decode_frontend_python_function(self, value: Any) -> Any:
+        parsed = parse_frontend_python_wire_payload(value)
+        if parsed is not None:
+            return parsed
+        return value
 
     def _dispatch_globe_ready(self) -> None:
         for handler in self._globe_ready_handlers:
@@ -1544,6 +1828,36 @@ class GlobeWidget(anywidget.AnyWidget):
             return
         for handler in self._heatmap_hover_handlers:
             handler(heatmap, prev_heatmap)
+
+    def _dispatch_hexbin_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hexbin = payload.get("hexbin")
+        coords = payload.get("coords")
+        if isinstance(hexbin, dict) and isinstance(coords, dict):
+            for handler in self._hexbin_click_handlers:
+                handler(hexbin, coords)
+
+    def _dispatch_hexbin_right_click(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hexbin = payload.get("hexbin")
+        coords = payload.get("coords")
+        if isinstance(hexbin, dict) and isinstance(coords, dict):
+            for handler in self._hexbin_right_click_handlers:
+                handler(hexbin, coords)
+
+    def _dispatch_hexbin_hover(self, payload: Any) -> None:
+        if not isinstance(payload, dict):
+            return
+        hexbin = payload.get("hexbin")
+        prev_hexbin = payload.get("prev_hexbin")
+        if hexbin is not None and not isinstance(hexbin, dict):
+            return
+        if prev_hexbin is not None and not isinstance(prev_hexbin, dict):
+            return
+        for handler in self._hexbin_hover_handlers:
+            handler(hexbin, prev_hexbin)
 
     def _dispatch_hex_polygon_click(self, payload: Any) -> None:
         if not isinstance(payload, dict):

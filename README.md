@@ -89,8 +89,8 @@ display(GlobeWidget(config=config))
 ```
 
 pyglobegl expects layer data as Pydantic models (for example: `PointDatum`,
-`ArcDatum`, `PolygonDatum`, `PathDatum`, `HeatmapDatum`, `HexPolygonDatum`,
-`TileDatum`, `ParticleDatum`, `RingDatum`, `LabelDatum`).
+`ArcDatum`, `PolygonDatum`, `PathDatum`, `HeatmapDatum`, `HexBinPointDatum`,
+`HexPolygonDatum`, `TileDatum`, `ParticleDatum`, `RingDatum`, `LabelDatum`).
 Dynamic accessor remapping is not supported; per-datum values are read from the
 model field names. Numeric fields reject string values, and data model defaults
 mirror globe.gl defaults so omitted values still render predictably.
@@ -222,6 +222,81 @@ config = GlobeConfig(heatmaps=HeatmapsLayerConfig(heatmaps_data=[heatmap]))
 
 display(GlobeWidget(config=config))
 ```
+
+## Hex Bin Layer (MicroPython Accessors)
+
+```python
+from pyglobegl import (
+    GlobeConfig,
+    GlobeWidget,
+    HexBinLayerConfig,
+    HexBinPointDatum,
+    frontend_python,
+)
+
+
+@frontend_python
+def hex_altitude(hexbin):
+    return hexbin["sumWeight"] * 0.01
+
+
+@frontend_python
+def point_weight(point):
+    # point is an individual input row from hex_bin_points_data
+    return point["weight"] * 2.0
+
+
+@frontend_python
+def hex_color(hexbin):
+    return "#ff5500" if hexbin["sumWeight"] > 2 else "#66ccff"
+
+
+@frontend_python
+def hex_label(hexbin):
+    return f"<b>{len(hexbin['points'])}</b> points in this hex bin"
+
+
+points = [
+    HexBinPointDatum(lat=0, lng=0, weight=1.0),
+    HexBinPointDatum(lat=12, lng=15, weight=3.5),
+]
+
+config = GlobeConfig(
+    hex_bin=HexBinLayerConfig(
+        hex_bin_points_data=points,
+        hex_bin_point_weight=point_weight,
+        hex_altitude=hex_altitude,
+        hex_top_color=hex_color,
+        hex_side_color=hex_color,
+        hex_label=hex_label,
+    )
+)
+
+display(GlobeWidget(config=config))
+```
+
+Frontend callback arguments are normalized to plain Python values (dict/list/
+str/float/bool/None) when they are JSON-serializable, so dict methods like
+`.get(...)` work in callbacks such as `hex_label`.
+
+Hexbin callback I/O guide:
+
+- `hex_bin_point_lat(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_bin_point_lng(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_bin_point_weight(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_top_color(hexbin) -> str`: CSS color string.
+- `hex_side_color(hexbin) -> str`: CSS color string.
+- `hex_altitude(hexbin) -> float`: non-negative altitude in globe-radius units.
+- `hex_label(hexbin) -> str`: HTML/text tooltip content.
+
+The `hexbin` argument shape is:
+`{"h3Idx": str, "points": list[dict], "sumWeight": float}`.
+For compatibility across upstream changes, prefer defensive access (for example,
+`hexbin.get("sumWeight", 0)`) in case keys are missing or values change shape.
+
+`hex_margin`, `hex_bin_point_lat`, `hex_bin_point_lng`, and
+`hex_bin_point_weight` also accept `@frontend_python` callbacks when you need
+frontend-computed accessors without writing JavaScript.
 
 ## Hexed Polygons Layer
 
@@ -494,6 +569,25 @@ gdf = gpd.GeoDataFrame(
 heatmaps = heatmaps_from_gdf(gdf, weight_column="weight", bandwidth=0.8)
 ```
 
+### Hex Bin Points Example
+
+```python
+import geopandas as gpd
+from shapely.geometry import Point
+
+from pyglobegl import hexbin_points_from_gdf
+
+gdf = gpd.GeoDataFrame(
+    {
+        "population": [2_100_000, 450_000],
+        "point": [Point(0, 0), Point(10, 10)],
+    },
+    geometry="point",
+    crs="EPSG:4326",
+)
+hex_points = hexbin_points_from_gdf(gdf, weight_column="population")
+```
+
 ### Hexed Polygons Example
 
 ```python
@@ -641,7 +735,7 @@ paths = paths_from_mpd(traj)
     - [x] Polygons layer
     - [x] Paths layer
     - [x] Heatmaps layer
-    - [ ] Hex bin layer
+    - [x] Hex bin layer
     - [x] Hexed polygons layer
     - [x] Tiles layer
     - [x] Particles layer

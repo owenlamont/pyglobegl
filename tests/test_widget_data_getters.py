@@ -8,6 +8,7 @@ from geojson_pydantic.types import Position2D
 from pyglobegl import (
     ArcDatum,
     ArcsLayerConfig,
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -15,6 +16,8 @@ from pyglobegl import (
     GlobeWidget,
     HeatmapDatum,
     HeatmapsLayerConfig,
+    HexBinLayerConfig,
+    HexBinPointDatum,
     HexedPolygonsLayerConfig,
     HexPolygonDatum,
     LabelDatum,
@@ -38,6 +41,7 @@ def _make_widget(
     arcs_data=None,
     polygons_data=None,
     heatmaps_data=None,
+    hexbin_points_data=None,
     hex_polygons_data=None,
     tiles_data=None,
     particles_data=None,
@@ -53,6 +57,7 @@ def _make_widget(
             arcs=ArcsLayerConfig(arcs_data=arcs_data),
             polygons=PolygonsLayerConfig(polygons_data=polygons_data),
             heatmaps=HeatmapsLayerConfig(heatmaps_data=heatmaps_data),
+            hex_bin=HexBinLayerConfig(hex_bin_points_data=hexbin_points_data),
             hexed_polygons=HexedPolygonsLayerConfig(
                 hex_polygons_data=hex_polygons_data
             ),
@@ -157,6 +162,26 @@ def test_get_heatmaps_data_returns_copy() -> None:
     assert refreshed is not None
     assert refreshed[0].model_extra is not None
     assert refreshed[0].model_extra["meta"]["name"] == "Heatmap"
+
+
+def test_get_hexbin_points_data_returns_copy() -> None:
+    points = [
+        HexBinPointDatum.model_validate(
+            {"lat": 10, "lng": 20, "weight": 2.5, "meta": {"name": "HexPoint"}}
+        )
+    ]
+    widget = _make_widget(hexbin_points_data=points)
+
+    snapshot = widget.get_hex_bin_points_data()
+    assert snapshot is not None
+    assert isinstance(snapshot[0].id, UUID)
+    assert snapshot[0].model_extra is not None
+    snapshot[0].model_extra["meta"]["name"] = "Changed"
+
+    refreshed = widget.get_hex_bin_points_data()
+    assert refreshed is not None
+    assert refreshed[0].model_extra is not None
+    assert refreshed[0].model_extra["meta"]["name"] == "HexPoint"
 
 
 def test_get_hex_polygons_data_returns_copy() -> None:
@@ -264,3 +289,38 @@ def test_get_labels_data_returns_copy() -> None:
     assert refreshed is not None
     assert refreshed[0].model_extra is not None
     assert refreshed[0].model_extra["meta"]["name"] == "Label"
+
+
+@frontend_python
+def _hexbin_lat_accessor(point):
+    return float(point["lat"])
+
+
+@frontend_python
+def _hexbin_lng_accessor(point):
+    return float(point["lng"])
+
+
+@frontend_python
+def _hexbin_weight_accessor(point):
+    return float(point["weight"]) * 2.0
+
+
+@frontend_python
+def _hexbin_margin_accessor(hexbin):
+    return 0.12 if float(hexbin["sumWeight"]) > 1 else 0.02
+
+
+def test_hexbin_accessor_getters_setters_support_frontend_python() -> None:
+    widget = _make_widget(
+        hexbin_points_data=[HexBinPointDatum(lat=1.0, lng=2.0, weight=3.0)]
+    )
+    widget.set_hex_bin_point_lat(_hexbin_lat_accessor)
+    widget.set_hex_bin_point_lng(_hexbin_lng_accessor)
+    widget.set_hex_bin_point_weight(_hexbin_weight_accessor)
+    widget.set_hex_margin(_hexbin_margin_accessor)
+
+    assert widget.get_hex_bin_point_lat() is not None
+    assert widget.get_hex_bin_point_lng() is not None
+    assert widget.get_hex_bin_point_weight() is not None
+    assert widget.get_hex_margin() is not None
