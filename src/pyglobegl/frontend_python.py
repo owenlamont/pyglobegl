@@ -91,7 +91,11 @@ def parse_frontend_python_wire_payload(value: Any) -> FrontendPythonFunction | N
     """
     if not is_frontend_python_wire_payload(value):
         return None
-    return FrontendPythonFunction.model_validate(value)
+    if not isinstance(value, dict):
+        return None
+    return FrontendPythonFunction.model_validate(
+        {"name": value.get("name"), "source": value.get("source")}
+    )
 
 
 def _extract_source(function: Callable[..., Any]) -> str:

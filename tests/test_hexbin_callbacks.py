@@ -30,6 +30,7 @@ def _hexbin_config(
     *,
     merge: bool = False,
     hex_label: str | Any | None = None,
+    points_data: list[HexBinPointDatum] | None = None,
 ) -> GlobeConfig:
     return GlobeConfig(
         init=GlobeInitConfig(
@@ -42,7 +43,9 @@ def _hexbin_config(
             show_graticules=False,
         ),
         hex_bin=HexBinLayerConfig(
-            hex_bin_points_data=[
+            hex_bin_points_data=points_data
+            if points_data is not None
+            else [
                 HexBinPointDatum(lat=0, lng=0, weight=6.0),
                 HexBinPointDatum(lat=2, lng=2, weight=4.0),
                 HexBinPointDatum(lat=-2, lng=-2, weight=3.0),

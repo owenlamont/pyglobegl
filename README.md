@@ -241,6 +241,12 @@ def hex_altitude(hexbin):
 
 
 @frontend_python
+def point_weight(point):
+    # point is an individual input row from hex_bin_points_data
+    return point["weight"] * 2.0
+
+
+@frontend_python
 def hex_color(hexbin):
     return "#ff5500" if hexbin["sumWeight"] > 2 else "#66ccff"
 
@@ -258,6 +264,7 @@ points = [
 config = GlobeConfig(
     hex_bin=HexBinLayerConfig(
         hex_bin_points_data=points,
+        hex_bin_point_weight=point_weight,
         hex_altitude=hex_altitude,
         hex_top_color=hex_color,
         hex_side_color=hex_color,
@@ -267,6 +274,10 @@ config = GlobeConfig(
 
 display(GlobeWidget(config=config))
 ```
+
+`hex_margin`, `hex_bin_point_lat`, `hex_bin_point_lng`, and
+`hex_bin_point_weight` also accept `@frontend_python` callbacks when you need
+frontend-computed accessors without writing JavaScript.
 
 ## Hexed Polygons Layer
 

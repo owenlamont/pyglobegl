@@ -1039,14 +1039,79 @@ class GlobeWidget(anywidget.AnyWidget):
         """Set the hex bin resolution."""
         self._set_layer_prop("hexbin", self._hexbin_props, "hexBinResolution", value)
 
-    def get_hex_margin(self) -> float:
-        """Return the hex bin margin."""
-        value = self._hexbin_props.get("hexMargin", 0.2)
-        return float(value) if isinstance(value, (int, float)) else 0.2
+    def get_hex_bin_point_lat(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point latitude accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointLat")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
 
-    def set_hex_margin(self, value: float) -> None:
-        """Set the hex bin margin."""
-        self._set_layer_prop("hexbin", self._hexbin_props, "hexMargin", value)
+    def set_hex_bin_point_lat(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point latitude accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinPointLat", serialized)
+
+    def get_hex_bin_point_lng(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point longitude accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointLng")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_hex_bin_point_lng(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point longitude accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexBinPointLng", serialized)
+
+    def get_hex_bin_point_weight(self) -> float | FrontendPythonFunction | None:
+        """Return the hex-bin point weight accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexBinPointWeight")
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_hex_bin_point_weight(
+        self, value: float | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hex-bin point weight accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "hexbin", self._hexbin_props, "hexBinPointWeight", serialized
+        )
+
+    def get_hex_margin(self) -> float | FrontendPythonFunction | None:
+        """Return the hex bin margin accessor."""
+        value = self._decode_frontend_python_function(
+            self._hexbin_props.get("hexMargin", 0.2)
+        )
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return 0.2
+
+    def set_hex_margin(
+        self, value: float | FrontendPythonFunction | Callable[..., Any]
+    ) -> None:
+        """Set the hex bin margin accessor."""
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("hexbin", self._hexbin_props, "hexMargin", serialized)
 
     def get_hex_top_curvature_resolution(self) -> float:
         """Return the hex top curvature resolution."""

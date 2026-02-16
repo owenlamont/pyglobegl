@@ -124,11 +124,11 @@ type FrontendPythonFunctionSpec = {
 
 type HexBinLayerConfig = {
 	hexBinPointsData?: Array<Record<string, unknown>>;
-	hexBinPointLat?: number | string;
-	hexBinPointLng?: number | string;
-	hexBinPointWeight?: number | string;
+	hexBinPointLat?: number | FrontendPythonFunctionSpec | null;
+	hexBinPointLng?: number | FrontendPythonFunctionSpec | null;
+	hexBinPointWeight?: number | FrontendPythonFunctionSpec | null;
 	hexBinResolution?: number;
-	hexMargin?: number | string;
+	hexMargin?: number | FrontendPythonFunctionSpec | null;
 	hexTopCurvatureResolution?: number | string;
 	hexTopColor?: string | FrontendPythonFunctionSpec | null;
 	hexSideColor?: string | FrontendPythonFunctionSpec | null;
@@ -1009,6 +1009,10 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		]);
 
 		const constantAccessorProps = new Set([
+			"hexBinPointLat",
+			"hexBinPointLng",
+			"hexBinPointWeight",
+			"hexMargin",
 			"hexTopColor",
 			"hexSideColor",
 			"hexAltitude",
@@ -1029,8 +1033,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		): boolean => hexbinAccessorTokens.get(prop) === token;
 
 		const toHexBinAccessor = async (value: unknown): Promise<unknown> => {
+			if (value === null || value === undefined) {
+				return null;
+			}
 			if (!isFrontendPythonFunctionSpec(value)) {
-				return () => value;
+				return value;
 			}
 			const mp = await ensureMicroPython();
 			mp.runPython(value.source);
@@ -1726,19 +1733,47 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.hexBinPointsData(hexbinConfig.hexBinPointsData ?? []);
 			}
 			if (hexbinConfig.hexBinPointLat !== undefined) {
-				globe.hexBinPointLat(hexbinConfig.hexBinPointLat ?? null);
+				const token = nextHexbinAccessorToken("hexBinPointLat");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointLat);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexBinPointLat", token)) {
+					globe.hexBinPointLat(accessor);
+				}
 			}
 			if (hexbinConfig.hexBinPointLng !== undefined) {
-				globe.hexBinPointLng(hexbinConfig.hexBinPointLng ?? null);
+				const token = nextHexbinAccessorToken("hexBinPointLng");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointLng);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexBinPointLng", token)) {
+					globe.hexBinPointLng(accessor);
+				}
 			}
 			if (hexbinConfig.hexBinPointWeight !== undefined) {
-				globe.hexBinPointWeight(hexbinConfig.hexBinPointWeight ?? null);
+				const token = nextHexbinAccessorToken("hexBinPointWeight");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointWeight);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexBinPointWeight", token)) {
+					globe.hexBinPointWeight(accessor);
+				}
 			}
 			if (hexbinConfig.hexBinResolution !== undefined) {
 				globe.hexBinResolution(hexbinConfig.hexBinResolution);
 			}
 			if (hexbinConfig.hexMargin !== undefined) {
-				globe.hexMargin(hexbinConfig.hexMargin ?? null);
+				const token = nextHexbinAccessorToken("hexMargin");
+				const accessor = await toHexBinAccessor(hexbinConfig.hexMargin);
+				if (configToken !== undefined && configToken !== configApplyToken) {
+					return;
+				}
+				if (isCurrentHexbinAccessorToken("hexMargin", token)) {
+					globe.hexMargin(accessor);
+				}
 			}
 			if (hexbinConfig.hexTopCurvatureResolution !== undefined) {
 				globe.hexTopCurvatureResolution(

@@ -62,6 +62,29 @@ def test_hexbin_config_serializes_frontend_python_label_function() -> None:
     assert "def label_fn" in hex_label["source"]
 
 
+def test_hexbin_config_serializes_frontend_python_margin_and_point_weight() -> None:
+    @frontend_python
+    def margin_fn(hexbin):
+        return 0.15 if float(hexbin["sumWeight"]) > 5 else 0.02
+
+    @frontend_python
+    def point_weight_fn(point):
+        return float(point["magnitude"]) * 2.0
+
+    config = GlobeConfig(
+        hex_bin=HexBinLayerConfig(
+            hex_margin=margin_fn, hex_bin_point_weight=point_weight_fn
+        )
+    )
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+    hex_bin = payload["hex_bin"]
+
+    assert isinstance(hex_bin["hexMargin"], dict)
+    assert hex_bin["hexMargin"]["name"] == "margin_fn"
+    assert isinstance(hex_bin["hexBinPointWeight"], dict)
+    assert hex_bin["hexBinPointWeight"]["name"] == "point_weight_fn"
+
+
 def test_view_config_serializes_controls_auto_rotate_settings() -> None:
     config = GlobeConfig(
         view=GlobeViewConfig(controls_auto_rotate=True, controls_auto_rotate_speed=0.6)

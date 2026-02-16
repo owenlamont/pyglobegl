@@ -1,9 +1,10 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
-  # Disabled until https://github.com/kynan/nbstripout/issues/208 is resolved.
+  # TEMP: pinned to 0.8.1 to avoid Windows line-ending conflicts.
+  # Move forward once a release with `--unix-newline` is available.
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.9.0
+    rev: 0.8.1
     hooks:
       - id: nbstripout
         args: [--drop-empty-cells]
@@ -42,7 +43,7 @@ repos:
         pass_filenames: false
         types: [python]
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.1.19
+    rev: v0.1.22
     hooks:
       - id: rumdl
         args: [--fix]
@@ -55,7 +56,7 @@ repos:
       - id: ruff-format
         types_or: [python, pyi, jupyter]
   - repo: https://github.com/biomejs/pre-commit
-    rev: v2.3.15
+    rev: v2.4.0
     hooks:
       - id: biome-check
   - repo: https://github.com/adhtruong/mirrors-typos
@@ -69,7 +70,7 @@ repos:
           # --write-changes (Don't use this to stop typos making auto-corrections)
         ]
   - repo: https://github.com/owenlamont/uv-secure
-    rev: 0.15.4
+    rev: 0.16.0
     hooks:
       - id: uv-secure
   - repo: https://github.com/adrienverge/yamllint.git

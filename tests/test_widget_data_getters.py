@@ -8,6 +8,7 @@ from geojson_pydantic.types import Position2D
 from pyglobegl import (
     ArcDatum,
     ArcsLayerConfig,
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -288,3 +289,38 @@ def test_get_labels_data_returns_copy() -> None:
     assert refreshed is not None
     assert refreshed[0].model_extra is not None
     assert refreshed[0].model_extra["meta"]["name"] == "Label"
+
+
+@frontend_python
+def _hexbin_lat_accessor(point):
+    return float(point["lat"])
+
+
+@frontend_python
+def _hexbin_lng_accessor(point):
+    return float(point["lng"])
+
+
+@frontend_python
+def _hexbin_weight_accessor(point):
+    return float(point["weight"]) * 2.0
+
+
+@frontend_python
+def _hexbin_margin_accessor(hexbin):
+    return 0.12 if float(hexbin["sumWeight"]) > 1 else 0.02
+
+
+def test_hexbin_accessor_getters_setters_support_frontend_python() -> None:
+    widget = _make_widget(
+        hexbin_points_data=[HexBinPointDatum(lat=1.0, lng=2.0, weight=3.0)]
+    )
+    widget.set_hex_bin_point_lat(_hexbin_lat_accessor)
+    widget.set_hex_bin_point_lng(_hexbin_lng_accessor)
+    widget.set_hex_bin_point_weight(_hexbin_weight_accessor)
+    widget.set_hex_margin(_hexbin_margin_accessor)
+
+    assert widget.get_hex_bin_point_lat() is not None
+    assert widget.get_hex_bin_point_lng() is not None
+    assert widget.get_hex_bin_point_weight() is not None
+    assert widget.get_hex_margin() is not None

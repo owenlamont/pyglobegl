@@ -600,12 +600,28 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     hex_bin_points_data: Annotated[
         list[HexBinPointDatum] | None, Field(serialization_alias="hexBinPointsData")
     ] = None
+    # Per-point latitude accessor (constant or frontend callback).
+    hex_bin_point_lat: Annotated[
+        Latitude | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="hexBinPointLat"),
+    ] = None
+    # Per-point longitude accessor (constant or frontend callback).
+    hex_bin_point_lng: Annotated[
+        Longitude | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="hexBinPointLng"),
+    ] = None
+    # Per-point weight accessor (constant or frontend callback).
+    hex_bin_point_weight: Annotated[
+        FiniteFloat | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="hexBinPointWeight"),
+    ] = None
     hex_bin_resolution: Annotated[
         int, Field(ge=0, le=15, serialization_alias="hexBinResolution")
     ] = 4
-    hex_margin: Annotated[NonNegativeFloat, Field(serialization_alias="hexMargin")] = (
-        0.2
-    )
+    hex_margin: Annotated[
+        NonNegativeFloat | FrontendPythonFunctionInput,
+        Field(serialization_alias="hexMargin"),
+    ] = 0.2
     hex_top_curvature_resolution: Annotated[
         PositiveFloat, Field(serialization_alias="hexTopCurvatureResolution")
     ] = 5.0
@@ -641,8 +657,12 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
             return data
         normalized = dict(data)
         for field_name in (
+            "hex_bin_point_lat",
+            "hex_bin_point_lng",
+            "hex_bin_point_weight",
             "hex_top_color",
             "hex_side_color",
+            "hex_margin",
             "hex_altitude",
             "hex_label",
         ):
@@ -650,6 +670,37 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
             if callable(value) or isinstance(value, FrontendPythonFunction):
                 normalized[field_name] = resolve_frontend_python_function(value)
         return normalized
+
+    @field_serializer(
+        "hex_bin_point_lat",
+        "hex_bin_point_lng",
+        "hex_bin_point_weight",
+        when_used="always",
+    )
+    def _serialize_hex_point_accessors(
+        self, value: Latitude | Longitude | FiniteFloat | FrontendPythonFunction | None
+    ) -> float | dict[str, str] | None:
+        serialized = _serialize_hexbin_accessor(value)
+        if serialized is None:
+            return None
+        if isinstance(serialized, dict):
+            return serialized
+        if isinstance(serialized, (int, float)):
+            return float(serialized)
+        raise TypeError(
+            "hex point accessor must serialize to float, function, or None."
+        )
+
+    @field_serializer("hex_margin", when_used="always")
+    def _serialize_hex_margin(
+        self, value: NonNegativeFloat | FrontendPythonFunction
+    ) -> float | dict[str, str]:
+        serialized = _serialize_hexbin_accessor(value)
+        if isinstance(serialized, dict):
+            return serialized
+        if isinstance(serialized, (int, float)):
+            return float(serialized)
+        raise TypeError("hex margin accessor must serialize to float or function.")
 
     @field_serializer("hex_top_color", "hex_side_color", when_used="always")
     def _serialize_hex_colors(

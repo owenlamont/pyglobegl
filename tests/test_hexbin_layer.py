@@ -199,6 +199,11 @@ def test_hexbin_config_updates(
     widget.set_hex_side_color(Color("#0044ff"))
     widget.set_hex_altitude(0.18)
     widget.set_hex_bin_merge(True)
+    assert widget.get_hex_margin() == pytest.approx(0.02)
+    assert widget.get_hex_top_color() in {"#00ff99", "#0f9"}
+    assert widget.get_hex_side_color() in {"#0044ff", "#04f"}
+    assert widget.get_hex_altitude() == pytest.approx(0.18)
+    assert widget.get_hex_bin_merge() is True
     page_session.wait_for_timeout(200)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
 
@@ -249,7 +254,119 @@ def test_hexbin_frontend_python_accessors(
     widget.set_hex_top_color(_hex_top_color_fn_alt)
     widget.set_hex_side_color(_hex_side_color_fn_alt)
     widget.set_hex_altitude(_hex_altitude_fn_alt)
+    assert widget.get_hex_top_color() is not None
+    assert widget.get_hex_side_color() is not None
+    assert widget.get_hex_altitude() is not None
     page_session.wait_for_timeout(120)
     canvas_assert_capture(
         page_session, "frontend-python-updated", canvas_similarity_threshold
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_hexbin_frontend_python_point_accessors(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.96
+    points = [
+        HexBinPointDatum(lat=14, lng=-12, weight=1.0),
+        HexBinPointDatum(lat=13, lng=-8, weight=1.0),
+        HexBinPointDatum(lat=10, lng=-4, weight=1.0),
+        HexBinPointDatum(lat=7, lng=0, weight=1.0),
+        HexBinPointDatum(lat=4, lng=4, weight=1.0),
+        HexBinPointDatum(lat=1, lng=8, weight=1.0),
+        HexBinPointDatum(lat=-2, lng=12, weight=1.0),
+        HexBinPointDatum(lat=-5, lng=16, weight=1.0),
+    ]
+
+    config = _make_config(
+        HexBinLayerConfig(
+            hex_bin_points_data=points,
+            hex_bin_resolution=1,
+            hex_bin_point_weight=6.0,
+            hex_margin=0.02,
+            hex_top_color="#ff006e",
+            hex_side_color="#ffd166",
+            hex_altitude=0.24,
+            hex_transition_duration=0,
+        ),
+        globe_flat_texture_data_url,
+    )
+    config = config.model_copy(
+        update={
+            "view": GlobeViewConfig(
+                point_of_view=PointOfView(lat=6, lng=2, altitude=2.0), transition_ms=0
+            )
+        }
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    canvas_assert_capture(
+        page_session, "point-accessors-initial", canvas_similarity_threshold
+    )
+
+    widget.set_hex_bin_point_weight(0.2)
+    widget.set_hex_margin(0.34)
+    widget.set_hex_top_color(Color("#00e5ff"))
+    widget.set_hex_side_color(Color("#003049"))
+    widget.set_hex_altitude(0.05)
+    assert widget.get_hex_bin_point_weight() == pytest.approx(0.2)
+    assert widget.get_hex_margin() == pytest.approx(0.34)
+    page_session.wait_for_timeout(150)
+    canvas_assert_capture(
+        page_session, "point-accessors-updated", canvas_similarity_threshold
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_hexbin_top_curvature_resolution(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.96
+    points = [
+        HexBinPointDatum(lat=3.0, lng=-2.0, weight=14.0),
+        HexBinPointDatum(lat=2.5, lng=-1.5, weight=14.0),
+        HexBinPointDatum(lat=2.0, lng=-1.0, weight=14.0),
+        HexBinPointDatum(lat=1.5, lng=-0.5, weight=14.0),
+        HexBinPointDatum(lat=1.0, lng=0.0, weight=14.0),
+        HexBinPointDatum(lat=0.5, lng=0.5, weight=14.0),
+        HexBinPointDatum(lat=0.0, lng=1.0, weight=14.0),
+        HexBinPointDatum(lat=-0.5, lng=1.5, weight=14.0),
+    ]
+
+    config = _make_config(
+        HexBinLayerConfig(
+            hex_bin_points_data=points,
+            hex_bin_resolution=0,
+            hex_margin=0.01,
+            hex_top_color="#ff4d6d",
+            hex_side_color="#2d1e2f",
+            hex_altitude=0.24,
+            hex_top_curvature_resolution=180.0,
+            hex_transition_duration=0,
+        ),
+        globe_flat_texture_data_url,
+    )
+    config = config.model_copy(
+        update={
+            "view": GlobeViewConfig(
+                point_of_view=PointOfView(lat=1, lng=62, altitude=2.4), transition_ms=0
+            )
+        }
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    canvas_assert_capture(
+        page_session, "curvature-initial", canvas_similarity_threshold
+    )
+
+    widget.set_hex_top_curvature_resolution(0.25)
+    assert widget.get_hex_top_curvature_resolution() == pytest.approx(0.25)
+    page_session.wait_for_timeout(150)
+    canvas_assert_capture(
+        page_session, "curvature-updated", canvas_similarity_threshold
     )
