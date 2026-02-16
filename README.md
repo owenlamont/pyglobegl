@@ -279,6 +279,21 @@ Frontend callback arguments are normalized to plain Python values (dict/list/
 str/float/bool/None) when they are JSON-serializable, so dict methods like
 `.get(...)` work in callbacks such as `hex_label`.
 
+Hexbin callback I/O guide:
+
+- `hex_bin_point_lat(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_bin_point_lng(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_bin_point_weight(point) -> float`: `point` is one row from `hex_bin_points_data`.
+- `hex_top_color(hexbin) -> str`: CSS color string.
+- `hex_side_color(hexbin) -> str`: CSS color string.
+- `hex_altitude(hexbin) -> float`: non-negative altitude in globe-radius units.
+- `hex_label(hexbin) -> str`: HTML/text tooltip content.
+
+The `hexbin` argument shape is:
+`{"h3Idx": str, "points": list[dict], "sumWeight": float}`.
+For compatibility across upstream changes, prefer defensive access (for example,
+`hexbin.get("sumWeight", 0)`) in case keys are missing or values change shape.
+
 `hex_margin`, `hex_bin_point_lat`, `hex_bin_point_lng`, and
 `hex_bin_point_weight` also accept `@frontend_python` callbacks when you need
 frontend-computed accessors without writing JavaScript.

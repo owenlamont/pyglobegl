@@ -584,8 +584,13 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     with ``@frontend_python``). Those callbacks run in browser-side MicroPython
     and receive a single ``hexbin`` argument shaped like:
 
-    ``{"points": list[dict], "sumWeight": float,``
-    ``"center": {"lat": float, "lng": float}}``
+    ``{"h3Idx": str, "points": list[dict], "sumWeight": float}``
+
+    Notes:
+    - ``points`` are the original records from ``hex_bin_points_data`` for that bin.
+    - ``sumWeight`` is the aggregate over ``hex_bin_point_weight``.
+    - In practice, extra fields may be present upstream; callback code should use
+      defensive access (for example, ``hexbin.get("sumWeight", 0)``).
 
     Expected callback returns:
     - ``hex_top_color``: CSS color string.
@@ -601,16 +606,22 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
         list[HexBinPointDatum] | None, Field(serialization_alias="hexBinPointsData")
     ] = None
     # Per-point latitude accessor (constant or frontend callback).
+    # Callback input: a single point datum dict from hex_bin_points_data.
+    # Callback output: numeric latitude in degrees.
     hex_bin_point_lat: Annotated[
         Latitude | FrontendPythonFunctionInput | None,
         Field(serialization_alias="hexBinPointLat"),
     ] = None
     # Per-point longitude accessor (constant or frontend callback).
+    # Callback input: a single point datum dict from hex_bin_points_data.
+    # Callback output: numeric longitude in degrees.
     hex_bin_point_lng: Annotated[
         Longitude | FrontendPythonFunctionInput | None,
         Field(serialization_alias="hexBinPointLng"),
     ] = None
     # Per-point weight accessor (constant or frontend callback).
+    # Callback input: a single point datum dict from hex_bin_points_data.
+    # Callback output: numeric weight for aggregation.
     hex_bin_point_weight: Annotated[
         FiniteFloat | FrontendPythonFunctionInput | None,
         Field(serialization_alias="hexBinPointWeight"),
@@ -625,22 +636,30 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     hex_top_curvature_resolution: Annotated[
         PositiveFloat, Field(serialization_alias="hexTopCurvatureResolution")
     ] = 5.0
-    # Hex top face color accessor; callback returns a CSS color string.
+    # Hex top face color accessor.
+    # Callback input: a single hexbin dict (h3Idx, points, sumWeight).
+    # Callback output: CSS color string.
     hex_top_color: Annotated[
         ColorValue | FrontendPythonFunctionInput,
         Field(serialization_alias="hexTopColor"),
     ] = Color("#ffffaa")
-    # Hex side face color accessor; callback returns a CSS color string.
+    # Hex side face color accessor.
+    # Callback input: a single hexbin dict (h3Idx, points, sumWeight).
+    # Callback output: CSS color string.
     hex_side_color: Annotated[
         ColorValue | FrontendPythonFunctionInput,
         Field(serialization_alias="hexSideColor"),
     ] = Color("#ffffaa")
-    # Hex extrusion accessor; callback returns a non-negative numeric altitude.
+    # Hex extrusion accessor.
+    # Callback input: a single hexbin dict (h3Idx, points, sumWeight).
+    # Callback output: non-negative numeric altitude in globe-radius units.
     hex_altitude: Annotated[
         NonNegativeFloat | FrontendPythonFunctionInput,
         Field(serialization_alias="hexAltitude"),
     ] = Field(default_factory=_default_hex_altitude_accessor)
-    # Hex hover label accessor; callback returns a tooltip HTML/text string.
+    # Hex hover label accessor.
+    # Callback input: a single hexbin dict (h3Idx, points, sumWeight).
+    # Callback output: tooltip HTML/text string.
     hex_label: Annotated[
         StrictStr | FrontendPythonFunctionInput | None,
         Field(serialization_alias="hexLabel"),
