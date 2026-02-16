@@ -88,6 +88,15 @@ def _hex_label_fn(hexbin):
     return f"HEX TEST {int(hexbin['sumWeight'])}"
 
 
+@frontend_python
+def _hex_label_fn_using_get(hexbin):
+    points = hexbin.get("points", [])
+    first_weight = 0.0
+    if points:
+        first_weight = float(points[0].get("weight", 0.0))
+    return f"HEX GET {len(points)} / {first_weight:.1f}"
+
+
 @pytest.mark.usefixtures("solara_test")
 def test_on_hexbin_click_callback(
     page_session: Page, globe_clicker, globe_earth_texture_url
@@ -200,6 +209,35 @@ def test_hexbin_label_frontend_python_tooltip_renders(
           }
           const html = tooltip.innerHTML || "";
           return html.includes("HEX TEST");
+        }
+        """,
+        timeout=5000,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_hexbin_label_frontend_python_tooltip_accepts_dict_get(
+    page_session: Page, globe_hoverer, globe_earth_texture_url
+) -> None:
+    widget = GlobeWidget(
+        config=_hexbin_config(
+            globe_earth_texture_url, hex_label=_hex_label_fn_using_get
+        )
+    )
+    display(widget)
+
+    _wait_for_canvas(page_session)
+    globe_hoverer(page_session)
+
+    page_session.wait_for_function(
+        """
+        () => {
+          const tooltip = document.querySelector(".float-tooltip-kap");
+          if (!tooltip) {
+            return false;
+          }
+          const html = tooltip.innerHTML || "";
+          return html.includes("HEX GET");
         }
         """,
         timeout=5000,

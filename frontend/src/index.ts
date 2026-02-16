@@ -288,6 +288,29 @@ let microPythonPromise: Promise<
 	Awaited<ReturnType<typeof loadMicroPython>>
 > | null = null;
 
+const FRONTEND_PYTHON_RUNTIME_HELPERS = `
+import json
+import js
+
+def __pyglobegl_to_python(value):
+    try:
+        serialized = js.JSON.stringify(value)
+    except Exception:
+        return value
+    if serialized is None:
+        return None
+    try:
+        return json.loads(str(serialized))
+    except Exception:
+        return value
+
+def __pyglobegl_wrap_callback(callback):
+    def _wrapped(*args):
+        converted_args = [__pyglobegl_to_python(arg) for arg in args]
+        return callback(*converted_args)
+    return _wrapped
+`;
+
 const isFrontendPythonFunctionSpec = (
 	value: unknown,
 ): value is FrontendPythonFunctionSpec =>
@@ -304,6 +327,9 @@ const ensureMicroPython = async (): Promise<
 		microPythonPromise = loadMicroPython({
 			linebuffer: false,
 			url: microPythonWasmUrl,
+		}).then((mp) => {
+			mp.runPython(FRONTEND_PYTHON_RUNTIME_HELPERS);
+			return mp;
 		});
 	}
 	return microPythonPromise;
@@ -1032,6 +1058,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			token: number,
 		): boolean => hexbinAccessorTokens.get(prop) === token;
 
+		const stringConstantHexbinProps = new Set([
+			"hexTopColor",
+			"hexSideColor",
+			"hexLabel",
+		]);
+
 		const toHexBinAccessor = async (value: unknown): Promise<unknown> => {
 			if (value === null || value === undefined) {
 				return null;
@@ -1048,7 +1080,13 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					`MicroPython callback '${value.name}' was not defined by provided source.`,
 				);
 			}
-			return callable;
+			const wrapCallback = main.__pyglobegl_wrap_callback;
+			if (typeof wrapCallback !== "function") {
+				throw new Error(
+					"MicroPython callback wrapper is not available in runtime.",
+				);
+			}
+			return wrapCallback(callable);
 		};
 
 		const applyLayerProp = (
@@ -1067,7 +1105,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				}
 				if (constantAccessorProps.has(prop)) {
 					const token = nextHexbinAccessorToken(prop);
-					void toHexBinAccessor(value)
+					const accessorValue =
+						typeof value === "string" && stringConstantHexbinProps.has(prop)
+							? () => value
+							: value;
+					void toHexBinAccessor(accessorValue)
 						.then((nextValue) => {
 							if (!isCurrentHexbinAccessorToken(prop, token)) {
 								return;
@@ -1782,7 +1824,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (hexbinConfig.hexTopColor !== undefined) {
 				const token = nextHexbinAccessorToken("hexTopColor");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexTopColor);
+				const accessor = await toHexBinAccessor(
+					typeof hexbinConfig.hexTopColor === "string"
+						? () => hexbinConfig.hexTopColor
+						: hexbinConfig.hexTopColor,
+				);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
@@ -1792,7 +1838,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (hexbinConfig.hexSideColor !== undefined) {
 				const token = nextHexbinAccessorToken("hexSideColor");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexSideColor);
+				const accessor = await toHexBinAccessor(
+					typeof hexbinConfig.hexSideColor === "string"
+						? () => hexbinConfig.hexSideColor
+						: hexbinConfig.hexSideColor,
+				);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
@@ -1812,7 +1862,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (hexbinConfig.hexLabel !== undefined) {
 				const token = nextHexbinAccessorToken("hexLabel");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexLabel);
+				const accessor = await toHexBinAccessor(
+					typeof hexbinConfig.hexLabel === "string"
+						? () => hexbinConfig.hexLabel
+						: hexbinConfig.hexLabel,
+				);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}

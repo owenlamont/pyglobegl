@@ -275,6 +275,10 @@ config = GlobeConfig(
 display(GlobeWidget(config=config))
 ```
 
+Frontend callback arguments are normalized to plain Python values (dict/list/
+str/float/bool/None) when they are JSON-serializable, so dict methods like
+`.get(...)` work in callbacks such as `hex_label`.
+
 `hex_margin`, `hex_bin_point_lat`, `hex_bin_point_lng`, and
 `hex_bin_point_weight` also accept `@frontend_python` callbacks when you need
 frontend-computed accessors without writing JavaScript.
