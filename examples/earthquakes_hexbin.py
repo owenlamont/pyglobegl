@@ -1,4 +1,4 @@
-"""Earthquakes hexbin demo mirroring globe.gl's earthquakes example.
+"""Earthquakes hexbin demo ported from globe.gl's earthquakes example.
 
 Launch commands:
     uv run solara run examples/earthquakes_hexbin.py
@@ -31,6 +31,42 @@ _DATASET_URL = (
 
 
 @frontend_python
+def earthquake_point_lat(point: dict) -> float:
+    """Return latitude from the original GeoJSON feature shape."""
+    geometry = point.get("geometry")
+    if not isinstance(geometry, dict):
+        return 0.0
+    coordinates = geometry.get("coordinates")
+    if not isinstance(coordinates, list) or len(coordinates) < 2:
+        return 0.0
+    return float(coordinates[1])
+
+
+@frontend_python
+def earthquake_point_lng(point: dict) -> float:
+    """Return longitude from the original GeoJSON feature shape."""
+    geometry = point.get("geometry")
+    if not isinstance(geometry, dict):
+        return 0.0
+    coordinates = geometry.get("coordinates")
+    if not isinstance(coordinates, list) or len(coordinates) < 2:
+        return 0.0
+    return float(coordinates[0])
+
+
+@frontend_python
+def earthquake_point_weight(point: dict) -> float:
+    """Return per-feature magnitude as hexbin weight."""
+    properties = point.get("properties")
+    if not isinstance(properties, dict):
+        return 0.0
+    magnitude = properties.get("mag")
+    if not isinstance(magnitude, (int, float)):
+        return 0.0
+    return float(magnitude)
+
+
+@frontend_python
 def earthquake_hex_altitude(hexbin: dict) -> float:
     """Return hex altitude from aggregate earthquake magnitude."""
     return float(hexbin["sumWeight"]) * 0.0025
@@ -56,7 +92,7 @@ def earthquake_hex_color(hexbin: dict) -> str:
 
 @frontend_python
 def earthquake_hex_label(hexbin: dict) -> str:
-    """Return hover tooltip HTML listing earthquakes in this hexbin."""
+    """Return hover tooltip HTML like the original globe.gl demo."""
     raw_points = hexbin.get("points")
     if not isinstance(raw_points, list):
         return "<b>0</b> earthquakes in the past month."
@@ -66,19 +102,28 @@ def earthquake_hex_label(hexbin: dict) -> str:
     if count == 0:
         return "<b>0</b> earthquakes in the past month."
 
-    # Keep hover callback cheap in frontend MicroPython to avoid UI stalls.
-    sorted_points = sorted(
-        points, key=lambda point: float(point.get("mag", 0.0)), reverse=True
-    )[:12]
-    titles = [str(point.get("title", "Unknown earthquake")) for point in sorted_points]
+    def _point_magnitude(point: dict) -> float:
+        properties = point.get("properties")
+        if not isinstance(properties, dict):
+            return 0.0
+        magnitude = properties.get("mag")
+        if not isinstance(magnitude, (int, float)):
+            return 0.0
+        return float(magnitude)
+
+    sorted_points = sorted(points, key=_point_magnitude, reverse=True)
+    titles: list[str] = []
+    for point in sorted_points:
+        properties = point.get("properties")
+        if isinstance(properties, dict) and isinstance(properties.get("title"), str):
+            titles.append(str(properties["title"]))
+        else:
+            titles.append("Unknown earthquake")
     if not titles:
         return f"<b>{count}</b> earthquakes in the past month."
     list_items = "</li><li>".join(titles)
-    more_count = count - len(titles)
-    more_suffix = f"</li><li>...and {more_count} more" if more_count > 0 else ""
     return (
-        f"<b>{count}</b> earthquakes in the past month:"
-        f"<ul><li>{list_items}{more_suffix}</li></ul>"
+        f"<b>{count}</b> earthquakes in the past month:<ul><li>{list_items}</li></ul>"
     )
 
 
@@ -113,10 +158,15 @@ def _load_earthquakes() -> list[HexBinPointDatum]:
                     "lat": float(coordinates[1]),
                     "lng": float(coordinates[0]),
                     "weight": float(magnitude),
-                    "mag": float(magnitude),
-                    "title": (
-                        str(title) if isinstance(title, str) else "Unknown earthquake"
-                    ),
+                    "geometry": geometry,
+                    "properties": {
+                        **properties,
+                        "title": (
+                            str(title)
+                            if isinstance(title, str)
+                            else "Unknown earthquake"
+                        ),
+                    },
                 }
             )
         )
@@ -134,6 +184,9 @@ def _build_config() -> GlobeConfig:
         view=GlobeViewConfig(point_of_view=PointOfView(lat=0, lng=0, altitude=2.2)),
         hex_bin=HexBinLayerConfig(
             hex_bin_points_data=_load_earthquakes(),
+            hex_bin_point_lat=earthquake_point_lat,
+            hex_bin_point_lng=earthquake_point_lng,
+            hex_bin_point_weight=earthquake_point_weight,
             hex_altitude=earthquake_hex_altitude,
             hex_top_color=earthquake_hex_color,
             hex_side_color=earthquake_hex_color,
