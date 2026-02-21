@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+import os
 from pathlib import Path
 import re
 import secrets
@@ -194,7 +195,7 @@ def _open_jupyter_log(port: int) -> tuple[Path, Any]:
     artifacts_dir = Path("ui-artifacts")
     artifacts_dir.mkdir(exist_ok=True)
     log_path = artifacts_dir / f"jupyterlab-{port}.log"
-    return log_path, log_path.open("w", encoding="utf-8")
+    return log_path, log_path.open("w", encoding="utf-8", buffering=1)
 
 
 def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.Popen:
@@ -212,17 +213,32 @@ def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.
     if token:
         args.append(f"--ServerApp.token={token}")
     args.append("--ServerApp.password=")
+    env = dict(os.environ)
+    env.setdefault("PYTHONUNBUFFERED", "1")
     return subprocess.Popen(  # noqa: S603
-        args, stdout=log_file, stderr=subprocess.STDOUT
+        args, stdout=log_file, stderr=subprocess.STDOUT, env=env
     )
+
+
+def _jupyter_http_ready(url: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310
+            return response.status < 500
+    except urllib.error.HTTPError as exc:
+        status_ok = exc.code < 500
+        exc.close()
+        return status_ok
+    except (urllib.error.URLError, TimeoutError):
+        return False
 
 
 def _wait_for_jupyter(
     port: int, token: str, proc: subprocess.Popen, log_path: Path
 ) -> str:
+    ready_url = f"http://127.0.0.1:{port}/lab?token={token}"
     url = f"http://127.0.0.1:{port}/lab/tree/examples/jupyter_demo.ipynb?token={token}"
     start = time.monotonic()
-    while time.monotonic() - start < 90:
+    while time.monotonic() - start < 180:
         if proc.poll() is not None:
             tail = _tail_log(log_path)
             raise RuntimeError(
@@ -230,13 +246,10 @@ def _wait_for_jupyter(
                 f"{proc.returncode}. Log tail:\n{tail}"
             )
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            if sock.connect_ex(("127.0.0.1", port)) == 0:
-                try:
-                    with urllib.request.urlopen(url, timeout=1) as response:
-                        if response.status == 200:
-                            return url
-                except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
-                    pass
+            if sock.connect_ex(("127.0.0.1", port)) == 0 and _jupyter_http_ready(
+                ready_url
+            ):
+                return url
         time.sleep(0.1)
     tail = _tail_log(log_path)
     raise RuntimeError(f"Timed out waiting for JupyterLab. Log tail:\n{tail}")
