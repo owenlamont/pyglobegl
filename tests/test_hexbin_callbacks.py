@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from threading import Event
+import time
 from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import AnyUrl
 import pytest
 
@@ -81,6 +83,32 @@ def _wait_for_canvas(page_session: Page) -> None:
         """,
         timeout=20000,
     )
+
+
+def _wait_for_tooltip_text(
+    page_session: Page, globe_hoverer, expected_text: str, timeout_ms: int = 20000
+) -> None:
+    deadline = time.monotonic() + timeout_ms / 1000
+    while time.monotonic() < deadline:
+        globe_hoverer(page_session)
+        try:
+            page_session.wait_for_function(
+                f"""
+                () => {{
+                  const tooltip = document.querySelector(".float-tooltip-kap");
+                  if (!tooltip) {{
+                    return false;
+                  }}
+                  const html = tooltip.innerHTML || "";
+                  return html.includes({expected_text!r});
+                }}
+                """,
+                timeout=1000,
+            )
+            return
+        except PlaywrightTimeoutError:
+            continue
+    raise TimeoutError(f"Tooltip text did not render within {timeout_ms}ms.")
 
 
 @frontend_python
@@ -198,21 +226,7 @@ def test_hexbin_label_frontend_python_tooltip_renders(
     display(widget)
 
     _wait_for_canvas(page_session)
-    globe_hoverer(page_session)
-
-    page_session.wait_for_function(
-        """
-        () => {
-          const tooltip = document.querySelector(".float-tooltip-kap");
-          if (!tooltip) {
-            return false;
-          }
-          const html = tooltip.innerHTML || "";
-          return html.includes("HEX TEST");
-        }
-        """,
-        timeout=5000,
-    )
+    _wait_for_tooltip_text(page_session, globe_hoverer, "HEX TEST")
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -227,18 +241,4 @@ def test_hexbin_label_frontend_python_tooltip_accepts_dict_get(
     display(widget)
 
     _wait_for_canvas(page_session)
-    globe_hoverer(page_session)
-
-    page_session.wait_for_function(
-        """
-        () => {
-          const tooltip = document.querySelector(".float-tooltip-kap");
-          if (!tooltip) {
-            return false;
-          }
-          const html = tooltip.innerHTML || "";
-          return html.includes("HEX GET");
-        }
-        """,
-        timeout=5000,
-    )
+    _wait_for_tooltip_text(page_session, globe_hoverer, "HEX GET")
