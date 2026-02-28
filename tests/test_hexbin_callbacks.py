@@ -5,7 +5,6 @@ import time
 from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import AnyUrl
 import pytest
 
@@ -90,24 +89,63 @@ def _wait_for_tooltip_text(
 ) -> None:
     deadline = time.monotonic() + timeout_ms / 1000
     while time.monotonic() < deadline:
-        globe_hoverer(page_session)
-        try:
-            page_session.wait_for_function(
-                f"""
-                () => {{
-                  const tooltip = document.querySelector(".float-tooltip-kap");
-                  if (!tooltip) {{
-                    return false;
-                  }}
-                  const html = tooltip.innerHTML || "";
-                  return html.includes({expected_text!r});
-                }}
-                """,
-                timeout=1000,
-            )
+        matched = page_session.evaluate(
+            """
+            (text) => {
+              const target = document.querySelector(".scene-container");
+              if (!target) {
+                return false;
+              }
+              const rect = target.getBoundingClientRect();
+              const offsets = [
+                [0, 0],
+                [-16, 0],
+                [16, 0],
+                [0, -16],
+                [0, 16],
+                [-32, -16],
+                [32, -16],
+                [-32, 16],
+                [32, 16],
+              ];
+              for (const [dx, dy] of offsets) {
+                const x = rect.left + rect.width / 2 + dx;
+                const y = rect.top + rect.height / 2 + dy;
+                const opts = {
+                  clientX: x,
+                  clientY: y,
+                  pageX: x + window.scrollX,
+                  pageY: y + window.scrollY,
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                  pointerType: "mouse",
+                  pointerId: 1,
+                  isPrimary: true,
+                };
+                target.dispatchEvent(new PointerEvent("pointermove", opts));
+                target.dispatchEvent(new MouseEvent("mousemove", opts));
+                const tooltip = document.querySelector(".float-tooltip-kap");
+                if (!tooltip) {
+                  continue;
+                }
+                const style = window.getComputedStyle(tooltip);
+                if (style.display === "none" || style.visibility === "hidden") {
+                  continue;
+                }
+                if ((tooltip.textContent || "").includes(text)) {
+                  return true;
+                }
+              }
+              return false;
+            }
+            """,
+            expected_text,
+        )
+        if matched:
             return
-        except PlaywrightTimeoutError:
-            continue
+        globe_hoverer(page_session)
+        page_session.wait_for_timeout(80)
     raise TimeoutError(f"Tooltip text did not render within {timeout_ms}ms.")
 
 
