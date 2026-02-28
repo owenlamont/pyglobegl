@@ -6,8 +6,8 @@
 	},
 	"devDependencies": {
 		"@anywidget/vite": "^0.2.2",
-		"@biomejs/biome": "^2.4.3",
-		"@types/node": "^25.3.0",
+		"@biomejs/biome": "^2.4.4",
+		"@types/node": "^25.3.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},

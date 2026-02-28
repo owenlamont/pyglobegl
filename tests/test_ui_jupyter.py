@@ -278,8 +278,7 @@ def _jupyterlab_server() -> Iterator[str]:
     proc = _start_jupyter(uv_path, token, port, log_file)
 
     try:
-        url = _wait_for_jupyter(port, token, proc, log_path)
-        yield url
+        yield _wait_for_jupyter(port, token, proc, log_path)
     finally:
         _shutdown_process(proc, log_file)
 
