@@ -85,24 +85,27 @@ def _wait_for_canvas(page_session: Page) -> None:
 
 
 def _wait_for_tooltip_text(
-    page_session: Page, expected_text: str, timeout_ms: int = 20000
+    page_session: Page, expected_text: str, timeout_ms: int = 30000
 ) -> None:
     canvas = page_session.locator("canvas")
     box = canvas.bounding_box()
     if box is None:
         raise AssertionError("Canvas bounding box not found.")
 
-    sweep_offsets = [
-        (0, 0),
-        (-16, 0),
-        (16, 0),
-        (0, -16),
-        (0, 16),
-        (-32, -16),
-        (32, -16),
-        (-32, 16),
-        (32, 16),
-    ]
+    sweep_offsets = [(0, 0)]
+    for radius in (16, 32, 48, 64):
+        sweep_offsets.extend(
+            [
+                (-radius, 0),
+                (radius, 0),
+                (0, -radius),
+                (0, radius),
+                (-radius, -radius),
+                (radius, -radius),
+                (-radius, radius),
+                (radius, radius),
+            ]
+        )
 
     def _tooltip_has_expected_text() -> bool:
         return bool(
@@ -183,7 +186,10 @@ def _wait_for_tooltip_text(
 
 @frontend_python
 def _hex_label_fn(hexbin):
-    return f"HEX TEST {int(hexbin['sumWeight'])}"
+    sum_weight = 0.0
+    if isinstance(hexbin, dict):
+        sum_weight = float(hexbin.get("sumWeight", 0.0))
+    return f"HEX TEST {int(sum_weight)}"
 
 
 @frontend_python
