@@ -210,35 +210,47 @@ def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None
                 return false;
               }
               const rect = target.getBoundingClientRect();
-              const x = rect.left + rect.width / 2;
-              const y = rect.top + rect.height / 2;
               const buttonMap = { left: 0, right: 2 };
               const buttonCode = buttonMap[button] ?? 0;
               const buttons = buttonCode === 2 ? 2 : 1;
-              const opts = {
-                clientX: x,
-                clientY: y,
-                pageX: x + window.scrollX,
-                pageY: y + window.scrollY,
-                button: buttonCode,
-                buttons,
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                pointerType: "mouse",
-                pointerId: 1,
-                isPrimary: true,
-              };
+              const sweepRatios = [
+                [0.5, 0.5],
+                [0.4, 0.5],
+                [0.6, 0.5],
+                [0.5, 0.4],
+                [0.5, 0.6],
+              ];
               const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-              target.dispatchEvent(new PointerEvent("pointermove", opts));
-              await wait(50);
-              target.dispatchEvent(new PointerEvent("pointerdown", opts));
-              await wait(50);
-              target.dispatchEvent(new PointerEvent("pointerup", opts));
-              if (buttonCode === 2) {
-                target.dispatchEvent(new MouseEvent("contextmenu", opts));
-              } else {
-                target.dispatchEvent(new MouseEvent("click", opts));
+
+              for (const [ratioX, ratioY] of sweepRatios) {
+                const x = rect.left + rect.width * ratioX;
+                const y = rect.top + rect.height * ratioY;
+                const opts = {
+                  clientX: x,
+                  clientY: y,
+                  pageX: x + window.scrollX,
+                  pageY: y + window.scrollY,
+                  button: buttonCode,
+                  buttons,
+                  bubbles: true,
+                  cancelable: true,
+                  view: window,
+                  pointerType: "mouse",
+                  pointerId: 1,
+                  isPrimary: true,
+                };
+                target.dispatchEvent(new PointerEvent("pointerover", opts));
+                target.dispatchEvent(new PointerEvent("pointermove", opts));
+                await wait(20);
+                target.dispatchEvent(new PointerEvent("pointerdown", opts));
+                await wait(30);
+                target.dispatchEvent(new PointerEvent("pointerup", opts));
+                if (buttonCode === 2) {
+                  target.dispatchEvent(new MouseEvent("contextmenu", opts));
+                } else {
+                  target.dispatchEvent(new MouseEvent("click", opts));
+                }
+                await wait(35);
               }
               return true;
             }

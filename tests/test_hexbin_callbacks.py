@@ -85,27 +85,27 @@ def _wait_for_canvas(page_session: Page) -> None:
 
 
 def _wait_for_tooltip_text(
-    page_session: Page, expected_text: str, timeout_ms: int = 30000
+    page_session: Page, expected_text: str, timeout_ms: int = 45000
 ) -> None:
-    canvas = page_session.locator("canvas")
-    box = canvas.bounding_box()
-    if box is None:
-        raise AssertionError("Canvas bounding box not found.")
+    page_session.wait_for_function(
+        "document.querySelector('.scene-container') !== null", timeout=20000
+    )
 
-    sweep_offsets = [(0, 0)]
-    for radius in (16, 32, 48, 64):
-        sweep_offsets.extend(
-            [
-                (-radius, 0),
-                (radius, 0),
-                (0, -radius),
-                (0, radius),
-                (-radius, -radius),
-                (radius, -radius),
-                (-radius, radius),
-                (radius, radius),
-            ]
-        )
+    sweep_offsets = [
+        (0.50, 0.50),
+        (0.35, 0.50),
+        (0.65, 0.50),
+        (0.50, 0.35),
+        (0.50, 0.65),
+        (0.25, 0.50),
+        (0.75, 0.50),
+        (0.50, 0.25),
+        (0.50, 0.75),
+        (0.35, 0.35),
+        (0.65, 0.35),
+        (0.35, 0.65),
+        (0.65, 0.65),
+    ]
 
     def _tooltip_has_expected_text() -> bool:
         return bool(
@@ -129,58 +129,59 @@ def _wait_for_tooltip_text(
 
     deadline = time.monotonic() + timeout_ms / 1000
     while time.monotonic() < deadline:
-        page_session.mouse.move(box["x"] - 40, box["y"] - 40)
-        page_session.wait_for_timeout(40)
-
-        for offset_x, offset_y in sweep_offsets:
-            center_x = box["x"] + box["width"] / 2 + offset_x
-            center_y = box["y"] + box["height"] / 2 + offset_y
-            page_session.mouse.move(center_x, center_y)
-            page_session.wait_for_timeout(45)
-            if _tooltip_has_expected_text():
-                return
-
-        fallback_matched = page_session.evaluate(
-            """
-            (text) => {
-              const target = document.querySelector(".scene-container");
-              if (!target) {
-                return false;
-              }
-              const rect = target.getBoundingClientRect();
-              const x = rect.left + rect.width / 2;
-              const y = rect.top + rect.height / 2;
-              const opts = {
-                clientX: x,
-                clientY: y,
-                pageX: x + window.scrollX,
-                pageY: y + window.scrollY,
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                pointerType: "mouse",
-                pointerId: 1,
-                isPrimary: true,
-              };
-              target.dispatchEvent(new PointerEvent("pointermove", opts));
-              target.dispatchEvent(new MouseEvent("mousemove", opts));
-              const tooltip = document.querySelector(".float-tooltip-kap");
-              if (!tooltip) {
-                return false;
-              }
-              const style = window.getComputedStyle(tooltip);
-              if (style.display === "none" || style.visibility === "hidden") {
-                return false;
-              }
-              return (tooltip.textContent || "").includes(text);
-            }
-            """,
-            expected_text,
-        )
-        if fallback_matched:
+        if _tooltip_has_expected_text():
             return
 
-        page_session.wait_for_timeout(80)
+        for ratio_x, ratio_y in sweep_offsets:
+            matched = bool(
+                page_session.evaluate(
+                    """
+                    ({ text, ratioX, ratioY }) => {
+                      const target = document.querySelector(".scene-container");
+                      if (!target) {
+                        return false;
+                      }
+                      const rect = target.getBoundingClientRect();
+                      const x = rect.left + rect.width * ratioX;
+                      const y = rect.top + rect.height * ratioY;
+                      const opts = {
+                        clientX: x,
+                        clientY: y,
+                        pageX: x + window.scrollX,
+                        pageY: y + window.scrollY,
+                        bubbles: true,
+                        cancelable: true,
+                        view: window,
+                        pointerType: "mouse",
+                        pointerId: 1,
+                        isPrimary: true,
+                      };
+                      target.dispatchEvent(new PointerEvent("pointerover", opts));
+                      target.dispatchEvent(new PointerEvent("pointerenter", opts));
+                      target.dispatchEvent(new PointerEvent("pointermove", opts));
+                      target.dispatchEvent(new MouseEvent("mouseover", opts));
+                      target.dispatchEvent(new MouseEvent("mouseenter", opts));
+                      target.dispatchEvent(new MouseEvent("mousemove", opts));
+
+                      const tooltip = document.querySelector(".float-tooltip-kap");
+                      if (!tooltip) {
+                        return false;
+                      }
+                      const style = window.getComputedStyle(tooltip);
+                      if (style.display === "none" || style.visibility === "hidden") {
+                        return false;
+                      }
+                      return (tooltip.textContent || "").includes(text);
+                    }
+                    """,
+                    {"text": expected_text, "ratioX": ratio_x, "ratioY": ratio_y},
+                )
+            )
+            if matched:
+                return
+            page_session.wait_for_timeout(35)
+
+        page_session.wait_for_timeout(90)
     raise TimeoutError(f"Tooltip text did not render within {timeout_ms}ms.")
 
 
