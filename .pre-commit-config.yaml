@@ -73,10 +73,10 @@ repos:
     rev: 0.16.0
     hooks:
       - id: uv-secure
-  - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.38.0
+  - repo: https://github.com/owenlamont/ryl-pre-commit
+    rev: v0.3.5
     hooks:
-      - id: yamllint
+      - id: ryl
   - repo: https://github.com/woodruffw/zizmor-pre-commit
     rev: v1.22.0
     hooks:

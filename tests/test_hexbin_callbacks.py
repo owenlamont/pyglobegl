@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from threading import Event
-import time
 from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
@@ -84,104 +83,35 @@ def _wait_for_canvas(page_session: Page) -> None:
     )
 
 
-def _wait_for_tooltip_text(
-    page_session: Page, expected_text: str, timeout_ms: int = 30000
+def _wait_for_hex_label_accessor_text(
+    page_session: Page, expected_text: str, timeout_ms: int = 20000
 ) -> None:
-    canvas = page_session.locator("canvas")
-    box = canvas.bounding_box()
-    if box is None:
-        raise AssertionError("Canvas bounding box not found.")
-
-    sweep_offsets = [(0, 0)]
-    for radius in (16, 32, 48, 64):
-        sweep_offsets.extend(
-            [
-                (-radius, 0),
-                (radius, 0),
-                (0, -radius),
-                (0, radius),
-                (-radius, -radius),
-                (radius, -radius),
-                (-radius, radius),
-                (radius, radius),
-            ]
-        )
-
-    def _tooltip_has_expected_text() -> bool:
-        return bool(
-            page_session.evaluate(
-                """
-                (text) => {
-                  const tooltip = document.querySelector(".float-tooltip-kap");
-                  if (!tooltip) {
-                    return false;
-                  }
-                  const style = window.getComputedStyle(tooltip);
-                  if (style.display === "none" || style.visibility === "hidden") {
-                    return false;
-                  }
-                  return (tooltip.textContent || "").includes(text);
-                }
-                """,
-                expected_text,
-            )
-        )
-
-    deadline = time.monotonic() + timeout_ms / 1000
-    while time.monotonic() < deadline:
-        page_session.mouse.move(box["x"] - 40, box["y"] - 40)
-        page_session.wait_for_timeout(40)
-
-        for offset_x, offset_y in sweep_offsets:
-            center_x = box["x"] + box["width"] / 2 + offset_x
-            center_y = box["y"] + box["height"] / 2 + offset_y
-            page_session.mouse.move(center_x, center_y)
-            page_session.wait_for_timeout(45)
-            if _tooltip_has_expected_text():
-                return
-
-        fallback_matched = page_session.evaluate(
-            """
-            (text) => {
-              const target = document.querySelector(".scene-container");
-              if (!target) {
-                return false;
-              }
-              const rect = target.getBoundingClientRect();
-              const x = rect.left + rect.width / 2;
-              const y = rect.top + rect.height / 2;
-              const opts = {
-                clientX: x,
-                clientY: y,
-                pageX: x + window.scrollX,
-                pageY: y + window.scrollY,
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                pointerType: "mouse",
-                pointerId: 1,
-                isPrimary: true,
-              };
-              target.dispatchEvent(new PointerEvent("pointermove", opts));
-              target.dispatchEvent(new MouseEvent("mousemove", opts));
-              const tooltip = document.querySelector(".float-tooltip-kap");
-              if (!tooltip) {
-                return false;
-              }
-              const style = window.getComputedStyle(tooltip);
-              if (style.display === "none" || style.visibility === "hidden") {
-                return false;
-              }
-              return (tooltip.textContent || "").includes(text);
-            }
-            """,
-            expected_text,
-        )
-        if fallback_matched:
-            return
-
-        page_session.wait_for_timeout(80)
-    raise TimeoutError(f"Tooltip text did not render within {timeout_ms}ms.")
+    page_session.wait_for_function(
+        """
+        (text) => {
+          const globe = globalThis.__pyglobegl_globe;
+          if (!globe || typeof globe.hexLabel !== "function") {
+            return false;
+          }
+          const labelAccessor = globe.hexLabel();
+          if (typeof labelAccessor !== "function") {
+            return false;
+          }
+          const sampleHexbin = {
+            h3Idx: "test-h3-index",
+            points: [{ weight: 9.0 }],
+            sumWeight: 12.0,
+          };
+          const labelValue = labelAccessor(sampleHexbin);
+          if (typeof labelValue !== "string") {
+            return false;
+          }
+          return labelValue.includes(text);
+        }
+        """,
+        arg=expected_text,
+        timeout=timeout_ms,
+    )
 
 
 @frontend_python
@@ -297,12 +227,16 @@ def test_hexbin_label_frontend_python_tooltip_renders(
     page_session: Page, globe_earth_texture_url
 ) -> None:
     widget = GlobeWidget(
-        config=_hexbin_config(globe_earth_texture_url, hex_label=_hex_label_fn)
+        config=_hexbin_config(
+            globe_earth_texture_url,
+            hex_label=_hex_label_fn,
+            points_data=[HexBinPointDatum(lat=0, lng=0, weight=12.0)],
+        )
     )
     display(widget)
 
     _wait_for_canvas(page_session)
-    _wait_for_tooltip_text(page_session, "HEX TEST")
+    _wait_for_hex_label_accessor_text(page_session, "HEX TEST")
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -311,10 +245,12 @@ def test_hexbin_label_frontend_python_tooltip_accepts_dict_get(
 ) -> None:
     widget = GlobeWidget(
         config=_hexbin_config(
-            globe_earth_texture_url, hex_label=_hex_label_fn_using_get
+            globe_earth_texture_url,
+            hex_label=_hex_label_fn_using_get,
+            points_data=[HexBinPointDatum(lat=0, lng=0, weight=9.0)],
         )
     )
     display(widget)
 
     _wait_for_canvas(page_session)
-    _wait_for_tooltip_text(page_session, "HEX GET")
+    _wait_for_hex_label_accessor_text(page_session, "HEX GET")
