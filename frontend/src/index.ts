@@ -419,6 +419,9 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			globalThis as { __pyglobegl_init_config?: GlobeInitConfig }
 		).__pyglobegl_init_config = initialConfig?.init;
 		const globe = new Globe(mount, initialConfig?.init);
+		(
+			globalThis as { __pyglobegl_globe?: ReturnType<typeof Globe> }
+		).__pyglobegl_globe = globe;
 		globe.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0);
 		globe.atmosphereAltitude(0.05);
 
@@ -2188,11 +2191,13 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			__pyglobegl_renderer_attributes?: WebGLContextAttributes | null;
 			__pyglobegl_init_config?: GlobeInitConfig;
 			__pyglobegl_pov?: PointOfView;
+			__pyglobegl_globe?: ReturnType<typeof Globe>;
 		};
 		delete globalScope.__pyglobegl_globe_ready;
 		delete globalScope.__pyglobegl_renderer_attributes;
 		delete globalScope.__pyglobegl_init_config;
 		delete globalScope.__pyglobegl_pov;
+		delete globalScope.__pyglobegl_globe;
 	};
 }
 

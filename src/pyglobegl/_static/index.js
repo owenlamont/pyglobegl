@@ -35004,6 +35004,7 @@ function f9({ el: i, model: A }) {
     const g = () => A.get("config"), s = g();
     globalThis.__pyglobegl_init_config = s?.init;
     const r = new t(n, s?.init);
+    globalThis.__pyglobegl_globe = r;
     r.pointOfView({ lat: 0, lng: 0, altitude: 2.8 }, 0), r.atmosphereAltitude(0.05);
     const o = i.closest(".output-area");
     r.onGlobeReady(() => {
@@ -35744,7 +35745,7 @@ function f9({ el: i, model: A }) {
   }), () => {
     e?.disconnect();
     const t = globalThis;
-    delete t.__pyglobegl_globe_ready, delete t.__pyglobegl_renderer_attributes, delete t.__pyglobegl_init_config, delete t.__pyglobegl_pov;
+    delete t.__pyglobegl_globe_ready, delete t.__pyglobegl_renderer_attributes, delete t.__pyglobegl_init_config, delete t.__pyglobegl_pov, delete t.__pyglobegl_globe;
   };
 }
 const plA = { render: f9 };

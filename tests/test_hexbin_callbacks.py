@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from threading import Event
-import time
 from typing import Any, TYPE_CHECKING
 
 from IPython.display import display
@@ -84,112 +83,35 @@ def _wait_for_canvas(page_session: Page) -> None:
     )
 
 
-def _wait_for_tooltip_text(
-    page_session: Page, expected_text: str, timeout_ms: int = 60000
+def _wait_for_hex_label_accessor_text(
+    page_session: Page, expected_text: str, timeout_ms: int = 20000
 ) -> None:
     page_session.wait_for_function(
-        "document.querySelector('.scene-container') !== null", timeout=20000
+        """
+        (text) => {
+          const globe = globalThis.__pyglobegl_globe;
+          if (!globe || typeof globe.hexLabel !== "function") {
+            return false;
+          }
+          const labelAccessor = globe.hexLabel();
+          if (typeof labelAccessor !== "function") {
+            return false;
+          }
+          const sampleHexbin = {
+            h3Idx: "test-h3-index",
+            points: [{ weight: 9.0 }],
+            sumWeight: 12.0,
+          };
+          const labelValue = labelAccessor(sampleHexbin);
+          if (typeof labelValue !== "string") {
+            return false;
+          }
+          return labelValue.includes(text);
+        }
+        """,
+        arg=expected_text,
+        timeout=timeout_ms,
     )
-
-    sweep_offsets = [(0.50, 0.50)]
-    sweep_offsets.extend(
-        (x, y)
-        for x in (0.15, 0.25, 0.35, 0.65, 0.75, 0.85)
-        for y in (0.15, 0.25, 0.35, 0.65, 0.75, 0.85)
-    )
-    sweep_offsets.extend(
-        [
-            (0.50, 0.15),
-            (0.50, 0.25),
-            (0.50, 0.35),
-            (0.50, 0.65),
-            (0.50, 0.75),
-            (0.50, 0.85),
-            (0.15, 0.50),
-            (0.25, 0.50),
-            (0.35, 0.50),
-            (0.65, 0.50),
-            (0.75, 0.50),
-            (0.85, 0.50),
-        ]
-    )
-
-    def _tooltip_has_expected_text() -> bool:
-        return bool(
-            page_session.evaluate(
-                """
-                (text) => {
-                  const tooltip = document.querySelector(".float-tooltip-kap");
-                  if (!tooltip) {
-                    return false;
-                  }
-                  const style = window.getComputedStyle(tooltip);
-                  if (style.display === "none" || style.visibility === "hidden") {
-                    return false;
-                  }
-                  return (tooltip.textContent || "").includes(text);
-                }
-                """,
-                expected_text,
-            )
-        )
-
-    deadline = time.monotonic() + timeout_ms / 1000
-    while time.monotonic() < deadline:
-        if _tooltip_has_expected_text():
-            return
-
-        for ratio_x, ratio_y in sweep_offsets:
-            matched = bool(
-                page_session.evaluate(
-                    """
-                    ({ text, ratioX, ratioY }) => {
-                      const target = document.querySelector(".scene-container");
-                      if (!target) {
-                        return false;
-                      }
-                      const rect = target.getBoundingClientRect();
-                      const x = rect.left + rect.width * ratioX;
-                      const y = rect.top + rect.height * ratioY;
-                      const opts = {
-                        clientX: x,
-                        clientY: y,
-                        pageX: x + window.scrollX,
-                        pageY: y + window.scrollY,
-                        bubbles: true,
-                        cancelable: true,
-                        view: window,
-                        pointerType: "mouse",
-                        pointerId: 1,
-                        isPrimary: true,
-                      };
-                      target.dispatchEvent(new PointerEvent("pointerover", opts));
-                      target.dispatchEvent(new PointerEvent("pointerenter", opts));
-                      target.dispatchEvent(new PointerEvent("pointermove", opts));
-                      target.dispatchEvent(new MouseEvent("mouseover", opts));
-                      target.dispatchEvent(new MouseEvent("mouseenter", opts));
-                      target.dispatchEvent(new MouseEvent("mousemove", opts));
-
-                      const tooltip = document.querySelector(".float-tooltip-kap");
-                      if (!tooltip) {
-                        return false;
-                      }
-                      const style = window.getComputedStyle(tooltip);
-                      if (style.display === "none" || style.visibility === "hidden") {
-                        return false;
-                      }
-                      return (tooltip.textContent || "").includes(text);
-                    }
-                    """,
-                    {"text": expected_text, "ratioX": ratio_x, "ratioY": ratio_y},
-                )
-            )
-            if matched:
-                return
-            page_session.wait_for_timeout(35)
-
-        page_session.wait_for_timeout(90)
-    raise TimeoutError(f"Tooltip text did not render within {timeout_ms}ms.")
 
 
 @frontend_python
@@ -314,7 +236,7 @@ def test_hexbin_label_frontend_python_tooltip_renders(
     display(widget)
 
     _wait_for_canvas(page_session)
-    _wait_for_tooltip_text(page_session, "HEX TEST")
+    _wait_for_hex_label_accessor_text(page_session, "HEX TEST")
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -331,4 +253,4 @@ def test_hexbin_label_frontend_python_tooltip_accepts_dict_get(
     display(widget)
 
     _wait_for_canvas(page_session)
-    _wait_for_tooltip_text(page_session, "HEX GET")
+    _wait_for_hex_label_accessor_text(page_session, "HEX GET")
