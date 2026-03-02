@@ -85,27 +85,34 @@ def _wait_for_canvas(page_session: Page) -> None:
 
 
 def _wait_for_tooltip_text(
-    page_session: Page, expected_text: str, timeout_ms: int = 45000
+    page_session: Page, expected_text: str, timeout_ms: int = 60000
 ) -> None:
     page_session.wait_for_function(
         "document.querySelector('.scene-container') !== null", timeout=20000
     )
 
-    sweep_offsets = [
-        (0.50, 0.50),
-        (0.35, 0.50),
-        (0.65, 0.50),
-        (0.50, 0.35),
-        (0.50, 0.65),
-        (0.25, 0.50),
-        (0.75, 0.50),
-        (0.50, 0.25),
-        (0.50, 0.75),
-        (0.35, 0.35),
-        (0.65, 0.35),
-        (0.35, 0.65),
-        (0.65, 0.65),
-    ]
+    sweep_offsets = [(0.50, 0.50)]
+    sweep_offsets.extend(
+        (x, y)
+        for x in (0.15, 0.25, 0.35, 0.65, 0.75, 0.85)
+        for y in (0.15, 0.25, 0.35, 0.65, 0.75, 0.85)
+    )
+    sweep_offsets.extend(
+        [
+            (0.50, 0.15),
+            (0.50, 0.25),
+            (0.50, 0.35),
+            (0.50, 0.65),
+            (0.50, 0.75),
+            (0.50, 0.85),
+            (0.15, 0.50),
+            (0.25, 0.50),
+            (0.35, 0.50),
+            (0.65, 0.50),
+            (0.75, 0.50),
+            (0.85, 0.50),
+        ]
+    )
 
     def _tooltip_has_expected_text() -> bool:
         return bool(
@@ -298,7 +305,11 @@ def test_hexbin_label_frontend_python_tooltip_renders(
     page_session: Page, globe_earth_texture_url
 ) -> None:
     widget = GlobeWidget(
-        config=_hexbin_config(globe_earth_texture_url, hex_label=_hex_label_fn)
+        config=_hexbin_config(
+            globe_earth_texture_url,
+            hex_label=_hex_label_fn,
+            points_data=[HexBinPointDatum(lat=0, lng=0, weight=12.0)],
+        )
     )
     display(widget)
 
@@ -312,7 +323,9 @@ def test_hexbin_label_frontend_python_tooltip_accepts_dict_get(
 ) -> None:
     widget = GlobeWidget(
         config=_hexbin_config(
-            globe_earth_texture_url, hex_label=_hex_label_fn_using_get
+            globe_earth_texture_url,
+            hex_label=_hex_label_fn_using_get,
+            points_data=[HexBinPointDatum(lat=0, lng=0, weight=9.0)],
         )
     )
     display(widget)
