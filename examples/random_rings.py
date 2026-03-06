@@ -21,11 +21,12 @@ from pyglobegl import (
     RingDatum,
     RingsLayerConfig,
 )
+from pyglobegl.config import ColorValue
 
 
 def _make_rings(seed: int = 11, count: int = 10) -> list[RingDatum]:
     rng = random.Random(seed)  # noqa: S311
-    colors = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
+    colors: list[ColorValue] = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
     return [
         RingDatum(
             lat=(rng.random() - 0.5) * 180,
