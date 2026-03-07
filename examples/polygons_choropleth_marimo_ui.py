@@ -49,7 +49,7 @@ def compute_values(features: list[dict[str, object]]) -> tuple[list[float], floa
             return float(value)
         return 0.0
 
-    def compute_value(props: dict[object, object]) -> float:
+    def compute_value(props: dict[str, object]) -> float:
         pop = to_float(props.get("POP_EST"))
         gdp = to_float(props.get("GDP_MD_EST"))
         return gdp / max(1e5, pop)

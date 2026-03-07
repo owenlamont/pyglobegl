@@ -19,6 +19,7 @@ from pyglobegl import (
     GlobeWidget,
     PointOfView,
 )
+from pyglobegl.config import ColorValue
 
 
 if TYPE_CHECKING:
@@ -238,8 +239,8 @@ def test_arc_runtime_update(
     page_session: Page, canvas_assert_capture, globe_earth_texture_url
 ) -> None:
     canvas_similarity_threshold = 0.96
-    initial_colors = ["#ffcc00", "#00ffaa"]
-    updated_colors = ["#ff0033", "#33ddff"]
+    initial_colors: list[ColorValue] = ["#ffcc00", "#00ffaa"]
+    updated_colors: list[ColorValue] = ["#ff0033", "#33ddff"]
     arc_id = uuid4()
     arcs_data = [
         ArcDatum(

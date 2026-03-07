@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from geojson_pydantic import Polygon
-from geojson_pydantic.types import Position2D
+from geojson_pydantic.types import Position2D, Position3D
 
 from pyglobegl import (
     ArcDatum,
@@ -116,7 +116,7 @@ def test_get_arcs_data_returns_copy() -> None:
 
 
 def test_get_polygons_data_returns_copy() -> None:
-    ring = [
+    ring: list[Position2D | Position3D] = [
         Position2D(0.0, 0.0),
         Position2D(0.0, 2.0),
         Position2D(2.0, 2.0),
@@ -185,7 +185,7 @@ def test_get_hexbin_points_data_returns_copy() -> None:
 
 
 def test_get_hex_polygons_data_returns_copy() -> None:
-    ring = [
+    ring: list[Position2D | Position3D] = [
         Position2D(0.0, 0.0),
         Position2D(0.0, 2.0),
         Position2D(2.0, 2.0),
