@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from geojson_pydantic import Polygon
-from geojson_pydantic.types import Position2D
+from geojson_pydantic.types import Position2D, Position3D
 from IPython.display import display
 from pydantic import AnyUrl, TypeAdapter
 import pytest
@@ -28,7 +28,7 @@ _URL_ADAPTER = TypeAdapter(AnyUrl)
 
 
 def _make_polygon() -> Polygon:
-    ring = [
+    ring: list[Position2D | Position3D] = [
         Position2D(-10.0, -10.0),
         Position2D(-10.0, 10.0),
         Position2D(10.0, 10.0),

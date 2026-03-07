@@ -54,6 +54,7 @@ from pyglobegl import (
     TileDatum,
     TilesLayerConfig,
 )
+from pyglobegl.config import ColorValue
 
 
 ROTATE_SECONDS = 4.0
@@ -591,7 +592,7 @@ def _propagate_satellite_particles(when: datetime) -> list[ParticlePointDatum]:
 
 def _make_rings(seed: int = 11, count: int = 40) -> list[RingDatum]:
     rng = random.Random(seed)  # noqa: S311
-    colors = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
+    colors: list[ColorValue] = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
     return [
         RingDatum(
             lat=(rng.random() - 0.5) * 180,
