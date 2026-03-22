@@ -1,13 +1,13 @@
 {
 	"dependencies": {
 		"@micropython/micropython-webassembly-pyscript": "^1.27.0",
-		"globe.gl": "^2.45.0",
+		"globe.gl": "^2.45.1",
 		"three": "^0.182.0"
 	},
 	"devDependencies": {
 		"@anywidget/vite": "^0.2.2",
-		"@biomejs/biome": "^2.4.6",
-		"@types/node": "^25.3.5",
+		"@biomejs/biome": "^2.4.8",
+		"@types/node": "^25.5.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},

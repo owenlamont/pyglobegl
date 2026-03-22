@@ -540,7 +540,9 @@ def paths_from_gdf(
     if validation_records:
         validation_df = pd.DataFrame(validation_records)
     else:
-        validation_df = pd.DataFrame(columns=[*validation_columns, "path"])
+        validation_df = pd.DataFrame(
+            columns=pd.Index(sorted(validation_columns | {"path"}))
+        )
     _validate_rows_with_pydantic(validation_df, PathDatum, "paths_from_gdf")
 
     return [PathDatum.model_validate(record) for record in data_records]
