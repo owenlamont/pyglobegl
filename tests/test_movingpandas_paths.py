@@ -6,6 +6,9 @@ import pytest
 from pyglobegl.movingpandas import paths_from_mpd
 
 
+_TRAJECTORY_COLOR_ATTR = "color"
+
+
 @pytest.mark.filterwarnings("ignore:Missing optional dependencies.*Stone Soup")
 def test_paths_from_mpd_trajectory() -> None:
     import geopandas as gpd
@@ -23,7 +26,7 @@ def test_paths_from_mpd_trajectory() -> None:
     gdf = gpd.GeoDataFrame(df, crs="EPSG:4326")
     traj = mpd.Trajectory(gdf, 1)
 
-    traj.color = "#0000ff"  # type: ignore[attr-defined]
+    setattr(traj, _TRAJECTORY_COLOR_ATTR, "#0000ff")
 
     paths = paths_from_mpd(traj, include_columns=["color"])
 

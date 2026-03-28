@@ -83,4 +83,8 @@ dev = [
     "pytest-xdist>=3.8.0",
     "scikit-image>=0.25.2",
     "sgp4>=2.25",
+    # Temporary direct cap for the Solara-based test stack.
+    # Remove this once Solara supports Starlette 1.x:
+    # https://github.com/widgetti/solara/issues/1143
+    "starlette<1",
 ]
