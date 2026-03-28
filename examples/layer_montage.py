@@ -879,6 +879,10 @@ def _apply_update(
         _set_view(widget, update.pov)
 
 
+def _initial_ready() -> bool:
+    return False
+
+
 @solara.component
 def page():
     """Render the layer montage demo.
@@ -897,8 +901,8 @@ def page():
         tiles=TilesLayerConfig(),
     )
     widget = solara.use_memo(lambda: GlobeWidget(config=initial_config), [])
-    initial_ready: bool = False
-    ready, set_ready = solara.use_state(initial_ready)
+    initial_ready = _initial_ready()
+    ready, set_ready = solara.use_state(bool(initial_ready))
 
     def _register_ready() -> None:
         def _mark_ready() -> None:
