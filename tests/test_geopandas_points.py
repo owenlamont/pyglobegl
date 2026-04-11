@@ -48,6 +48,8 @@ def test_points_from_gdf_validates_schema(
         crs=crs,
     )
 
+    from pydantic_extra_types.color import Color
+
     points = points_from_gdf(gdf, include_columns=["name", "value"])
     assert len(points) == len(expected)
     for point, expect in zip(points, expected, strict=True):
@@ -56,6 +58,7 @@ def test_points_from_gdf_validates_schema(
         assert point.lng == expect["lng"]
         assert point.altitude == pytest.approx(0.1)
         assert point.radius == pytest.approx(0.25)
+        assert isinstance(point.color, Color)
         assert point.color.as_hex(format="long") == "#ffffaa"
         assert point.model_dump(
             exclude={"id", "lat", "lng", "altitude", "radius", "color", "label"}
