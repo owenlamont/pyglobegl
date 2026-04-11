@@ -136,11 +136,18 @@ def build_polygons(
     for feat, val in zip(features, values, strict=False):
         t = math.sqrt(val) / math.sqrt(max_val) if max_val else 0.0
         props = feat.setdefault("properties", {})
+        if not isinstance(props, dict):
+            props = {}
         color = interpolate_scale(ylorrrd_stops, t)
         geometry = feat.get("geometry")
         if not isinstance(geometry, dict):
             raise ValueError("Feature geometry must be a GeoJSON object.")
-        polygon_geometry = parse_geometry(geometry)
+
+        # Ensure types for the type checker
+        props_dict: dict[str, object] = {str(k): v for k, v in props.items()}
+        geometry_dict: dict[str, object] = {str(k): v for k, v in geometry.items()}
+
+        polygon_geometry = parse_geometry(geometry_dict)
         polygons.append(
             PolygonDatum.model_validate(
                 {
@@ -150,7 +157,7 @@ def build_polygons(
                     "side_color": "rgba(0, 100, 0, 0.15)",
                     "stroke_color": "#111111",
                     "altitude": 0.06,
-                    "label": build_label(props),
+                    "label": build_label(props_dict),
                     "hover_color": "steelblue",
                     "hover_altitude": 0.12,
                 }
