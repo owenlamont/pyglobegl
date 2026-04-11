@@ -1,3 +1,7 @@
+import math
+from typing import Any
+from uuid import uuid4
+
 import marimo
 
 
@@ -6,7 +10,7 @@ app = marimo.App(width="medium")
 
 
 @app.function
-def fetch_country_features() -> list[dict[str, object]]:
+def fetch_country_features() -> list[dict[str, Any]]:
     """Fetch and filter country features from the GeoJSON source.
 
     Returns:
@@ -37,19 +41,19 @@ def fetch_country_features() -> list[dict[str, object]]:
 
 
 @app.function
-def compute_values(features: list[dict[str, object]]) -> tuple[list[float], float]:
+def compute_values(features: list[dict[str, Any]]) -> tuple[list[float], float]:
     """Compute per-feature values and maximum.
 
     Returns:
         Tuple of values list and max value.
     """
 
-    def to_float(value: object | None) -> float:
+    def to_float(value: Any | None) -> float:
         if isinstance(value, (int, float, str)):
             return float(value)
         return 0.0
 
-    def compute_value(props: dict[str, object]) -> float:
+    def compute_value(props: dict[str, Any]) -> float:
         pop = to_float(props.get("POP_EST"))
         gdp = to_float(props.get("GDP_MD_EST"))
         return gdp / max(1e5, pop)
@@ -67,9 +71,7 @@ def compute_values(features: list[dict[str, object]]) -> tuple[list[float], floa
 
 
 @app.function
-def build_polygons(
-    features: list[dict[str, object]], values: list[float], max_val: float
-):
+def build_polygons(features: list[dict[str, Any]], values: list[float], max_val: float):
     """Build polygon datums for globe.gl.
 
     Returns:
@@ -78,9 +80,6 @@ def build_polygons(
     Raises:
         ValueError: If the geometry is missing or invalid.
     """
-    import math
-    from uuid import uuid4
-
     from geojson_pydantic import MultiPolygon, Polygon
 
     from pyglobegl import PolygonDatum
@@ -113,7 +112,7 @@ def build_polygons(
         )
         return rgb_to_hex(blended)
 
-    def parse_geometry(geometry: dict[str, object]):
+    def parse_geometry(geometry: dict[str, Any]):
         geometry_type = geometry.get("type")
         if geometry_type == "Polygon":
             return Polygon.model_validate(geometry)
@@ -121,7 +120,7 @@ def build_polygons(
             return MultiPolygon.model_validate(geometry)
         raise ValueError("Country geometry must be Polygon or MultiPolygon.")
 
-    def build_label(props: dict[str, object]) -> str:
+    def build_label(props: dict[str, Any]) -> str:
         admin = props.get("ADMIN", "Unknown")
         iso = props.get("ISO_A2", "--")
         gdp = props.get("GDP_MD_EST", "N/A")
@@ -136,11 +135,18 @@ def build_polygons(
     for feat, val in zip(features, values, strict=False):
         t = math.sqrt(val) / math.sqrt(max_val) if max_val else 0.0
         props = feat.setdefault("properties", {})
+        if not isinstance(props, dict):
+            props = {}
         color = interpolate_scale(ylorrrd_stops, t)
         geometry = feat.get("geometry")
         if not isinstance(geometry, dict):
             raise ValueError("Feature geometry must be a GeoJSON object.")
-        polygon_geometry = parse_geometry(geometry)
+
+        # Ensure types for the type checker
+        props_dict: dict[str, Any] = {str(k): v for k, v in props.items()}
+        geometry_dict: dict[str, Any] = {str(k): v for k, v in geometry.items()}
+
+        polygon_geometry = parse_geometry(geometry_dict)
         polygons.append(
             PolygonDatum.model_validate(
                 {
@@ -150,7 +156,7 @@ def build_polygons(
                     "side_color": "rgba(0, 100, 0, 0.15)",
                     "stroke_color": "#111111",
                     "altitude": 0.06,
-                    "label": build_label(props),
+                    "label": build_label(props_dict),
                     "hover_color": "steelblue",
                     "hover_altitude": 0.12,
                 }
