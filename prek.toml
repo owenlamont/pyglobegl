@@ -129,7 +129,7 @@ hooks = [
 repo = "local"
 hooks = [
   {
-    id = "uvaudit",
+    id = "uv audit",
     name = "uv audit",
     language = "system",
     entry = "uv audit --preview-features audit",
