@@ -88,3 +88,6 @@ dev = [
     # https://github.com/widgetti/solara/issues/1143
     "starlette<1",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
