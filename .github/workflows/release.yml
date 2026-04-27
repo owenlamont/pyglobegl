@@ -28,7 +28,7 @@ jobs:
       - name: Build frontend assets
         working-directory: frontend
         run: mise exec -- pnpm run build
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
       - run: uv build
       - name: Smoke test (wheel)
         run: uv run --isolated --no-project -p 3.10 --with dist/*.whl tests/test_smoke.py
