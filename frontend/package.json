@@ -1,15 +1,15 @@
 {
 	"dependencies": {
 		"@micropython/micropython-webassembly-pyscript": "^1.27.0",
-		"globe.gl": "^2.45.3",
+		"globe.gl": "^2.46.0",
 		"three": "^0.182.0"
 	},
 	"devDependencies": {
 		"@anywidget/vite": "^0.2.2",
-		"@biomejs/biome": "^2.4.13",
-		"@types/node": "^25.6.0",
+		"@biomejs/biome": "^2.4.15",
+		"@types/node": "^25.8.0",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.2"
+		"vite": "^7.3.3"
 	},
 	"name": "pyglobegl-frontend",
 	"private": true,
