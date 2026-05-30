@@ -1,5 +1,7 @@
 # Particles Layer
 
+![Satellite particles orbiting the Earth](../images/layers/particles.png)
+
 The particles layer renders dense clouds of lightweight points. Each
 `ParticleDatum` is a group of `ParticlePointDatum` samples sharing a colour and
 size.

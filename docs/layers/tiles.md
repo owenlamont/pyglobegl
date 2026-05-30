@@ -1,5 +1,7 @@
 # Tiles Layer
 
+![Colored tiles tiling the globe surface](../images/layers/tiles.png)
+
 The tiles layer places flat, rectangular tiles tangent to the surface, each with
 its own three.js material. Each tile is a `TileDatum`, and materials are described
 by `GlobeMaterialSpec`.

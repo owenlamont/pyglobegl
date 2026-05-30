@@ -1,5 +1,7 @@
 # Hexed Polygons Layer
 
+![Countries filled with hexagon grids on the globe](../images/layers/hexed-polygons.png)
+
 The hexed polygons layer fills GeoJSON polygons with a grid of H3 hexagons,
 giving a stylised, tiled look. Each `HexPolygonDatum` wraps a polygon geometry.
 

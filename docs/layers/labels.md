@@ -1,5 +1,7 @@
 # Labels Layer
 
+![World-city labels on the globe](../images/layers/labels.png)
+
 The labels layer places text labels (optionally with a marker dot) at
 coordinates on the surface. Each label is a `LabelDatum`.
 

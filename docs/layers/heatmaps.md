@@ -1,5 +1,7 @@
 # Heatmaps Layer
 
+![Population-density heatmap on the globe](../images/layers/heatmaps.png)
+
 The heatmaps layer renders weighted density fields over the surface. Each
 `HeatmapDatum` holds a collection of `HeatmapPointDatum` samples plus bandwidth
 and colour controls.

@@ -1,5 +1,7 @@
 # Globe & Images
 
+![Blue-marble Earth with atmospheric glow](../images/layers/globe.png)
+
 `GlobeConfig` is the top-level configuration container passed to `GlobeWidget`.
 It groups initialisation, layout, camera, and the globe layer alongside every
 data layer, so a single object describes the whole scene.

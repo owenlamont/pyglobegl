@@ -1,5 +1,7 @@
 # Rings Layer
 
+![Expanding ring ripples on the globe](../images/layers/rings.png)
+
 The rings layer animates expanding concentric rings outward from a coordinate,
 useful for pings, pulses, or highlighting locations. Each ring is a `RingDatum`.
 

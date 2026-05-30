@@ -1,5 +1,7 @@
 # Paths Layer
 
+![Path lines traced across the globe](../images/layers/paths.png)
+
 The paths layer draws a polyline that follows a sequence of coordinates along the
 surface. Each line is a `PathDatum`.
 

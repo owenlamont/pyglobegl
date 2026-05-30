@@ -1,5 +1,7 @@
 # Points Layer
 
+![Colored points extruded above the globe surface](../images/layers/points.png)
+
 The points layer renders one marker per `PointDatum`, positioned by latitude and
 longitude and optionally extruded above the surface.
 

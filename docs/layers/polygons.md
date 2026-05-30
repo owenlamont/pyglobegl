@@ -1,5 +1,7 @@
 # Polygons Layer
 
+![Choropleth country polygons extruded on the globe](../images/layers/polygons.png)
+
 The polygons layer extrudes GeoJSON polygons into 3D caps and sides. Geometry is
 supplied as a [`geojson_pydantic.Polygon`](https://github.com/developmentseed/geojson-pydantic)
 inside a `PolygonDatum`.

@@ -1,5 +1,7 @@
 # Arcs Layer
 
+![Great-circle arcs spanning the globe](../images/layers/arcs.png)
+
 The arcs layer draws great-circle arcs between two coordinates, lifted off the
 surface by `altitude`. Each arc is an `ArcDatum`.
 

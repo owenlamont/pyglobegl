@@ -1,5 +1,7 @@
 # Hex Bin Layer
 
+![Population data aggregated into extruded hexagonal bins](../images/layers/hex-bin.png)
+
 The hex bin layer aggregates points into H3 hexagonal bins and extrudes each bin.
 You feed it `HexBinPointDatum` rows and shape the bins with accessors. Unlike the
 typed-field layers, several hex-bin accessors accept
