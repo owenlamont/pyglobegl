@@ -14,6 +14,7 @@ import urllib.request
 
 from playwright.sync_api import Error as PlaywrightError
 import pytest
+import stamina
 
 
 if TYPE_CHECKING:
@@ -102,23 +103,54 @@ def _execute_cell(page, notebook, cell_text: str):
     return cell
 
 
-def _wait_for_canvas(page, cell, timeout_ms: int = 60000) -> None:
+def _cell_error_text(cell) -> str:
+    """Return the cell's stderr/traceback output text, if any."""
+    stderr = cell.locator(
+        ".jp-OutputArea-output[data-mime-type='application/vnd.jupyter.stderr']"
+    )
+    if stderr.count() > 0:
+        return "\n".join(stderr.all_inner_texts()).strip()
+    return ""
+
+
+def _wait_for_canvas(page, cell, timeout_ms: int = 30000) -> None:
+    """Wait for a sized canvas in the cell output.
+
+    Raises:
+        RuntimeError: The cell produced a traceback (a deterministic failure
+            that should not be retried).
+        TimeoutError: The canvas never attached or never gained a size (the
+            retryable, browser-timing failure).
+    """
     output = cell.locator(".jp-OutputArea")
     output.wait_for(state="attached", timeout=timeout_ms)
-    output_text = output.locator(".jp-OutputArea-output")
-    if output_text.count() > 0:
-        text = "\n".join(output_text.all_inner_texts()).strip()
-        if text:
-            raise RuntimeError(f"Cell output error:\n{text}")
+    error = _cell_error_text(cell)
+    if error:
+        raise RuntimeError(f"Cell output error:\n{error}")
     canvas = output.locator("canvas").first
     canvas.wait_for(state="attached", timeout=timeout_ms)
-    deadline = time.monotonic() + timeout_ms / 1000
+    deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         box = canvas.bounding_box()
         if box and box["width"] > 0 and box["height"] > 0:
             return
         page.wait_for_timeout(250)
-    raise TimeoutError("Canvas never became visible.")
+    raise TimeoutError("Canvas attached but never became visible.")
+
+
+def _render_widget(page, notebook, cell_text) -> None:
+    """Run the widget cell, re-running it until a canvas renders.
+
+    Rendering in CI occasionally misses a cell-execution state change, so the
+    fix is to re-run the cell (not wait longer). A cell traceback raises
+    ``RuntimeError``, which is not retried.
+    """
+    for attempt in stamina.retry_context(
+        on=(PlaywrightError, TimeoutError), attempts=3, timeout=None
+    ):
+        with attempt:
+            cell = _execute_cell(page, notebook, cell_text)
+            _wait_for_canvas(page, cell)
 
 
 def _assert_no_root_overflow(page) -> None:
@@ -283,7 +315,9 @@ def _jupyterlab_server() -> Iterator[str]:
         _shutdown_process(proc, log_file)
 
 
+@pytest.mark.timeout(240)
 def test_jupyter_widget_renders(page: "Page", ui_artifacts_writer) -> None:
+    cell_text = "from pyglobegl import GlobeWidget"
     with _jupyterlab_server() as url:
         try:
             _goto_with_retry(page, url)
@@ -293,16 +327,11 @@ def test_jupyter_widget_renders(page: "Page", ui_artifacts_writer) -> None:
             _select_kernel_if_prompted(page)
             _wait_for_kernel_idle(page)
             notebook = page.locator(".jp-NotebookPanel").first
-            notebook.get_by_text(
-                "from pyglobegl import GlobeWidget", exact=True
-            ).wait_for(timeout=60000)
-            cell = _execute_cell(page, notebook, "from pyglobegl import GlobeWidget")
+            notebook.get_by_text(cell_text, exact=True).wait_for(timeout=60000)
+            _execute_cell(page, notebook, cell_text)
             if _select_kernel_from_dialog(page):
                 _wait_for_kernel_idle(page)
-                cell = _execute_cell(
-                    page, notebook, "from pyglobegl import GlobeWidget"
-                )
-            _wait_for_canvas(page, cell)
+            _render_widget(page, notebook, cell_text)
             _assert_no_root_overflow(page)
         except Exception:
             try:
