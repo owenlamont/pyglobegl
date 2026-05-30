@@ -125,9 +125,9 @@ def _():
     now = datetime.now(tz=timezone.utc)
     sat_points = satellite_points(now)
 
-    # Bright, slow rings so several concentric waves are always on-screen for a
-    # static capture (the montage's transparent-gradient rings render invisibly
-    # through the initial-config path).
+    # Bright, slow rings so several concentric waves stay on-screen for a static
+    # capture (the montage's faster, briefer ring pulses are hard to catch in a
+    # still frame).
     import random
 
     ring_rng = random.Random(3)  # noqa: S311
