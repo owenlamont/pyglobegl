@@ -25,6 +25,18 @@ and immediately use the widget without rebuilding JupyterLab.
 - `tests/` – Pytest suite (mirrors src structure).
 - `.github/` – CI workflows.
 - `README.md` – User guide and development scratchpad/roadmap.
+- `docs/` + `zensical.toml` – Zensical documentation site sources (published to
+  Cloudflare Pages). Keep pages in sync when behaviour or features change.
+
+## Documentation Site
+
+- The docs site is built with Zensical (Material-for-MkDocs style) from `docs/`
+  and `zensical.toml`, and is published to Cloudflare Pages from `main`.
+- Build/preview locally with the `docs` dependency group:
+  `uv run --group docs zensical build --clean` (output in `site/`, gitignored)
+  or `uv run --group docs zensical serve`.
+- `docs/**` is excluded from rumdl (Material/Zensical Markdown extensions trip
+  it); there is no docs CI/prek build step (Cloudflare builds on merge).
 
 ## Code Style
 

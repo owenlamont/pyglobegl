@@ -4,6 +4,8 @@
 [globe.gl](https://github.com/vasturiano/globe.gl) with integrations with
 popular Python spatial packages.
 
+![pyglobegl rendering a population hex-bin layer on the globe](https://raw.githubusercontent.com/owenlamont/pyglobegl/main/docs/images/layers/hex-bin.png)
+
 ## Installation
 
 ```bash
