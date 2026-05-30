@@ -12,6 +12,8 @@ WebGL globes in modern notebook environments &mdash; Jupyter, JupyterLab, Colab,
 VS Code, and marimo &mdash; and drive them from a friendly, strongly typed Python
 API. It ships a prebuilt JupyterLab extension, so `pip install` is all you need.
 
+![pyglobegl rendering a population hex-bin layer on the globe](images/layers/hex-bin.png)
+
 <div class="grid cards" markdown>
 
 -   :material-layers-triple:{ .lg .middle } **Twelve typed layers**
