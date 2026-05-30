@@ -85,7 +85,7 @@ dev = [
     "sgp4>=2.25",
 ]
 docs = [
-    "zensical==0.0.42",
+    "zensical>=0.0.43",
 ]
 
 [tool.uv]
