@@ -190,7 +190,7 @@ If we need to inspect Playwright screenshots, ask the user to grant read access
 to the top-level Windows Temp directory so the MCP output can be read directly.
 
 Do **not** pass a `filename` (or relative path) to `browser_take_screenshot` /
-`browser_evaluate`: the MCP server resolves it against a bogus
-`C:\home\owen\...` path and errors. Omit `filename` so output lands in the
-default Windows temp dir (`C:\Users\<user>\AppData\Local\Temp\.playwright-mcp\`),
-and return `browser_evaluate` results inline instead of writing them to a file.
+`browser_evaluate`: the MCP server resolves it against a bogus path (the WSL cwd
+remapped under `C:\`) and errors. Omit `filename` so output lands in the default
+Windows temp dir (`%LOCALAPPDATA%\Temp\.playwright-mcp\`), and return
+`browser_evaluate` results inline instead of writing them to a file.
