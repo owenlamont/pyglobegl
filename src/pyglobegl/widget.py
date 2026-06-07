@@ -1407,6 +1407,13 @@ class GlobeWidget(anywidget.AnyWidget):
         The callback runs in browser-side MicroPython and receives a single numeric
         ``t`` in ``[0, 1]`` (propagation progress), returning a CSS color string.
         Passing ``None`` restores the per-datum ``RingDatum.color`` accessor.
+
+        Like the other ring style accessors (e.g. ``set_ring_resolution``),
+        ``ringColor`` is captured by three-globe when each ring circle is emitted
+        (it does not trigger a rebuild), so a runtime change applies to rings
+        emitted *after* it: a repeating ring (``repeat_period > 0``) picks it up
+        within one period, but a static or non-repeating ring keeps its current
+        colour. Call ``set_rings_data(...)`` to recolour already-emitted rings.
         """
         serialized = self._encode_frontend_python_function(value)
         self._set_layer_prop("rings", self._rings_props, "ringColor", serialized)

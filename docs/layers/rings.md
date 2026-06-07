@@ -61,6 +61,15 @@ Pass `None` (the default) to keep per-datum colours, or swap it at runtime with
     body cheap. MicroPython throughput is ample for the handful of calls per frame
     this involves.
 
+!!! note "Runtime changes apply to newly emitted rings"
+
+    As with the other ring style accessors, three-globe captures `ringColor` when
+    each ring circle is emitted (it does not rebuild existing rings). So a runtime
+    `set_rings_color_fn(...)` takes effect on rings emitted *after* the call &mdash;
+    a repeating ring (`repeat_period > 0`) picks it up within one period, but a
+    static or non-repeating ring keeps its colour until you re-set the data with
+    `set_rings_data(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `rings_from_gdf` builds rings from point geometries, carrying through columns
