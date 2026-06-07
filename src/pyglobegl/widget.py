@@ -38,6 +38,7 @@ from pyglobegl.config import (
     TileDatumPatch,
 )
 from pyglobegl.frontend_python import (
+    ColorInterpolator,
     FrontendPythonFunction,
     parse_frontend_python_wire_payload,
     resolve_frontend_python_function,
@@ -266,10 +267,13 @@ class GlobeWidget(anywidget.AnyWidget):
                 "arcDashGap": "dashGap",
                 "arcDashInitialGap": "dashInitialGap",
                 "arcDashAnimateTime": "dashAnimateTime",
-                "arcColor": "color",
                 "arcLabel": "label",
             }
         )
+        # The per-datum "color" field accessor is the default, but an
+        # arc_color_fn gradient (serialized under "arcColor") overrides it, so
+        # only inject the field accessor when no gradient was configured.
+        self._arcs_props.setdefault("arcColor", "color")
         self._polygons_props = config.polygons.model_dump(
             by_alias=True,
             exclude_none=True,
@@ -297,7 +301,6 @@ class GlobeWidget(anywidget.AnyWidget):
         )
         self._paths_props.update(
             {
-                "pathColor": "color",
                 "pathDashLength": "dashLength",
                 "pathDashGap": "dashGap",
                 "pathDashInitialGap": "dashInitialGap",
@@ -305,6 +308,9 @@ class GlobeWidget(anywidget.AnyWidget):
                 "pathLabel": "label",
             }
         )
+        # See the arcColor note above: a path_color_fn gradient overrides the
+        # per-datum "color" field accessor.
+        self._paths_props.setdefault("pathColor", "color")
         self._heatmaps_props = config.heatmaps.model_dump(
             by_alias=True,
             exclude_none=True,
@@ -393,12 +399,14 @@ class GlobeWidget(anywidget.AnyWidget):
                 "ringLat": "lat",
                 "ringLng": "lng",
                 "ringAltitude": "altitude",
-                "ringColor": "color",
                 "ringMaxRadius": "maxRadius",
                 "ringPropagationSpeed": "propagationSpeed",
                 "ringRepeatPeriod": "repeatPeriod",
             }
         )
+        # See the arcColor note above: a ring_color_fn gradient overrides the
+        # per-datum "color" field accessor.
+        self._rings_props.setdefault("ringColor", "color")
         self._labels_props = config.labels.model_dump(
             by_alias=True,
             exclude_none=True,
@@ -849,6 +857,25 @@ class GlobeWidget(anywidget.AnyWidget):
         """Set the arcs transition duration."""
         self._set_layer_prop("arcs", self._arcs_props, "arcsTransitionDuration", value)
 
+    def get_arcs_color_fn(self) -> FrontendPythonFunction | None:
+        """Return the arc gradient-colour frontend callback, if set."""
+        value = self._decode_frontend_python_function(self._arcs_props.get("arcColor"))
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_arcs_color_fn(
+        self, value: FrontendPythonFunction | ColorInterpolator | None
+    ) -> None:
+        """Set the arc gradient-colour frontend callback (``None`` resets default).
+
+        The callback runs in browser-side MicroPython and receives a single numeric
+        ``t`` in ``[0, 1]`` (position along the arc), returning a CSS color string.
+        Passing ``None`` restores the per-datum ``ArcDatum.color`` accessor.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("arcs", self._arcs_props, "arcColor", serialized)
+
     def get_polygon_cap_material(self) -> GlobeMaterialSpec | None:
         """Return the polygon cap material."""
         value = self._polygons_props.get("polygonCapMaterial")
@@ -977,6 +1004,27 @@ class GlobeWidget(anywidget.AnyWidget):
             "paths", self._paths_props, "pathTransitionDuration", value
         )
 
+    def get_paths_color_fn(self) -> FrontendPythonFunction | None:
+        """Return the path gradient-colour frontend callback, if set."""
+        value = self._decode_frontend_python_function(
+            self._paths_props.get("pathColor")
+        )
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_paths_color_fn(
+        self, value: FrontendPythonFunction | ColorInterpolator | None
+    ) -> None:
+        """Set the path gradient-colour frontend callback (``None`` resets default).
+
+        The callback runs in browser-side MicroPython and receives a single numeric
+        ``t`` in ``[0, 1]`` (position along the path), returning a CSS color string.
+        Passing ``None`` restores the per-datum ``PathDatum.color`` accessor.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("paths", self._paths_props, "pathColor", serialized)
+
     def get_heatmaps_data(self) -> list[HeatmapDatum] | None:
         """Return a copy of the cached heatmaps data."""
         return self._denormalize_layer_data(self._heatmaps_data, HeatmapDatum)
@@ -1018,7 +1066,7 @@ class GlobeWidget(anywidget.AnyWidget):
         return None
 
     def set_heatmaps_color_fn(
-        self, value: FrontendPythonFunction | Callable[..., Any] | None
+        self, value: FrontendPythonFunction | ColorInterpolator | None
     ) -> None:
         """Set the heatmaps colormap frontend callback (``None`` resets default).
 
@@ -1341,6 +1389,34 @@ class GlobeWidget(anywidget.AnyWidget):
     def set_ring_resolution(self, value: int) -> None:
         """Set the ring resolution."""
         self._set_layer_prop("rings", self._rings_props, "ringResolution", value)
+
+    def get_rings_color_fn(self) -> FrontendPythonFunction | None:
+        """Return the ring gradient-colour frontend callback, if set."""
+        value = self._decode_frontend_python_function(
+            self._rings_props.get("ringColor")
+        )
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_rings_color_fn(
+        self, value: FrontendPythonFunction | ColorInterpolator | None
+    ) -> None:
+        """Set the ring gradient-colour frontend callback (``None`` resets default).
+
+        The callback runs in browser-side MicroPython and receives a single numeric
+        ``t`` in ``[0, 1]`` (propagation progress), returning a CSS color string.
+        Passing ``None`` restores the per-datum ``RingDatum.color`` accessor.
+
+        Like the other ring style accessors (e.g. ``set_ring_resolution``),
+        ``ringColor`` is captured by three-globe when each ring circle is emitted
+        (it does not trigger a rebuild), so a runtime change applies to rings
+        emitted *after* it: a repeating ring (``repeat_period > 0``) picks it up
+        within one period, but a static or non-repeating ring keeps its current
+        colour. Call ``set_rings_data(...)`` to recolour already-emitted rings.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("rings", self._rings_props, "ringColor", serialized)
 
     def get_labels_data(self) -> list[LabelDatum] | None:
         """Return a copy of the cached labels data."""

@@ -8,6 +8,7 @@ from pydantic import AnyUrl, TypeAdapter
 import pytest
 
 from pyglobegl import (
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -444,3 +445,58 @@ def test_path_dash_animate_time(
     widget.update_path(path_id, dash_animate_time=400.0)
     page_session.wait_for_timeout(300)
     canvas_assert_capture(page_session, "animate-on", canvas_similarity_threshold)
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_path_color_fn(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.97
+
+    # Opaque gradients along each path (t = 0 at the first vertex, 1 at the last).
+    # A wider stroke keeps the colour transition readable on the gray globe.
+    @frontend_python
+    def warm_to_cool(t: float) -> str:
+        red = int(255 * min(1.0, max(0.0, 1.0 - t)))
+        blue = int(255 * min(1.0, max(0.0, t)))
+        return f"rgb({red},30,{blue})"
+
+    @frontend_python
+    def cool_to_warm(t: float) -> str:
+        red = int(255 * min(1.0, max(0.0, t)))
+        blue = int(255 * min(1.0, max(0.0, 1.0 - t)))
+        return f"rgb({red},30,{blue})"
+
+    paths_data = [
+        PathDatum(path=[(-30, -15), (0, 5), (30, -15)]),
+        PathDatum(path=[(-30, 15), (0, -5), (30, 15)]),
+    ]
+
+    # The gradient interpolator only applies to the default thin lines; a set
+    # path_stroke switches three-globe to fat lines, which support only discrete
+    # colour-list gradients (see PathsLayerConfig.path_color_fn docs).
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PathsLayerConfig(
+            paths_data=paths_data,
+            path_color_fn=warm_to_cool,
+            path_transition_duration=0,
+        ),
+        altitude=1.6,
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    page_session.wait_for_timeout(400)
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
+
+    widget.set_paths_color_fn(cool_to_warm)
+    page_session.wait_for_timeout(600)
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
+
+    # Passing None restores the per-datum PathDatum.color accessor (default
+    # #ffffaa), exercising the colorFnAccessorDefaults reset path.
+    widget.set_paths_color_fn(None)
+    page_session.wait_for_timeout(600)
+    canvas_assert_capture(page_session, "restored-default", canvas_similarity_threshold)

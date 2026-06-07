@@ -25,6 +25,51 @@ display(GlobeWidget(config=config))
 A ring is defined by `lat`, `lng`, `max_radius`, and `color`, with animation
 controls (propagation speed, repeat period) available on `RingsLayerConfig`.
 
+## Custom gradient
+
+`RingDatum.color` is a single colour or a list of discrete stops. For a colour
+that varies as each ring propagates, set a layer-level `ring_color_fn` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) mapping the
+propagation parameter `t` in `[0, 1]` to a CSS colour string, typed by the
+exported `ColorInterpolator` alias. `t` is the animation progress: 0 when the ring
+is emitted and 1 at the end of its travel. With the default outward propagation
+(`propagation_speed > 0`) that runs from the centre (`t = 0`) to `max_radius`
+(`t = 1`); with inward propagation (`propagation_speed < 0`) the radius is
+reversed, so `t = 0` is at `max_radius` and `t = 1` at the centre. When set it
+overrides the per-datum colour for every ring.
+
+```python
+from pyglobegl import ColorInterpolator, frontend_python
+
+
+@frontend_python
+def gradient(t: float) -> str:  # ColorInterpolator: (t in [0, 1]) -> CSS colour
+    red = int(255 * (1 - t))
+    return f"rgba({red},40,{int(255 * t)},{max(0.0, 1 - 0.6 * t)})"
+
+
+config = GlobeConfig(rings=RingsLayerConfig(rings_data=rings, ring_color_fn=gradient))
+```
+
+Pass `None` (the default) to keep per-datum colours, or swap it at runtime with
+`GlobeWidget.set_rings_color_fn(...)`.
+
+!!! note "Sampled per frame"
+
+    Unlike the arc/path gradients (baked once at data-change time), rings sample
+    this callback once per ring per animation frame as they expand, so keep the
+    body cheap. MicroPython throughput is ample for the handful of calls per frame
+    this involves.
+
+!!! note "Runtime changes apply to newly emitted rings"
+
+    As with the other ring style accessors, three-globe captures `ringColor` when
+    each ring circle is emitted (it does not rebuild existing rings). So a runtime
+    `set_rings_color_fn(...)` takes effect on rings emitted *after* the call &mdash;
+    a repeating ring (`repeat_period > 0`) picks it up within one period, but a
+    static or non-repeating ring keeps its colour until you re-set the data with
+    `set_rings_data(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `rings_from_gdf` builds rings from point geometries, carrying through columns

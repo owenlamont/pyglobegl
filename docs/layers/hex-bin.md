@@ -83,6 +83,18 @@ The `hexbin` argument has the shape:
 {"h3Idx": str, "points": list[dict], "sumWeight": float}
 ```
 
+pyglobegl exports this shape as the `HexBin` `TypedDict`; annotate your callback
+against it (`def fn(b: HexBin) -> str: ...`) for editor autocomplete on the keys:
+
+```python
+from pyglobegl import frontend_python, HexBin
+
+
+@frontend_python
+def hex_color(b: HexBin) -> str:
+    return "#ff5500" if b["sumWeight"] > 2 else "#66ccff"
+```
+
 !!! tip "Prefer defensive access"
 
     For compatibility across upstream changes, read bin fields defensively (for

@@ -62,7 +62,7 @@ type ArcsLayerConfig = {
 	arcEndLat?: number | string;
 	arcEndLng?: number | string;
 	arcEndAltitude?: number | string;
-	arcColor?: string | Array<string>;
+	arcColor?: string | Array<string> | FrontendPythonFunctionSpec | null;
 	arcAltitude?: number | string | null;
 	arcAltitudeAutoScale?: number | string;
 	arcStroke?: number | string;
@@ -93,7 +93,7 @@ type PathsLayerConfig = {
 	pathsData?: Array<Record<string, unknown>>;
 	pathLabel?: string;
 	pathResolution?: number;
-	pathColor?: string | Array<string>;
+	pathColor?: string | Array<string> | FrontendPythonFunctionSpec | null;
 	pathStroke?: number | string;
 	pathDashLength?: number | string;
 	pathDashGap?: number | string;
@@ -184,7 +184,7 @@ type RingsLayerConfig = {
 	ringLat?: number | string;
 	ringLng?: number | string;
 	ringAltitude?: number | string;
-	ringColor?: string | Array<string>;
+	ringColor?: string | Array<string> | FrontendPythonFunctionSpec | null;
 	ringResolution?: number;
 	ringMaxRadius?: number | string;
 	ringPropagationSpeed?: number | string;
@@ -1048,6 +1048,14 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexLabel",
 		]);
 		let configApplyToken = 0;
+		// Ring colour callbacks bind asynchronously (MicroPython), but three-globe
+		// captures ringColor when each ring circle is emitted (triggerUpdate:false).
+		// To keep colour and data consistent, ring-data operations are serialised
+		// through enqueueRingsDataOp (below): each waits for the in-flight colour
+		// binding and runs in arrival order, so a circle never emits with a stale
+		// colour and incremental patches are applied in order (never dropped).
+		let pendingRingColorBinding: Promise<unknown> = Promise.resolve();
+		let ringDataChain: Promise<unknown> = Promise.resolve();
 		const accessorTokens = new Map<string, number>();
 
 		const nextAccessorToken = (prop: string): number => {
@@ -1093,15 +1101,73 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		// Accessors that return an interpolator (t)=>color rather than a scalar.
 		// globe.gl invokes the accessor with the datum, so the frontend callback
 		// must be bound as a constant returning the colour function — i.e.
-		// `() => wrapped`, NOT `wrapped` directly (see applyLayerProp below). We
-		// capture globe.gl's built-in default per prop up front so a null value
-		// restores it. To support more interpolator accessors (arc/path/ring
-		// gradient colours are the obvious next ones), add an entry here mapping
-		// the prop name to its own `globe.<prop>()` default.
+		// `() => wrapped`, NOT `wrapped` directly (see applyLayerProp below). The
+		// map value is the accessor to restore when the callback is null:
+		// - heatmapColorFn: globe.gl's built-in colormap, captured up front.
+		// - arcColor/pathColor/ringColor: these share globe.gl's single *Color
+		//   accessor with the per-datum colour field, so a gradient callback is a
+		//   layer-level override; restoring means re-binding the "color" field-name
+		//   accessor that the widget injects by default (not globe.gl's constant).
 		const colorFnAccessorDefaults = new Map<string, unknown>([
 			["heatmapColorFn", globe.heatmapColorFn()],
+			["arcColor", "color"],
+			["pathColor", "color"],
+			["ringColor", "color"],
 		]);
 		const colorFnAccessorProps = new Set(colorFnAccessorDefaults.keys());
+
+		// Serialise a ring-data operation (full set or incremental patch) so it runs
+		// after the in-flight ring-colour binding and after all earlier operations,
+		// in arrival order. Ordering both keeps circles from emitting with a stale
+		// colour and makes a later full set naturally win over earlier data without
+		// dropping incremental patches.
+		const enqueueRingsDataOp = (op: () => void): void => {
+			ringDataChain = ringDataChain
+				.then(() => pendingRingColorBinding)
+				.then(op)
+				.catch((error) => {
+					console.error("Failed to apply ring data.", error);
+				});
+		};
+
+		const emitRingsData = (data: Array<Record<string, unknown>>): void => {
+			enqueueRingsDataOp(() => {
+				globe.ringsData(data);
+			});
+		};
+
+		// Bind the ring colour accessor. A constant field-name accessor ("color")
+		// or null (reset to the per-datum field) binds synchronously; a frontend
+		// Python callback binds asynchronously via MicroPython, and the in-flight
+		// binding is published on pendingRingColorBinding so ring-data emissions
+		// wait for it.
+		const bindRingColor = (value: unknown): void => {
+			// globe.ringColor accepts a colour, colour array, or interpolator; the
+			// cast matches applyLayerProp's handling of these dynamic accessors.
+			const setRingColor = globe.ringColor as (arg: unknown) => void;
+			// Bumping the token invalidates any earlier in-flight binding so its
+			// async continuation does not overwrite this one.
+			const token = nextAccessorToken("ringColor");
+			if (!isFrontendPythonFunctionSpec(value)) {
+				setRingColor(
+					value == null ? colorFnAccessorDefaults.get("ringColor") : value,
+				);
+				pendingRingColorBinding = Promise.resolve();
+				return;
+			}
+			pendingRingColorBinding = toFrontendAccessor(value)
+				.then((wrapped) => {
+					if (
+						isCurrentAccessorToken("ringColor", token) &&
+						typeof wrapped === "function"
+					) {
+						setRingColor(() => wrapped);
+					}
+				})
+				.catch((error) => {
+					console.error("Failed to apply color function accessor.", error);
+				});
+		};
 
 		const applyLayerProp = (
 			props: Set<string>,
@@ -1119,16 +1185,37 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				}
 				if (colorFnAccessorProps.has(prop)) {
 					const token = nextAccessorToken(prop);
+					const applySetter = setter as (arg: unknown) => void;
+					const bind = (wrapped: unknown): void => {
+						if (wrapped == null) {
+							// Restore the prop's default accessor (globe.gl's built-in
+							// colormap for heatmaps; the per-datum "color" field accessor
+							// for arc/path/ring gradients).
+							applySetter(colorFnAccessorDefaults.get(prop));
+						} else if (typeof wrapped === "function") {
+							// A frontend Python callback returning the (t)=>colour
+							// interpolator. globe.gl invokes the accessor with the datum to
+							// obtain the interpolator, so bind it as a constant.
+							applySetter(() => wrapped);
+						} else {
+							// A plain field-name accessor (e.g. "color") or constant.
+							applySetter(wrapped);
+						}
+					};
+					// Only an actual frontend Python callback needs the async
+					// MicroPython runtime. The common no-gradient case is the injected
+					// constant "color" field accessor (and null on reset), which binds
+					// synchronously — in order with the sibling layer props applied in
+					// the same turn, and without allocating a promise per render.
+					if (!isFrontendPythonFunctionSpec(value)) {
+						bind(value);
+						return;
+					}
 					void toFrontendAccessor(value)
 						.then((wrapped) => {
-							if (!isCurrentAccessorToken(prop, token)) {
-								return;
+							if (isCurrentAccessorToken(prop, token)) {
+								bind(wrapped);
 							}
-							(setter as (arg: unknown) => void)(
-								wrapped == null
-									? colorFnAccessorDefaults.get(prop)
-									: () => wrapped,
-							);
 						})
 						.catch((error) => {
 							console.error("Failed to apply color function accessor.", error);
@@ -1289,7 +1376,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				} else if (type === "particles_set_data") {
 					globe.particlesData(normalizeParticlesData(payload?.data));
 				} else if (type === "rings_set_data") {
-					globe.ringsData(payload?.data ?? []);
+					emitRingsData(payload?.data ?? []);
 				} else if (type === "labels_set_data") {
 					globe.labelsData(payload?.data ?? []);
 				} else if (type === "points_patch_data") {
@@ -1390,11 +1477,17 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					}
 					globe.particlesData(normalizeParticlesData(data));
 				} else if (type === "rings_patch_data") {
-					patchLayerData(
-						() => globe.ringsData() ?? [],
-						(data) => globe.ringsData(data),
-						payload?.patches ?? [],
-					);
+					// Serialise the patch after any in-flight colour binding and earlier
+					// ring-data ops (see enqueueRingsDataOp); patches are incremental, so
+					// they must all apply in order and are never dropped.
+					const patches = payload?.patches ?? [];
+					enqueueRingsDataOp(() => {
+						patchLayerData(
+							() => globe.ringsData() ?? [],
+							(data) => globe.ringsData(data),
+							patches,
+						);
+					});
 				} else if (type === "labels_patch_data") {
 					patchLayerData(
 						() => globe.labelsData() ?? [],
@@ -1420,7 +1513,14 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				} else if (type === "particles_prop") {
 					applyLayerProp(particlesProps, payload?.prop, payload?.value);
 				} else if (type === "rings_prop") {
-					applyLayerProp(ringsProps, payload?.prop, payload?.value);
+					// ringColor must go through bindRingColor so that in-flight binding
+					// is published for emitRingsData to await (ringColor is captured at
+					// ring emission, triggerUpdate:false).
+					if (payload?.prop === "ringColor") {
+						bindRingColor(payload?.value);
+					} else {
+						applyLayerProp(ringsProps, payload?.prop, payload?.value);
+					}
 				} else if (type === "labels_prop") {
 					applyLayerProp(labelsProps, payload?.prop, payload?.value);
 				} else if (type === "globe_prop") {
@@ -1634,7 +1734,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.arcEndAltitude(arcsConfig.arcEndAltitude ?? null);
 			}
 			if (arcsConfig.arcColor !== undefined) {
-				globe.arcColor(arcsConfig.arcColor ?? null);
+				applyLayerProp(arcProps, "arcColor", arcsConfig.arcColor);
 			}
 			if (arcsConfig.arcAltitude !== undefined) {
 				globe.arcAltitude(arcsConfig.arcAltitude ?? null);
@@ -1731,7 +1831,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.pathResolution(pathsConfig.pathResolution);
 			}
 			if (pathsConfig.pathColor !== undefined) {
-				globe.pathColor(pathsConfig.pathColor ?? null);
+				applyLayerProp(pathProps, "pathColor", pathsConfig.pathColor);
 			}
 			if (pathsConfig.pathStroke !== undefined) {
 				globe.pathStroke(pathsConfig.pathStroke ?? null);
@@ -2058,9 +2158,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			if (!ringsConfig) {
 				return;
 			}
-			if (ringsConfig.ringsData !== undefined) {
-				globe.ringsData(ringsConfig.ringsData ?? []);
-			}
 			if (ringsConfig.ringLat !== undefined) {
 				globe.ringLat(ringsConfig.ringLat ?? null);
 			}
@@ -2069,9 +2166,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (ringsConfig.ringAltitude !== undefined) {
 				globe.ringAltitude(ringsConfig.ringAltitude ?? null);
-			}
-			if (ringsConfig.ringColor !== undefined) {
-				globe.ringColor(ringsConfig.ringColor ?? null);
 			}
 			if (ringsConfig.ringResolution !== undefined) {
 				globe.ringResolution(ringsConfig.ringResolution);
@@ -2084,6 +2178,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (ringsConfig.ringRepeatPeriod !== undefined) {
 				globe.ringRepeatPeriod(ringsConfig.ringRepeatPeriod ?? null);
+			}
+			if (ringsConfig.ringColor !== undefined) {
+				bindRingColor(ringsConfig.ringColor);
+			}
+			if (ringsConfig.ringsData !== undefined) {
+				emitRingsData(ringsConfig.ringsData ?? []);
 			}
 		};
 
