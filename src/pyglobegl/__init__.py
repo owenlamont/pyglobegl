@@ -44,7 +44,12 @@ from pyglobegl.config import (
     TileDatumPatch,
     TilesLayerConfig,
 )
-from pyglobegl.frontend_python import frontend_python, FrontendPythonFunction
+from pyglobegl.frontend_python import (
+    ColorInterpolator,
+    frontend_python,
+    FrontendPythonFunction,
+    HexBin,
+)
 from pyglobegl.geopandas import (
     arcs_from_gdf,
     heatmaps_from_gdf,
@@ -65,6 +70,7 @@ __all__ = [
     "ArcDatum",
     "ArcDatumPatch",
     "ArcsLayerConfig",
+    "ColorInterpolator",
     "FrontendPythonFunction",
     "GlobeConfig",
     "GlobeInitConfig",
@@ -77,6 +83,7 @@ __all__ = [
     "HeatmapDatumPatch",
     "HeatmapPointDatum",
     "HeatmapsLayerConfig",
+    "HexBin",
     "HexBinLayerConfig",
     "HexBinPointDatum",
     "HexBinPointDatumPatch",

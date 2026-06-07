@@ -33,6 +33,7 @@ def _():
     import sys
     from urllib.request import urlopen
 
+    from pydantic import AnyUrl
     from sgp4.api import jday, Satrec
 
     sys.path.insert(0, "examples")  # run from the repo root
@@ -61,11 +62,15 @@ def _():
         TilesLayerConfig,
     )
 
-    night = "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
-    dark = "https://unpkg.com/three-globe/example/img/earth-dark.jpg"
-    blue = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-    topo = "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png"
-    sky = "https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png"
+    night = AnyUrl(
+        "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
+    )
+    dark = AnyUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
+    blue = AnyUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+    topo = AnyUrl(
+        "https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png"
+    )
+    sky = AnyUrl("https://cdn.jsdelivr.net/npm/three-globe/example/img/night-sky.png")
 
     def cfg(globe, layer_kw, *, lat=12, lng=130, alt=2.5, bg=None, rotate=False):
         layout = GlobeLayoutConfig(width=800, height=600, background_color="#000000")

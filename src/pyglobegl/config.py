@@ -18,6 +18,7 @@ from pydantic import (
 from pydantic_extra_types.color import Color
 
 from pyglobegl.frontend_python import (
+    ColorInterpolator,
     FrontendPythonFunction,
     resolve_frontend_python_function,
 )
@@ -41,6 +42,10 @@ def _to_color(value: Any) -> Color:
 
 ColorValue = Annotated[Color | str, BeforeValidator(_to_color)]
 FrontendPythonFunctionInput = FrontendPythonFunction | Callable[..., Any]
+# Narrowed input for the gradient/colormap accessors: a decorated callback whose
+# signature matches ColorInterpolator ((t: float) -> str) is verified at the call
+# site, while an explicit FrontendPythonFunction is still accepted.
+FrontendColorInterpolatorInput = FrontendPythonFunction | ColorInterpolator
 
 
 def _serialize_color_single(value: ColorValue | None) -> str | None:
@@ -79,6 +84,27 @@ def _serialize_frontend_accessor(
     if isinstance(value, Color):
         return str(value)
     return value
+
+
+def _serialize_frontend_color_fn(
+    value: FrontendPythonFunction | None, field_name: str
+) -> dict[str, str] | None:
+    """Serialize a gradient/colormap callback field to a wire payload or None.
+
+    Shared by the layer configs whose ``*_color_fn`` accessor returns a
+    ``(t)=>color`` interpolator (heatmaps and the arc/path/ring gradients).
+
+    Returns:
+        The frontend-callback wire payload, or ``None`` when unset.
+
+    Raises:
+        TypeError: If the value serializes to something other than a callback
+            payload or ``None``.
+    """
+    serialized = _serialize_frontend_accessor(value)
+    if serialized is None or isinstance(serialized, dict):
+        return serialized
+    raise TypeError(f"{field_name} must serialize to a frontend function or None.")
 
 
 def _coerce_frontend_function_fields(data: Any, field_names: Sequence[str]) -> Any:
@@ -350,10 +376,31 @@ class ArcDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Arcs layer settings for globe.gl."""
+    """Arcs layer settings for globe.gl.
+
+    The ``arc_color_fn`` field accepts a ``FrontendPythonFunction`` (or a callable
+    decorated with ``@frontend_python``) that runs in browser-side MicroPython and
+    returns a continuous gradient along the arc. globe.gl invokes it with a single
+    numeric ``t`` in ``[0, 1]`` (0 at the arc start, 1 at the end) and expects a CSS
+    color string. When set it overrides the per-datum ``ArcDatum.color`` for every
+    arc in the layer. globe.gl samples it at geometry-build (data-change) time to
+    bake the vertex colours, not per animation frame. Leave it as ``None`` (the
+    default) to keep per-datum colours. Note that ``t`` arrives as an ``int`` at the
+    ``0`` and ``1`` endpoints (and a ``float`` in between), so write the callback to
+    accept either rather than branching on ``float``.
+
+    Reference:
+    https://github.com/vasturiano/globe.gl?tab=readme-ov-file#arcs-layer
+    """
 
     arcs_data: Annotated[
         list[ArcDatum] | None, Field(serialization_alias="arcsData")
+    ] = None
+    # Arc gradient colour accessor (frontend callback).
+    # Callback input: a single numeric t in [0, 1] (position along the arc).
+    # Callback output: CSS color string.
+    arc_color_fn: Annotated[
+        FrontendColorInterpolatorInput | None, Field(serialization_alias="arcColor")
     ] = None
     arc_curve_resolution: Annotated[
         int, Field(gt=0, serialization_alias="arcCurveResolution")
@@ -364,6 +411,17 @@ class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
     arcs_transition_duration: Annotated[
         int, Field(serialization_alias="arcsTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("arc_color_fn",))
+
+    @field_serializer("arc_color_fn", when_used="always")
+    def _serialize_arc_color_fn(
+        self, value: FrontendPythonFunction | None
+    ) -> dict[str, str] | None:
+        return _serialize_frontend_color_fn(value, "arc_color_fn")
 
 
 class PolygonDatum(BaseModel, extra="allow", frozen=True):
@@ -497,10 +555,31 @@ class PathDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Paths layer settings for globe.gl."""
+    """Paths layer settings for globe.gl.
+
+    The ``path_color_fn`` field accepts a ``FrontendPythonFunction`` (or a callable
+    decorated with ``@frontend_python``) that runs in browser-side MicroPython and
+    returns a continuous gradient along the path. globe.gl invokes it with a single
+    numeric ``t`` in ``[0, 1]`` (0 at the path start, 1 at the end) and expects a CSS
+    color string. When set it overrides the per-datum ``PathDatum.color`` for every
+    path in the layer. globe.gl samples it at geometry-build (data-change) time to
+    bake the vertex colours, not per animation frame. Leave it as ``None`` (the
+    default) to keep per-datum colours. Note that ``t`` arrives as an ``int`` at the
+    ``0`` and ``1`` endpoints (and a ``float`` in between), so write the callback to
+    accept either rather than branching on ``float``.
+
+    Reference:
+    https://github.com/vasturiano/globe.gl?tab=readme-ov-file#paths-layer
+    """
 
     paths_data: Annotated[
         list[PathDatum] | None, Field(serialization_alias="pathsData")
+    ] = None
+    # Path gradient colour accessor (frontend callback).
+    # Callback input: a single numeric t in [0, 1] (position along the path).
+    # Callback output: CSS color string.
+    path_color_fn: Annotated[
+        FrontendColorInterpolatorInput | None, Field(serialization_alias="pathColor")
     ] = None
     path_resolution: Annotated[
         int, Field(gt=0, serialization_alias="pathResolution")
@@ -509,6 +588,17 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
     path_transition_duration: Annotated[
         int, Field(serialization_alias="pathTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("path_color_fn",))
+
+    @field_serializer("path_color_fn", when_used="always")
+    def _serialize_path_color_fn(
+        self, value: FrontendPythonFunction | None
+    ) -> dict[str, str] | None:
+        return _serialize_frontend_color_fn(value, "path_color_fn")
 
 
 class HeatmapPointDatum(BaseModel, extra="allow", frozen=True):
@@ -585,7 +675,8 @@ class HeatmapsLayerConfig(BaseModel, extra="forbid", frozen=True):
     # Callback input: a single numeric t in [0, 1] (normalised density).
     # Callback output: CSS color string.
     heatmap_color_fn: Annotated[
-        FrontendPythonFunctionInput | None, Field(serialization_alias="heatmapColorFn")
+        FrontendColorInterpolatorInput | None,
+        Field(serialization_alias="heatmapColorFn"),
     ] = None
     heatmaps_transition_duration: Annotated[
         int, Field(serialization_alias="heatmapsTransitionDuration")
@@ -600,12 +691,7 @@ class HeatmapsLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_heatmap_color_fn(
         self, value: FrontendPythonFunction | None
     ) -> dict[str, str] | None:
-        serialized = _serialize_frontend_accessor(value)
-        if serialized is None or isinstance(serialized, dict):
-            return serialized
-        raise TypeError(
-            "heatmap_color_fn must serialize to a frontend function or None."
-        )
+        return _serialize_frontend_color_fn(value, "heatmap_color_fn")
 
 
 class HexBinPointDatum(BaseModel, extra="allow", frozen=True):
@@ -1074,14 +1160,48 @@ class RingDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class RingsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Rings layer settings for globe.gl."""
+    """Rings layer settings for globe.gl.
+
+    The ``ring_color_fn`` field accepts a ``FrontendPythonFunction`` (or a callable
+    decorated with ``@frontend_python``) that runs in browser-side MicroPython and
+    colours each ring as it propagates. globe.gl invokes it with a single numeric
+    ``t`` in ``[0, 1]`` (0 when the ring is emitted, 1 at its ``max_radius``) and
+    expects a CSS color string. When set it overrides the per-datum
+    ``RingDatum.color`` for every ring in the layer. Unlike the arc/path gradients
+    (baked once at data-change time), rings sample this callback once per ring per
+    animation frame as they expand, so keep the body cheap; MicroPython throughput
+    is ample for the handful of calls per frame this involves. Leave it as ``None``
+    (the default) to keep per-datum colours. Note that ``t`` arrives as an ``int``
+    at the ``0`` and ``1`` endpoints (and a ``float`` in between), so write the
+    callback to accept either rather than branching on ``float``.
+
+    Reference:
+    https://github.com/vasturiano/globe.gl?tab=readme-ov-file#rings-layer
+    """
 
     rings_data: Annotated[
         list[RingDatum] | None, Field(serialization_alias="ringsData")
     ] = None
+    # Ring gradient colour accessor (frontend callback).
+    # Callback input: a single numeric t in [0, 1] (propagation progress).
+    # Callback output: CSS color string.
+    ring_color_fn: Annotated[
+        FrontendColorInterpolatorInput | None, Field(serialization_alias="ringColor")
+    ] = None
     ring_resolution: Annotated[
         int, Field(gt=0, serialization_alias="ringResolution")
     ] = 64
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("ring_color_fn",))
+
+    @field_serializer("ring_color_fn", when_used="always")
+    def _serialize_ring_color_fn(
+        self, value: FrontendPythonFunction | None
+    ) -> dict[str, str] | None:
+        return _serialize_frontend_color_fn(value, "ring_color_fn")
 
 
 class LabelDatum(BaseModel, extra="allow", frozen=True):

@@ -5,13 +5,51 @@ from __future__ import annotations
 from collections.abc import Callable
 import inspect
 import textwrap
-from typing import Any
+from typing import Any, TypedDict, TypeVar
 
 from pydantic import BaseModel
 
 
 _FRONTEND_FUNCTION_ATTR = "__pyglobegl_frontend_python_function__"
 _WIRE_TYPE = "frontend_python_function"
+
+_DecoratedCallable = TypeVar("_DecoratedCallable", bound=Callable[..., Any])
+
+ColorInterpolator = Callable[[float], str]
+"""Signature of a gradient/colormap frontend callback.
+
+Maps a normalised parameter ``t`` in ``[0, 1]`` to a CSS colour string. This is
+the contract for the arc/path/ring ``*_color_fn`` gradient accessors and the
+heatmaps ``heatmap_color_fn``. Annotate your ``@frontend_python`` callback against
+it (``def fn(t: float) -> str: ...``) so your editor and type checker can verify
+the signature where you pass it; pyglobegl runs the body in MicroPython, where
+annotations are parsed and ignored. ``t`` may arrive as an ``int`` at the ``0``
+and ``1`` endpoints, which is compatible with the ``float`` annotation.
+"""
+
+
+class HexBin(TypedDict):
+    """Shape of the aggregated bin passed to the hex-bin styling callbacks.
+
+    globe.gl builds each bin in the browser by H3-aggregating
+    ``hex_bin_points_data``, so there is no Python datum to attach styling to. The
+    ``hex_top_color`` / ``hex_side_color`` / ``hex_altitude`` / ``hex_label``
+    callbacks receive a bin with ``h3Idx`` (the H3 cell id), ``points`` (the
+    original rows that fell in the bin), and ``sumWeight`` (their aggregated
+    weight). Annotate your callback against it (``def fn(b: HexBin) -> str: ...``)
+    for editor autocomplete on these keys.
+
+    This is an opt-in annotation aid, not an enforced field type: the hex-bin
+    config fields keep accepting any callable so that a plain ``def fn(b: dict)``
+    still type checks (a stricter parameter type would reject it by
+    contravariance). globe.gl may add or rename keys across versions, so read
+    anything beyond the three documented keys with ``b.get(...)``.
+    """
+
+    # Field names mirror globe.gl's bin keys (camelCase by necessity).
+    h3Idx: str
+    points: list[dict[str, Any]]
+    sumWeight: float
 
 
 class FrontendPythonFunction(BaseModel, extra="forbid", frozen=True):
@@ -33,7 +71,7 @@ class FrontendPythonFunction(BaseModel, extra="forbid", frozen=True):
         }
 
 
-def frontend_python(function: Callable[..., Any]) -> Callable[..., Any]:
+def frontend_python(function: _DecoratedCallable) -> _DecoratedCallable:
     """Mark a Python function for frontend execution via MicroPython.
 
     The function remains callable in backend Python, but pyglobegl captures its
@@ -41,6 +79,11 @@ def frontend_python(function: Callable[..., Any]) -> Callable[..., Any]:
     Decorated callbacks should be pure, self-contained functions with no side
     effects, because they execute in the browser MicroPython runtime (not the
     backend Python process) and may run many times per frame/render cycle.
+
+    The decorator is signature-preserving: the returned callable keeps the
+    annotated type of the function you pass in, so annotating your callback (for
+    example ``def fn(t: float) -> str: ...``, see ``ColorInterpolator``) gives
+    your editor and type checker something to verify where you pass it.
 
     Returns:
         The original function with a serialized frontend callback spec attached.

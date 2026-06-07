@@ -5,12 +5,14 @@ from uuid import uuid4
 
 from IPython.display import display
 import numpy as np
+from pydantic import AnyUrl, TypeAdapter
 import pytest
 from skimage.metrics import structural_similarity
 
 from pyglobegl import (
     ArcDatum,
     ArcsLayerConfig,
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -24,6 +26,9 @@ from pyglobegl.config import ColorValue
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
+
+
+_URL_ADAPTER = TypeAdapter(AnyUrl)
 
 
 @pytest.mark.usefixtures("solara_test")
@@ -957,3 +962,100 @@ def test_arc_altitude_modes(
     )
     page_session.wait_for_timeout(100)
     canvas_assert_capture(page_session, "auto-scale", canvas_similarity_threshold)
+
+
+def _await_arc_render(page_session: Page) -> None:
+    page_session.wait_for_function(
+        "document.querySelector('canvas, .jupyter-widgets') !== null", timeout=20000
+    )
+    page_session.wait_for_function(
+        "window.__pyglobegl_globe_ready === true", timeout=20000
+    )
+    page_session.wait_for_function(
+        """
+        () => {
+          const canvas = document.querySelector("canvas");
+          if (!canvas) {
+            return false;
+          }
+          const dataUrl = canvas.toDataURL("image/png");
+          return dataUrl && dataUrl.length > 2000;
+        }
+        """,
+        timeout=20000,
+    )
+    page_session.wait_for_timeout(400)
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_arc_color_fn(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.97
+
+    # Opaque gradients along each arc (t = 0 at the start, 1 at the end). High
+    # altitude lifts the arcs above the globe into black space so the colour
+    # transition reads clearly against the gray globe.
+    @frontend_python
+    def warm_to_cool(t: float) -> str:
+        red = int(255 * min(1.0, max(0.0, 1.0 - t)))
+        blue = int(255 * min(1.0, max(0.0, t)))
+        return f"rgb({red},30,{blue})"
+
+    @frontend_python
+    def cool_to_warm(t: float) -> str:
+        red = int(255 * min(1.0, max(0.0, t)))
+        blue = int(255 * min(1.0, max(0.0, 1.0 - t)))
+        return f"rgb({red},30,{blue})"
+
+    arcs_data = [
+        ArcDatum(
+            start_lat=-30,
+            start_lng=-45,
+            end_lat=35,
+            end_lng=45,
+            altitude=0.45,
+            stroke=1.4,
+        ),
+        ArcDatum(
+            start_lat=25,
+            start_lng=-50,
+            end_lat=-35,
+            end_lng=35,
+            altitude=0.35,
+            stroke=1.4,
+        ),
+    ]
+
+    config = GlobeConfig(
+        init=GlobeInitConfig(
+            renderer_config={"preserveDrawingBuffer": True}, animate_in=False
+        ),
+        layout=GlobeLayoutConfig(width=256, height=256, background_color="#000000"),
+        globe=GlobeLayerConfig(
+            globe_image_url=_URL_ADAPTER.validate_python(globe_flat_texture_data_url),
+            show_atmosphere=False,
+            show_graticules=False,
+        ),
+        arcs=ArcsLayerConfig(
+            arcs_data=arcs_data, arc_color_fn=warm_to_cool, arcs_transition_duration=0
+        ),
+        view=GlobeViewConfig(
+            point_of_view=PointOfView(lat=0, lng=0, altitude=2.0), transition_ms=0
+        ),
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_arc_render(page_session)
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
+
+    widget.set_arcs_color_fn(cool_to_warm)
+    page_session.wait_for_timeout(600)
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
+
+    # Passing None restores the per-datum ArcDatum.color accessor (default
+    # #ffffaa), exercising the colorFnAccessorDefaults reset path.
+    widget.set_arcs_color_fn(None)
+    page_session.wait_for_timeout(600)
+    canvas_assert_capture(page_session, "restored-default", canvas_similarity_threshold)
