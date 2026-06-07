@@ -56,6 +56,18 @@ and immediately use the widget without rebuilding JupyterLab.
   must be `PointDatum`/`ArcDatum`/`PolygonDatum` (no raw dicts for public APIs).
 - Do not expose accessor remapping or string field-name accessors in Python.
   We keep the mapping internal to bridge Pythonic names to globe.gl keys.
+  - Where it lives: `GlobeWidget.__init__` (`src/pyglobegl/widget.py`) injects
+    the per-datum accessor bindings into the synced `config` (e.g.
+    `_rings_props.update({"ringColor": "color", "ringMaxRadius": "maxRadius",
+    ...})`). The Pydantic `*LayerConfig` models intentionally do **not** carry
+    these accessor fields, and the frontend never sets them as field-name
+    strings or arrow functions — so a raw `GlobeConfig.model_dump()` omits them;
+    inspect `GlobeWidget(...).config` to see the real payload. three-globe's
+    own accessor defaults are mostly constants (`ringColor: () => '#ffffaa'`,
+    `ringMaxRadius: 2`, …), so without this injection per-datum styling would be
+    silently ignored. The initial-config path (`applyRingsProps`) and the
+    runtime-message path (`rings_set_data` → `globe.ringsData(...)`) are
+    equivalent — both rely on the same injected bindings.
 - Type hints must mirror the Python API, not JS accessors; avoid `str`
   field-name accessor types in public models.
 - Defaults in data models mirror globe.gl so omitted values still render
@@ -122,9 +134,28 @@ force `--host 0.0.0.0`, which can break localhost forwarding).
     - `http://localhost:2729?access_token=<TOKEN>`
 - In marimo, run all cells (command palette → “Re-run all cells” or click the
   run-all button) and toggle app view (Ctrl + .).
+  - Driving via Playwright MCP: press `Control+k` to open the command palette,
+    then `Enter` — “Re-run all cells” is the first entry. Wait a few seconds for
+    the WebGL context + globe texture to load before sampling.
   - Re-run the widget cell after each frontend rebuild to pick up the latest
     JS bundle (the JS hash changes when the bundle changes).
   - The textured Earth should render once app view is enabled.
+- Reading canvas pixels (not just eyeballing screenshots): the anywidget canvas
+  is inside a **shadow root**, so `document.querySelector('canvas')` returns
+  nothing — recurse through `el.shadowRoot` to find it. For JS pixel readback
+  (`drawImage` → `getImageData`) set `GlobeInitConfig(renderer_config=`
+  `{"preserveDrawingBuffer": True})`; otherwise the buffer reads back blank
+  (Playwright `page.screenshot` works without it because the compositor
+  captures the frame).
+- Verifying **animated** layers (rings, arc dashes, ripples): a single still
+  frame is unreliable. A ripple's visible lifetime is
+  `transitionTime = |maxRadius / propagationSpeed| * 1000 ms`, repeated every
+  `repeat_period` ms, so fast/short/transparent rings have a low duty cycle and
+  are frequently absent from any one capture. Sample the canvas over several
+  seconds (e.g. count target-colour pixels every ~120 ms) and assert the layer
+  appears in some fraction of frames, rather than expecting every frame to show
+  it. See closed issue #60 for a worked example (montage rings were a false
+  “not rendering” report).
 - For JupyterLab automation, start:
   - Run:
 
@@ -178,3 +209,9 @@ force `--host 0.0.0.0`, which can break localhost forwarding).
 
 If we need to inspect Playwright screenshots, ask the user to grant read access
 to the top-level Windows Temp directory so the MCP output can be read directly.
+
+Do **not** pass a `filename` (or relative path) to `browser_take_screenshot` /
+`browser_evaluate`: the MCP server resolves it against a bogus path (the WSL cwd
+remapped under `C:\`) and errors. Omit `filename` so output lands in the default
+Windows temp dir (`%LOCALAPPDATA%\Temp\.playwright-mcp\`), and return
+`browser_evaluate` results inline instead of writing them to a file.
