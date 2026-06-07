@@ -1050,11 +1050,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		let configApplyToken = 0;
 		// Ring colour callbacks bind asynchronously (MicroPython), but three-globe
 		// captures ringColor when each ring circle is emitted (triggerUpdate:false).
-		// To keep colour and data consistent, every ring-data emission goes through
-		// emitRingsData (below), which waits for any in-flight ring-colour binding
-		// and drops emissions superseded by a newer one (tracked by this counter).
+		// To keep colour and data consistent, ring-data operations are serialised
+		// through enqueueRingsDataOp (below): each waits for the in-flight colour
+		// binding and runs in arrival order, so a circle never emits with a stale
+		// colour and incremental patches are applied in order (never dropped).
 		let pendingRingColorBinding: Promise<unknown> = Promise.resolve();
-		let ringsDataApplyToken = 0;
+		let ringDataChain: Promise<unknown> = Promise.resolve();
 		const accessorTokens = new Map<string, number>();
 
 		const nextAccessorToken = (prop: string): number => {
@@ -1115,17 +1116,23 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		]);
 		const colorFnAccessorProps = new Set(colorFnAccessorDefaults.keys());
 
-		// Emit ring data after any in-flight ring-colour binding has applied, so a
-		// ring circle is never emitted with a stale colour accessor (three-globe
-		// captures ringColor at emission). Each emission claims a generation; if a
-		// newer emission is requested while this one waits, the stale one is dropped
-		// rather than replaying old data over the newer data.
+		// Serialise a ring-data operation (full set or incremental patch) so it runs
+		// after the in-flight ring-colour binding and after all earlier operations,
+		// in arrival order. Ordering both keeps circles from emitting with a stale
+		// colour and makes a later full set naturally win over earlier data without
+		// dropping incremental patches.
+		const enqueueRingsDataOp = (op: () => void): void => {
+			ringDataChain = ringDataChain
+				.then(() => pendingRingColorBinding)
+				.then(op)
+				.catch((error) => {
+					console.error("Failed to apply ring data.", error);
+				});
+		};
+
 		const emitRingsData = (data: Array<Record<string, unknown>>): void => {
-			const generation = ++ringsDataApplyToken;
-			void pendingRingColorBinding.then(() => {
-				if (generation === ringsDataApplyToken) {
-					globe.ringsData(data);
-				}
+			enqueueRingsDataOp(() => {
+				globe.ringsData(data);
 			});
 		};
 
@@ -1470,18 +1477,16 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					}
 					globe.particlesData(normalizeParticlesData(data));
 				} else if (type === "rings_patch_data") {
-					// Patch + re-emit after any in-flight ring-colour binding (see
-					// emitRingsData); drop if a newer ring-data emission supersedes it.
+					// Serialise the patch after any in-flight colour binding and earlier
+					// ring-data ops (see enqueueRingsDataOp); patches are incremental, so
+					// they must all apply in order and are never dropped.
 					const patches = payload?.patches ?? [];
-					const generation = ++ringsDataApplyToken;
-					void pendingRingColorBinding.then(() => {
-						if (generation === ringsDataApplyToken) {
-							patchLayerData(
-								() => globe.ringsData() ?? [],
-								(data) => globe.ringsData(data),
-								patches,
-							);
-						}
+					enqueueRingsDataOp(() => {
+						patchLayerData(
+							() => globe.ringsData() ?? [],
+							(data) => globe.ringsData(data),
+							patches,
+						);
 					});
 				} else if (type === "labels_patch_data") {
 					patchLayerData(
