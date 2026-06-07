@@ -242,7 +242,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "pointAltitude": "altitude",
                 "pointRadius": "radius",
                 "pointColor": "color",
-                "pointLabel": "label",
             }
         )
         self._arcs_props = config.arcs.model_dump(
@@ -267,7 +266,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "arcDashGap": "dashGap",
                 "arcDashInitialGap": "dashInitialGap",
                 "arcDashAnimateTime": "dashAnimateTime",
-                "arcLabel": "label",
             }
         )
         # The per-datum "color" field accessor is the default, but an
@@ -289,7 +287,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "polygonStrokeColor": "stroke_color",
                 "polygonAltitude": "altitude",
                 "polygonCapCurvatureResolution": "cap_curvature_resolution",
-                "polygonLabel": "label",
             }
         )
         self._paths_props = config.paths.model_dump(
@@ -305,7 +302,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "pathDashGap": "dashGap",
                 "pathDashInitialGap": "dashInitialGap",
                 "pathDashAnimateTime": "dashAnimateTime",
-                "pathLabel": "label",
             }
         )
         # See the arcColor note above: a path_color_fn gradient overrides the
@@ -361,7 +357,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "hexPolygonUseDots": "useDots",
                 "hexPolygonCurvatureResolution": "curvatureResolution",
                 "hexPolygonDotResolution": "dotResolution",
-                "hexPolygonLabel": "label",
             }
         )
         self._tiles_props = config.tiles.model_dump(
@@ -381,7 +376,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "tileUseGlobeProjection": "useGlobeProjection",
                 "tileMaterial": "material",
                 "tileCurvatureResolution": "curvatureResolution",
-                "tileLabel": "label",
             }
         )
         self._particles_props = self._build_particles_props(
@@ -426,7 +420,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "labelIncludeDot": "includeDot",
                 "labelDotRadius": "dotRadius",
                 "labelDotOrientation": "dotOrientation",
-                "labelLabel": "label",
             }
         )
         config_dict = config.model_dump(
@@ -812,6 +805,27 @@ class GlobeWidget(anywidget.AnyWidget):
             "points", self._points_props, "pointsTransitionDuration", value
         )
 
+    def get_point_label(self) -> str | FrontendPythonFunction | None:
+        """Return the points tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._points_props.get("pointLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_point_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the points tooltip label (``None`` restores the per-datum label).
+
+        Accepts a constant string (one tooltip for every point), a
+        ``FrontendPythonFunction`` / ``@frontend_python`` callable (point datum ->
+        tooltip string), or ``None`` to fall back to each ``PointDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("points", self._points_props, "pointLabel", serialized)
+
     def get_arcs_data(self) -> list[ArcDatum] | None:
         """Return a copy of the cached arcs data."""
         return self._denormalize_layer_data(self._arcs_data, ArcDatum)
@@ -876,6 +890,25 @@ class GlobeWidget(anywidget.AnyWidget):
         serialized = self._encode_frontend_python_function(value)
         self._set_layer_prop("arcs", self._arcs_props, "arcColor", serialized)
 
+    def get_arc_label(self) -> str | FrontendPythonFunction | None:
+        """Return the arcs tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(self._arcs_props.get("arcLabel"))
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_arc_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the arcs tooltip label (``None`` restores the per-datum label).
+
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (arc datum -> tooltip string), or ``None`` to
+        fall back to each ``ArcDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("arcs", self._arcs_props, "arcLabel", serialized)
+
     def get_polygon_cap_material(self) -> GlobeMaterialSpec | None:
         """Return the polygon cap material."""
         value = self._polygons_props.get("polygonCapMaterial")
@@ -934,6 +967,29 @@ class GlobeWidget(anywidget.AnyWidget):
         """Update a single polygon by id."""
         patch = PolygonDatumPatch.model_validate({"id": polygon_id, **changes})
         self.patch_polygons_data([patch])
+
+    def get_polygon_label(self) -> str | FrontendPythonFunction | None:
+        """Return the polygons tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._polygons_props.get("polygonLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_polygon_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the polygons tooltip label (``None`` restores the per-datum label).
+
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (polygon datum -> tooltip string), or ``None``
+        to fall back to each ``PolygonDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "polygons", self._polygons_props, "polygonLabel", serialized
+        )
 
     def get_paths_data(self) -> list[PathDatum] | None:
         """Return a copy of the cached paths data."""
@@ -1024,6 +1080,27 @@ class GlobeWidget(anywidget.AnyWidget):
         """
         serialized = self._encode_frontend_python_function(value)
         self._set_layer_prop("paths", self._paths_props, "pathColor", serialized)
+
+    def get_path_label(self) -> str | FrontendPythonFunction | None:
+        """Return the paths tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._paths_props.get("pathLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_path_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the paths tooltip label (``None`` restores the per-datum label).
+
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (path datum -> tooltip string), or ``None`` to
+        fall back to each ``PathDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("paths", self._paths_props, "pathLabel", serialized)
 
     def get_heatmaps_data(self) -> list[HeatmapDatum] | None:
         """Return a copy of the cached heatmaps data."""
@@ -1309,6 +1386,29 @@ class GlobeWidget(anywidget.AnyWidget):
             value,
         )
 
+    def get_hex_polygon_label(self) -> str | FrontendPythonFunction | None:
+        """Return the hexed polygons tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._hex_polygons_props.get("hexPolygonLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_hex_polygon_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the hexed polygons tooltip label (``None`` restores per-datum label).
+
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (hexed-polygon datum -> tooltip string), or
+        ``None`` to fall back to each ``HexPolygonDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "hex_polygons", self._hex_polygons_props, "hexPolygonLabel", serialized
+        )
+
     def get_tiles_data(self) -> list[TileDatum] | None:
         """Return a copy of the cached tiles data."""
         return self._denormalize_layer_data(self._tiles_data, TileDatum)
@@ -1340,6 +1440,27 @@ class GlobeWidget(anywidget.AnyWidget):
             "tiles", self._tiles_props, "tilesTransitionDuration", value
         )
 
+    def get_tile_label(self) -> str | FrontendPythonFunction | None:
+        """Return the tiles tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._tiles_props.get("tileLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_tile_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the tiles tooltip label (``None`` restores the per-datum label).
+
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (tile datum -> tooltip string), or ``None`` to
+        fall back to each ``TileDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("tiles", self._tiles_props, "tileLabel", serialized)
+
     def get_particles_data(self) -> list[ParticleDatum] | None:
         """Return a copy of the cached particles data."""
         return self._denormalize_layer_data(self._particles_data, ParticleDatum)
@@ -1360,6 +1481,31 @@ class GlobeWidget(anywidget.AnyWidget):
         """Update a single particles entry by id."""
         patch = ParticleDatumPatch.model_validate({"id": particle_id, **changes})
         self.patch_particles_data([patch])
+
+    def get_particle_label(self) -> str | FrontendPythonFunction | None:
+        """Return the particles tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._particles_props.get("particleLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_particle_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the particles tooltip label (``None`` restores the per-datum label).
+
+        On hover globe.gl passes the individual particle point, so the callback
+        receives a ``ParticlePointDatum`` (not the containing group). Accepts a
+        constant string, a ``FrontendPythonFunction`` / ``@frontend_python``
+        callable (particle point datum -> tooltip string), or ``None`` to fall back
+        to each ``ParticlePointDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "particles", self._particles_props, "particleLabel", serialized
+        )
 
     def get_rings_data(self) -> list[RingDatum] | None:
         """Return a copy of the cached rings data."""
@@ -1466,6 +1612,28 @@ class GlobeWidget(anywidget.AnyWidget):
             "labels", self._labels_props, "labelsTransitionDuration", value
         )
 
+    def get_label_label(self) -> str | FrontendPythonFunction | None:
+        """Return the labels tooltip label constant or frontend callback."""
+        value = self._decode_frontend_python_function(
+            self._labels_props.get("labelLabel")
+        )
+        if isinstance(value, (str, FrontendPythonFunction)) or value is None:
+            return value
+        return None
+
+    def set_label_label(
+        self, value: str | FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the labels tooltip label (``None`` restores the per-datum label).
+
+        Sets the hover tooltip (distinct from the rendered 3D ``LabelDatum.text``).
+        Accepts a constant string, a ``FrontendPythonFunction`` /
+        ``@frontend_python`` callable (label datum -> tooltip string), or ``None`` to
+        fall back to each ``LabelDatum.label``.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop("labels", self._labels_props, "labelLabel", serialized)
+
     def _handle_frontend_message(
         self, _widget: "GlobeWidget", message: dict[str, Any], _buffers: list[bytes]
     ) -> None:
@@ -1536,7 +1704,6 @@ class GlobeWidget(anywidget.AnyWidget):
                 "particlesSizeAttenuation": "sizeAttenuation",
                 "particlesColor": "color",
                 "particlesTexture": "texture",
-                "particleLabel": "label",
             }
         )
         return props

@@ -20,15 +20,17 @@ def hex_altitude(hexbin):
 
 Pass the decorated function wherever an accessor callback is accepted (for
 example `hex_altitude=`, `hex_top_color=`, `hex_label=`, the heatmaps
-`heatmap_color_fn=`, or the arc/path/ring gradient accessors `arc_color_fn=`,
-`path_color_fn=`, `ring_color_fn=`).
+`heatmap_color_fn=`, the arc/path/ring gradient accessors `arc_color_fn=`,
+`path_color_fn=`, `ring_color_fn=`, or any layer's tooltip accessor `point_label=`,
+`arc_label=`, `polygon_label=`, &hellip; &mdash; see the
+[reference](#callback-reference)).
 
 Most of these callbacks run at data-change time to bake globe.gl's render buffers
 (for example, the heatmap colormap is sampled to build a fixed colour lookup),
-not on every animation frame. Label/tooltip callbacks such as `hex_label` are the
-exception &mdash; they are evaluated lazily on hover to build the tooltip. Either
-way, keep the body cheap: ordinary Python arithmetic or string formatting is fast
-enough.
+not on every animation frame. Label/tooltip callbacks (the per-layer `*_label`
+accessors, such as `point_label` and `hex_label`) are the exception &mdash; they
+are evaluated lazily on hover to build the tooltip. Either way, keep the body
+cheap: ordinary Python arithmetic or string formatting is fast enough.
 
 ## What your callback receives, and what it can access
 
@@ -112,11 +114,22 @@ else is accessible inside the callback (see
 | `hex_label` (hex bin) | `hexbin: dict` | HTML/text tooltip `str` | on hover |
 | `hex_bin_point_lat` / `_lng` / `_weight` (hex bin) | `point: dict` | `float` | data change |
 | `hex_margin` (hex bin) | `hexbin: dict` | `float` | data change |
+| `point_label` / `arc_label` / `path_label` / `polygon_label` / `hex_polygon_label` / `tile_label` / `particle_label` / `label_label` | `datum: dict` | HTML/text tooltip `str` | on hover |
 
 The colour-gradient callbacks (`arc_color_fn`, `path_color_fn`, `ring_color_fn`)
 are a *layer-level override*: when set, they replace the per-datum `color` field
 for every element in the layer. Pass `None` (the default) to keep per-datum
 colours.
+
+The per-layer tooltip accessors (`point_label`, `arc_label`, `path_label`,
+`polygon_label`, `hex_polygon_label`, `tile_label`, `particle_label`,
+`label_label`) are likewise *layer-level overrides* of the per-datum `label`
+field. Each accepts a `@frontend_python` callback (datum &rarr; tooltip string), a
+plain string (one fixed tooltip for every element), or `None` (the default) to
+fall back to each datum's `label`. (One exception: the particles layer passes the
+hovered **individual particle point**, a `ParticlePointDatum`, not the group.) The
+callback's datum argument stays loosely typed (`dict`), so a plain `def fn(d)` type
+checks. Swap them at runtime with `GlobeWidget.set_point_label(...)` and friends.
 
 !!! tip "Read dict inputs defensively"
 

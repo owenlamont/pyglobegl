@@ -43,6 +43,14 @@ display(GlobeWidget(config=config))
   `MeshLambertMaterial`) and a `params` dict forwarded to that material's
   constructor.
 
+## Custom tooltip
+
+`TileDatum.label` is each tile's hover tooltip. To compute one from the datum or
+share a constant across the layer, set a layer-level `tile_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for every tile), or `None` (the default) to use each
+datum's `label`. Swap it at runtime with `GlobeWidget.set_tile_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `tiles_from_gdf` builds tiles from point geometries with `width` / `height`
