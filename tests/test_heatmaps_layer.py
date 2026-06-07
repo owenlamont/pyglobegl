@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 _URL_ADAPTER = TypeAdapter(AnyUrl)
 
 
-def _make_config(heatmaps: HeatmapsLayerConfig, globe_texture_url: str) -> GlobeConfig:
+def _make_config(
+    heatmaps: HeatmapsLayerConfig, globe_texture_url: str, *, altitude: float = 1.8
+) -> GlobeConfig:
     return GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -40,7 +42,7 @@ def _make_config(heatmaps: HeatmapsLayerConfig, globe_texture_url: str) -> Globe
         ),
         heatmaps=heatmaps,
         view=GlobeViewConfig(
-            point_of_view=PointOfView(lat=0, lng=0, altitude=1.8), transition_ms=0
+            point_of_view=PointOfView(lat=0, lng=0, altitude=altitude), transition_ms=0
         ),
     )
 
@@ -128,16 +130,22 @@ def test_heatmap_color_fn(
 ) -> None:
     canvas_similarity_threshold = 0.97
 
+    # Alpha scales with density so the globe shows through at low density (like
+    # globe.gl's default colormap), keeping the gray globe clearly visible.
     @frontend_python
     def warm_colormap(t):
         red = int(255 * min(1.0, max(0.0, t)))
-        return f"rgb({red},{int(90 * t)},40)"
+        return f"rgba({red},{int(90 * t)},40,{t})"
 
     @frontend_python
     def cool_colormap(t):
         blue = int(255 * min(1.0, max(0.0, t)))
-        return f"rgb(40,{int(90 * t)},{blue})"
+        return f"rgba(40,{int(90 * t)},{blue},{t})"
 
+    # Gentle extrusion + a zoomed-out camera (see altitude below) keep the whole
+    # globe in frame against black space, with the colormap readable as a surface
+    # cap rather than a frame-filling dome. Lower saturation so the gradient (not
+    # just the t=1 endpoint colour) is visible.
     heatmaps_data = [
         HeatmapDatum(
             points=[
@@ -146,9 +154,9 @@ def test_heatmap_color_fn(
                 HeatmapPointDatum(lat=-25, lng=-15, weight=4.0),
             ],
             bandwidth=8.0,
-            color_saturation=10.0,
-            base_altitude=0.4,
-            top_altitude=0.8,
+            color_saturation=2.0,
+            base_altitude=0.01,
+            top_altitude=0.12,
         )
     ]
 
@@ -159,6 +167,7 @@ def test_heatmap_color_fn(
             heatmaps_transition_duration=0,
         ),
         globe_flat_texture_data_url,
+        altitude=2.5,
     )
     _disable_webgpu(page_session)
     widget = GlobeWidget(config=config)
