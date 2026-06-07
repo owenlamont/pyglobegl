@@ -39,6 +39,15 @@ display(GlobeWidget(config=config))
   `label`.
 - `ParticleDatum` &mdash; a group of particles plus shared `color` and `size`.
 
+## Custom tooltip
+
+`ParticleDatum.label` is the particle group's hover tooltip. To compute one from
+the datum or share a constant across the layer, set a layer-level `particle_label`
+&mdash; a [frontend Python callback](../guides/frontend-callbacks.md)
+(datum &rarr; string), a plain string (one tooltip for all), or `None` (the
+default) to use each datum's `label`. Swap it at runtime with
+`GlobeWidget.set_particle_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `particles_from_gdf` builds a particle group from point geometries with an

@@ -12,8 +12,14 @@ from pyglobegl import (
     HeatmapsLayerConfig,
     HexBin,
     HexBinLayerConfig,
+    HexedPolygonsLayerConfig,
+    LabelsLayerConfig,
+    ParticlesLayerConfig,
     PathsLayerConfig,
+    PointsLayerConfig,
+    PolygonsLayerConfig,
     RingsLayerConfig,
+    TilesLayerConfig,
 )
 
 
@@ -286,3 +292,187 @@ def test_view_config_serializes_controls_auto_rotate_settings() -> None:
 
     assert payload["view"]["controlsAutoRotate"] is True
     assert payload["view"]["controlsAutoRotateSpeed"] == pytest.approx(0.6)
+
+
+@frontend_python
+def _tooltip(datum) -> str:
+    # Loosely typed datum dict (a stricter param would break by contravariance);
+    # reads the per-datum label and wraps it in markup for the hover tooltip.
+    return f"<b>{datum.get('label', '?')}</b>"
+
+
+# (layer key, config class, Python field, globe.gl alias, getter, setter).
+_LABEL_LAYERS = [
+    pytest.param(
+        "points",
+        PointsLayerConfig,
+        "point_label",
+        "pointLabel",
+        "get_point_label",
+        "set_point_label",
+        id="points",
+    ),
+    pytest.param(
+        "arcs",
+        ArcsLayerConfig,
+        "arc_label",
+        "arcLabel",
+        "get_arc_label",
+        "set_arc_label",
+        id="arcs",
+    ),
+    pytest.param(
+        "paths",
+        PathsLayerConfig,
+        "path_label",
+        "pathLabel",
+        "get_path_label",
+        "set_path_label",
+        id="paths",
+    ),
+    pytest.param(
+        "polygons",
+        PolygonsLayerConfig,
+        "polygon_label",
+        "polygonLabel",
+        "get_polygon_label",
+        "set_polygon_label",
+        id="polygons",
+    ),
+    pytest.param(
+        "hexed_polygons",
+        HexedPolygonsLayerConfig,
+        "hex_polygon_label",
+        "hexPolygonLabel",
+        "get_hex_polygon_label",
+        "set_hex_polygon_label",
+        id="hexed_polygons",
+    ),
+    pytest.param(
+        "tiles",
+        TilesLayerConfig,
+        "tile_label",
+        "tileLabel",
+        "get_tile_label",
+        "set_tile_label",
+        id="tiles",
+    ),
+    pytest.param(
+        "particles",
+        ParticlesLayerConfig,
+        "particle_label",
+        "particleLabel",
+        "get_particle_label",
+        "set_particle_label",
+        id="particles",
+    ),
+    pytest.param(
+        "labels",
+        LabelsLayerConfig,
+        "label_label",
+        "labelLabel",
+        "get_label_label",
+        "set_label_label",
+        id="labels",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_layer_config_serializes_label_callback(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    config = GlobeConfig(**{layer: config_cls(**{field: _tooltip})})
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+    label = payload[layer][alias]
+
+    assert isinstance(label, dict)
+    assert label["__pyglobegl_type"] == "frontend_python_function"
+    assert label["name"] == "_tooltip"
+    assert "def _tooltip" in label["source"]
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_layer_config_serializes_label_constant_string(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    config = GlobeConfig(**{layer: config_cls(**{field: "Tooltip text"})})
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+
+    assert payload[layer][alias] == "Tooltip text"
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_layer_config_accepts_explicit_label_function(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    fn = FrontendPythonFunction(name="tip", source="def tip(d):\n    return 'x'")
+
+    config = GlobeConfig(**{layer: config_cls(**{field: fn})})
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+
+    assert payload[layer][alias]["name"] == "tip"
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_layer_config_label_defaults_to_none(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    payload = GlobeConfig(**{layer: config_cls()}).model_dump(
+        by_alias=True, exclude_none=True, mode="json"
+    )
+
+    assert alias not in payload.get(layer, {})
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_widget_snapshot_label_default_omits_alias(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    # Unlike the gradient accessors (which inject the per-datum "color" field
+    # accessor on the wire), the label default is omitted: the frontend pre-binds
+    # the "label" field accessor instead, so a user string can be a constant.
+    default_widget = GlobeWidget(config=GlobeConfig(**{layer: config_cls()}))
+    assert alias not in default_widget.config.get(layer, {})
+
+    callback_widget = GlobeWidget(
+        config=GlobeConfig(**{layer: config_cls(**{field: _tooltip})})
+    )
+    assert isinstance(callback_widget.config[layer][alias], dict)
+
+    const_widget = GlobeWidget(
+        config=GlobeConfig(**{layer: config_cls(**{field: "Tip"})})
+    )
+    assert const_widget.config[layer][alias] == "Tip"
+
+
+@pytest.mark.parametrize(
+    ("layer", "config_cls", "field", "alias", "getter", "setter"), _LABEL_LAYERS
+)
+def test_widget_round_trips_label(
+    layer, config_cls, field, alias, getter, setter
+) -> None:
+    widget = GlobeWidget(config=GlobeConfig(**{layer: config_cls()}))
+    assert getattr(widget, getter)() is None
+
+    getattr(widget, setter)(_tooltip)
+    resolved = getattr(widget, getter)()
+    assert isinstance(resolved, FrontendPythonFunction)
+    assert resolved.name == "_tooltip"
+    assert "def _tooltip" in resolved.source
+
+    getattr(widget, setter)("Static tip")
+    assert getattr(widget, getter)() == "Static tip"
+
+    getattr(widget, setter)(None)
+    assert getattr(widget, getter)() is None

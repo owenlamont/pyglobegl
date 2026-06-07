@@ -107,6 +107,30 @@ def _serialize_frontend_color_fn(
     raise TypeError(f"{field_name} must serialize to a frontend function or None.")
 
 
+def _serialize_frontend_label(
+    value: StrictStr | FrontendPythonFunction | None, field_name: str
+) -> str | dict[str, str] | None:
+    """Serialize a tooltip-label accessor field to a wire payload or None.
+
+    Shared by the one-to-one-datum layers' ``*_label`` accessors and the hex bin
+    ``hex_label``: each accepts a constant tooltip string, a frontend callback
+    (datum -> tooltip string), or ``None``.
+
+    Returns:
+        The constant string, the callback wire payload, or ``None`` when unset.
+
+    Raises:
+        TypeError: If the value serializes to something other than a string,
+            callback payload, or ``None``.
+    """
+    serialized = _serialize_frontend_accessor(value)
+    if serialized is None or isinstance(serialized, (str, dict)):
+        return serialized
+    raise TypeError(
+        f"{field_name} must serialize to a string, frontend function, or None."
+    )
+
+
 def _coerce_frontend_function_fields(data: Any, field_names: Sequence[str]) -> Any:
     """Coerce decorator-marked callables in ``field_names`` to specs.
 
@@ -261,10 +285,23 @@ class PointDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Points layer settings for globe.gl."""
+    """Points layer settings for globe.gl.
+
+    The ``point_label`` field sets the hover-tooltip accessor. It accepts a
+    constant string (one tooltip for every point), a ``FrontendPythonFunction``
+    (or a callable decorated with ``@frontend_python``) that receives the point
+    datum and returns the tooltip string, or ``None`` (the default) to use each
+    ``PointDatum.label``.
+    """
 
     points_data: Annotated[
         list[PointDatum] | None, Field(serialization_alias="pointsData")
+    ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single point datum dict; output: tooltip HTML/text string.
+    point_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="pointLabel"),
     ] = None
     point_resolution: Annotated[
         int, Field(gt=0, serialization_alias="pointResolution")
@@ -273,6 +310,17 @@ class PointsLayerConfig(BaseModel, extra="forbid", frozen=True):
     points_transition_duration: Annotated[
         int, Field(serialization_alias="pointsTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("point_label",))
+
+    @field_serializer("point_label", when_used="always")
+    def _serialize_point_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "point_label")
 
 
 class ArcDatum(BaseModel, extra="allow", frozen=True):
@@ -396,6 +444,12 @@ class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
     arcs_data: Annotated[
         list[ArcDatum] | None, Field(serialization_alias="arcsData")
     ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single arc datum dict; output: tooltip HTML/text string.
+    arc_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="arcLabel"),
+    ] = None
     # Arc gradient colour accessor (frontend callback).
     # Callback input: a single numeric t in [0, 1] (position along the arc).
     # Callback output: CSS color string.
@@ -415,13 +469,19 @@ class ArcsLayerConfig(BaseModel, extra="forbid", frozen=True):
     @model_validator(mode="before")
     @classmethod
     def _coerce_frontend_functions(cls, data: Any) -> Any:
-        return _coerce_frontend_function_fields(data, ("arc_color_fn",))
+        return _coerce_frontend_function_fields(data, ("arc_color_fn", "arc_label"))
 
     @field_serializer("arc_color_fn", when_used="always")
     def _serialize_arc_color_fn(
         self, value: FrontendPythonFunction | None
     ) -> dict[str, str] | None:
         return _serialize_frontend_color_fn(value, "arc_color_fn")
+
+    @field_serializer("arc_label", when_used="always")
+    def _serialize_arc_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "arc_label")
 
 
 class PolygonDatum(BaseModel, extra="allow", frozen=True):
@@ -474,10 +534,22 @@ class PolygonDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class PolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Polygons layer settings for globe.gl."""
+    """Polygons layer settings for globe.gl.
+
+    The ``polygon_label`` field sets the hover-tooltip accessor: a constant
+    string, a ``FrontendPythonFunction`` (or a callable decorated with
+    ``@frontend_python``) that receives the polygon datum and returns the tooltip
+    string, or ``None`` (the default) to use each ``PolygonDatum.label``.
+    """
 
     polygons_data: Annotated[
         list[PolygonDatum] | None, Field(serialization_alias="polygonsData")
+    ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single polygon datum dict; output: tooltip text string.
+    polygon_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="polygonLabel"),
     ] = None
     polygon_cap_material: Annotated[
         GlobeMaterialSpec | None, Field(serialization_alias="polygonCapMaterial")
@@ -488,6 +560,17 @@ class PolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
     polygons_transition_duration: Annotated[
         int, Field(serialization_alias="polygonsTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("polygon_label",))
+
+    @field_serializer("polygon_label", when_used="always")
+    def _serialize_polygon_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "polygon_label")
 
 
 class PathDatum(BaseModel, extra="allow", frozen=True):
@@ -575,6 +658,12 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
     paths_data: Annotated[
         list[PathDatum] | None, Field(serialization_alias="pathsData")
     ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single path datum dict; output: tooltip HTML/text string.
+    path_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="pathLabel"),
+    ] = None
     # Path gradient colour accessor (frontend callback).
     # Callback input: a single numeric t in [0, 1] (position along the path).
     # Callback output: CSS color string.
@@ -592,13 +681,19 @@ class PathsLayerConfig(BaseModel, extra="forbid", frozen=True):
     @model_validator(mode="before")
     @classmethod
     def _coerce_frontend_functions(cls, data: Any) -> Any:
-        return _coerce_frontend_function_fields(data, ("path_color_fn",))
+        return _coerce_frontend_function_fields(data, ("path_color_fn", "path_label"))
 
     @field_serializer("path_color_fn", when_used="always")
     def _serialize_path_color_fn(
         self, value: FrontendPythonFunction | None
     ) -> dict[str, str] | None:
         return _serialize_frontend_color_fn(value, "path_color_fn")
+
+    @field_serializer("path_label", when_used="always")
+    def _serialize_path_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "path_label")
 
 
 class HeatmapPointDatum(BaseModel, extra="allow", frozen=True):
@@ -888,14 +983,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_label(
         self, value: StrictStr | FrontendPythonFunction | None
     ) -> str | dict[str, str] | None:
-        serialized = _serialize_frontend_accessor(value)
-        if serialized is None:
-            return None
-        if isinstance(serialized, str):
-            return serialized
-        if isinstance(serialized, dict):
-            return serialized
-        raise TypeError("hex label accessor must serialize to string or function.")
+        return _serialize_frontend_label(value, "hex_label")
 
 
 class HexPolygonDatum(BaseModel, extra="allow", frozen=True):
@@ -961,14 +1049,37 @@ class HexPolygonDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class HexedPolygonsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Hexed polygons layer settings for globe.gl."""
+    """Hexed polygons layer settings for globe.gl.
+
+    The ``hex_polygon_label`` field sets the hover-tooltip accessor: a constant
+    string, a ``FrontendPythonFunction`` (or a callable decorated with
+    ``@frontend_python``) that receives the hexed-polygon datum and returns the
+    tooltip string, or ``None`` (the default) to use each ``HexPolygonDatum.label``.
+    """
 
     hex_polygons_data: Annotated[
         list[HexPolygonDatum] | None, Field(serialization_alias="hexPolygonsData")
     ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single hexed-polygon datum dict; output: tooltip string.
+    hex_polygon_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="hexPolygonLabel"),
+    ] = None
     hex_polygons_transition_duration: Annotated[
         int, Field(serialization_alias="hexPolygonsTransitionDuration")
     ] = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("hex_polygon_label",))
+
+    @field_serializer("hex_polygon_label", when_used="always")
+    def _serialize_hex_polygon_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "hex_polygon_label")
 
 
 class TileDatum(BaseModel, extra="allow", frozen=True):
@@ -1028,14 +1139,37 @@ class TileDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class TilesLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Tiles layer settings for globe.gl."""
+    """Tiles layer settings for globe.gl.
+
+    The ``tile_label`` field sets the hover-tooltip accessor: a constant string,
+    a ``FrontendPythonFunction`` (or a callable decorated with
+    ``@frontend_python``) that receives the tile datum and returns the tooltip
+    string, or ``None`` (the default) to use each ``TileDatum.label``.
+    """
 
     tiles_data: Annotated[
         list[TileDatum] | None, Field(serialization_alias="tilesData")
     ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single tile datum dict; output: tooltip HTML/text string.
+    tile_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="tileLabel"),
+    ] = None
     tiles_transition_duration: Annotated[
         int, Field(serialization_alias="tilesTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("tile_label",))
+
+    @field_serializer("tile_label", when_used="always")
+    def _serialize_tile_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "tile_label")
 
 
 class ParticlePointDatum(BaseModel, extra="allow", frozen=True):
@@ -1091,11 +1225,34 @@ class ParticleDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class ParticlesLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Particles layer settings for globe.gl."""
+    """Particles layer settings for globe.gl.
+
+    The ``particle_label`` field sets the hover-tooltip accessor: a constant
+    string, a ``FrontendPythonFunction`` (or a callable decorated with
+    ``@frontend_python``) that receives the particle datum and returns the tooltip
+    string, or ``None`` (the default) to use each ``ParticleDatum.label``.
+    """
 
     particles_data: Annotated[
         list[ParticleDatum] | None, Field(serialization_alias="particlesData")
     ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single particle datum dict; output: tooltip text string.
+    particle_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="particleLabel"),
+    ] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("particle_label",))
+
+    @field_serializer("particle_label", when_used="always")
+    def _serialize_particle_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "particle_label")
 
 
 class RingDatum(BaseModel, extra="allow", frozen=True):
@@ -1278,10 +1435,23 @@ class LabelDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class LabelsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Labels layer settings for globe.gl."""
+    """Labels layer settings for globe.gl.
+
+    The ``label_label`` field sets the hover-tooltip accessor (distinct from the
+    rendered 3D ``LabelDatum.text``): a constant string, a
+    ``FrontendPythonFunction`` (or a callable decorated with ``@frontend_python``)
+    that receives the label datum and returns the tooltip string, or ``None`` (the
+    default) to use each ``LabelDatum.label``.
+    """
 
     labels_data: Annotated[
         list[LabelDatum] | None, Field(serialization_alias="labelsData")
+    ] = None
+    # Hover tooltip accessor (constant string, frontend callback, or None).
+    # Callback input: a single label datum dict; output: tooltip HTML/text string.
+    label_label: Annotated[
+        StrictStr | FrontendPythonFunctionInput | None,
+        Field(serialization_alias="labelLabel"),
     ] = None
     label_type_face: Annotated[
         dict[str, Any] | None, Field(serialization_alias="labelTypeFace")
@@ -1292,6 +1462,17 @@ class LabelsLayerConfig(BaseModel, extra="forbid", frozen=True):
     labels_transition_duration: Annotated[
         int, Field(serialization_alias="labelsTransitionDuration")
     ] = 1000
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("label_label",))
+
+    @field_serializer("label_label", when_used="always")
+    def _serialize_label_label(
+        self, value: StrictStr | FrontendPythonFunction | None
+    ) -> str | dict[str, str] | None:
+        return _serialize_frontend_label(value, "label_label")
 
 
 class PointOfView(BaseModel, extra="forbid", frozen=True):

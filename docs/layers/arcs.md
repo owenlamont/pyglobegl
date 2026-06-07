@@ -80,6 +80,14 @@ config = GlobeConfig(arcs=ArcsLayerConfig(arcs_data=arcs, arc_color_fn=gradient)
 Pass `None` (the default) to keep per-datum colours, or swap it at runtime with
 `GlobeWidget.set_arcs_color_fn(...)`.
 
+## Custom tooltip
+
+`ArcDatum.label` is each arc's hover tooltip. To compute one from the datum or
+share a constant across the layer, set a layer-level `arc_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for every arc), or `None` (the default) to use each
+datum's `label`. Swap it at runtime with `GlobeWidget.set_arc_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `arcs_from_gdf` expects point geometry columns named `start` and `end`

@@ -59,6 +59,14 @@ Pass `None` (the default) to keep per-datum colours, or swap it at runtime with
     `path_stroke` switches globe.gl to fat lines, which support only the discrete
     colour-list form of `PathDatum.color`, not a `(t)`-interpolator.
 
+## Custom tooltip
+
+`PathDatum.label` is each path's hover tooltip. To compute one from the datum or
+share a constant across the layer, set a layer-level `path_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for every path), or `None` (the default) to use each
+datum's `label`. Swap it at runtime with `GlobeWidget.set_path_label(...)`.
+
 !!! tip "From a GeoDataFrame or trajectory"
 
     `paths_from_gdf` builds paths from `LineString` geometries, and

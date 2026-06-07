@@ -25,6 +25,15 @@ display(GlobeWidget(config=config))
 A label carries `lat`, `lng`, `text`, and `color`, plus styling fields such as
 `size`, `dot_radius`, `include_dot`, and `label_orientation`.
 
+## Custom tooltip
+
+`LabelDatum.label` is each label's hover tooltip (distinct from the rendered 3D
+`text`). To compute one from the datum or share a constant across the layer, set a
+layer-level `label_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for all), or `None` (the default) to use each datum's
+`label`. Swap it at runtime with `GlobeWidget.set_label_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `labels_from_gdf` builds labels from point geometries with a `text` column;

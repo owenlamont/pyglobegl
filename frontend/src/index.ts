@@ -42,7 +42,7 @@ type GlobeLayerConfig = {
 
 type PointsLayerConfig = {
 	pointsData?: Array<Record<string, unknown>>;
-	pointLabel?: string;
+	pointLabel?: string | FrontendPythonFunctionSpec | null;
 	pointLat?: number | string;
 	pointLng?: number | string;
 	pointColor?: string;
@@ -55,7 +55,7 @@ type PointsLayerConfig = {
 
 type ArcsLayerConfig = {
 	arcsData?: Array<Record<string, unknown>>;
-	arcLabel?: string;
+	arcLabel?: string | FrontendPythonFunctionSpec | null;
 	arcStartLat?: number | string;
 	arcStartLng?: number | string;
 	arcStartAltitude?: number | string;
@@ -77,7 +77,7 @@ type ArcsLayerConfig = {
 
 type PolygonsLayerConfig = {
 	polygonsData?: Array<Record<string, unknown>>;
-	polygonLabel?: string;
+	polygonLabel?: string | FrontendPythonFunctionSpec | null;
 	polygonGeoJsonGeometry?: string;
 	polygonCapColor?: string;
 	polygonCapMaterial?: unknown;
@@ -91,7 +91,7 @@ type PolygonsLayerConfig = {
 
 type PathsLayerConfig = {
 	pathsData?: Array<Record<string, unknown>>;
-	pathLabel?: string;
+	pathLabel?: string | FrontendPythonFunctionSpec | null;
 	pathResolution?: number;
 	pathColor?: string | Array<string> | FrontendPythonFunctionSpec | null;
 	pathStroke?: number | string;
@@ -149,7 +149,7 @@ type HexedPolygonsLayerConfig = {
 	hexPolygonCurvatureResolution?: number | string;
 	hexPolygonDotResolution?: number | string;
 	hexPolygonsTransitionDuration?: number;
-	hexPolygonLabel?: string;
+	hexPolygonLabel?: string | FrontendPythonFunctionSpec | null;
 };
 
 type TilesLayerConfig = {
@@ -163,7 +163,7 @@ type TilesLayerConfig = {
 	tileMaterial?: unknown;
 	tileCurvatureResolution?: number | string;
 	tilesTransitionDuration?: number;
-	tileLabel?: string;
+	tileLabel?: string | FrontendPythonFunctionSpec | null;
 };
 
 type ParticlesLayerConfig = {
@@ -176,7 +176,7 @@ type ParticlesLayerConfig = {
 	particlesSizeAttenuation?: boolean | string;
 	particlesColor?: string;
 	particlesTexture?: unknown;
-	particleLabel?: string;
+	particleLabel?: string | FrontendPythonFunctionSpec | null;
 };
 
 type RingsLayerConfig = {
@@ -206,7 +206,7 @@ type LabelsLayerConfig = {
 	labelDotRadius?: number | string;
 	labelDotOrientation?: string;
 	labelsTransitionDuration?: number;
-	labelLabel?: string;
+	labelLabel?: string | FrontendPythonFunctionSpec | null;
 };
 
 type GlobeConfig = {
@@ -866,6 +866,19 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		globe.pathPoints(defaultPathPoints);
 		globe.pathPointAlt(defaultPathPointAlt);
 
+		// globe.gl's *Label accessors default to the per-datum "name" field; the
+		// pyglobegl data models expose "label" instead, so remap each one here. A
+		// user point_label/arc_label/... overrides this via applyLayerProp, and a
+		// reset to None restores it (see labelAccessorDefaults).
+		globe.pointLabel("label");
+		globe.arcLabel("label");
+		globe.pathLabel("label");
+		globe.polygonLabel("label");
+		globe.hexPolygonLabel("label");
+		globe.tileLabel("label");
+		globe.particleLabel("label");
+		globe.labelLabel("label");
+
 		const globeProps = new Set([
 			"globeImageUrl",
 			"bumpImageUrl",
@@ -1116,6 +1129,23 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		]);
 		const colorFnAccessorProps = new Set(colorFnAccessorDefaults.keys());
 
+		// Tooltip-label accessors of the one-to-one-datum layers. Like the *Color
+		// gradient accessors above these are layer-level overrides of the per-datum
+		// "label" field, but the callback receives the datum and returns the tooltip
+		// string, so it binds AS the accessor (not () => wrapped). A constant string
+		// binds as () => value (one fixed tooltip); null restores the "label" field.
+		const labelAccessorDefaults = new Map<string, unknown>([
+			["pointLabel", "label"],
+			["arcLabel", "label"],
+			["pathLabel", "label"],
+			["polygonLabel", "label"],
+			["hexPolygonLabel", "label"],
+			["tileLabel", "label"],
+			["particleLabel", "label"],
+			["labelLabel", "label"],
+		]);
+		const labelAccessorProps = new Set(labelAccessorDefaults.keys());
+
 		// Serialise a ring-data operation (full set or incremental patch) so it runs
 		// after the in-flight ring-colour binding and after all earlier operations,
 		// in arrival order. Ordering both keeps circles from emitting with a stale
@@ -1219,6 +1249,40 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 						})
 						.catch((error) => {
 							console.error("Failed to apply color function accessor.", error);
+						});
+					return;
+				}
+				if (labelAccessorProps.has(prop)) {
+					const token = nextAccessorToken(prop);
+					const applySetter = setter as (arg: unknown) => void;
+					const bind = (wrapped: unknown): void => {
+						if (wrapped == null) {
+							// Restore the per-datum "label" field accessor.
+							applySetter(labelAccessorDefaults.get(prop));
+						} else if (typeof wrapped === "function") {
+							// A frontend Python callback (datum -> tooltip string). globe.gl
+							// invokes the accessor with the datum, so bind it directly — NOT
+							// () => wrapped (that is only for the (t) -> colour gradients).
+							applySetter(wrapped);
+						} else {
+							// A constant string: one fixed tooltip for every datum.
+							applySetter(() => wrapped);
+						}
+					};
+					// A constant string or null binds synchronously; only an actual
+					// frontend Python callback needs the async MicroPython runtime.
+					if (!isFrontendPythonFunctionSpec(value)) {
+						bind(value);
+						return;
+					}
+					void toFrontendAccessor(value)
+						.then((wrapped) => {
+							if (isCurrentAccessorToken(prop, token)) {
+								bind(wrapped);
+							}
+						})
+						.catch((error) => {
+							console.error("Failed to apply label accessor.", error);
 						});
 					return;
 				}
@@ -1677,7 +1741,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.pointsData(pointsConfig.pointsData ?? []);
 			}
 			if (pointsConfig.pointLabel !== undefined) {
-				globe.pointLabel(pointsConfig.pointLabel ?? null);
+				applyLayerProp(pointProps, "pointLabel", pointsConfig.pointLabel);
 			}
 			if (pointsConfig.pointLat !== undefined) {
 				globe.pointLat(pointsConfig.pointLat ?? null);
@@ -1713,7 +1777,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.arcsData(arcsConfig.arcsData ?? []);
 			}
 			if (arcsConfig.arcLabel !== undefined) {
-				globe.arcLabel(arcsConfig.arcLabel ?? null);
+				applyLayerProp(arcProps, "arcLabel", arcsConfig.arcLabel);
 			}
 			if (arcsConfig.arcStartLat !== undefined) {
 				globe.arcStartLat(arcsConfig.arcStartLat ?? null);
@@ -1776,7 +1840,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.polygonsData(polygonsConfig.polygonsData ?? []);
 			}
 			if (polygonsConfig.polygonLabel !== undefined) {
-				globe.polygonLabel(polygonsConfig.polygonLabel ?? null);
+				applyLayerProp(
+					polygonProps,
+					"polygonLabel",
+					polygonsConfig.polygonLabel,
+				);
 			}
 			if (polygonsConfig.polygonGeoJsonGeometry !== undefined) {
 				globe.polygonGeoJsonGeometry(
@@ -1825,7 +1893,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.pathsData(pathsConfig.pathsData ?? []);
 			}
 			if (pathsConfig.pathLabel !== undefined) {
-				globe.pathLabel(pathsConfig.pathLabel ?? null);
+				applyLayerProp(pathProps, "pathLabel", pathsConfig.pathLabel);
 			}
 			if (pathsConfig.pathResolution !== undefined) {
 				globe.pathResolution(pathsConfig.pathResolution);
@@ -2067,7 +2135,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				);
 			}
 			if (hexPolygonsConfig.hexPolygonLabel !== undefined) {
-				globe.hexPolygonLabel(hexPolygonsConfig.hexPolygonLabel ?? null);
+				applyLayerProp(
+					hexPolygonProps,
+					"hexPolygonLabel",
+					hexPolygonsConfig.hexPolygonLabel,
+				);
 			}
 		};
 
@@ -2108,7 +2180,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.tilesTransitionDuration(tilesConfig.tilesTransitionDuration);
 			}
 			if (tilesConfig.tileLabel !== undefined) {
-				globe.tileLabel(tilesConfig.tileLabel ?? null);
+				applyLayerProp(tilesProps, "tileLabel", tilesConfig.tileLabel);
 			}
 		};
 
@@ -2150,7 +2222,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.particlesTexture(particlesConfig.particlesTexture ?? null);
 			}
 			if (particlesConfig.particleLabel !== undefined) {
-				globe.particleLabel(particlesConfig.particleLabel ?? null);
+				applyLayerProp(
+					particlesProps,
+					"particleLabel",
+					particlesConfig.particleLabel,
+				);
 			}
 		};
 
@@ -2234,7 +2310,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.labelsTransitionDuration(labelsConfig.labelsTransitionDuration);
 			}
 			if (labelsConfig.labelLabel !== undefined) {
-				globe.labelLabel(labelsConfig.labelLabel ?? null);
+				applyLayerProp(labelsProps, "labelLabel", labelsConfig.labelLabel);
 			}
 		};
 

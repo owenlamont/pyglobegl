@@ -37,6 +37,14 @@ Each point carries `lat`, `lng`, `altitude`, `color`, `radius`, and `label`
 fields (with globe.gl defaults for anything you omit). Set `altitude` to raise the
 marker above the surface, and `label` for the hover tooltip.
 
+## Custom tooltip
+
+`PointDatum.label` is each point's hover tooltip. To compute one from the datum or
+share a constant across the layer, set a layer-level `point_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for every point), or `None` (the default) to use each
+datum's `label`. Swap it at runtime with `GlobeWidget.set_point_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `points_from_gdf` builds `PointDatum` lists straight from a GeoDataFrame &mdash;

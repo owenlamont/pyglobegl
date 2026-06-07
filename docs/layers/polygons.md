@@ -56,6 +56,14 @@ A polygon carries its `geometry` plus appearance fields such as `cap_color`,
     triangulation renders correctly; holes should be **clockwise**. The GeoPandas
     helpers handle this for you.
 
+## Custom tooltip
+
+`PolygonDatum.label` is each polygon's hover tooltip. To compute one from the datum
+or share a constant across the layer, set a layer-level `polygon_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (datum &rarr; string),
+a plain string (one tooltip for every polygon), or `None` (the default) to use each
+datum's `label`. Swap it at runtime with `GlobeWidget.set_polygon_label(...)`.
+
 !!! tip "From a GeoDataFrame"
 
     `polygons_from_gdf` defaults to a geometry column named `polygons` if present,
