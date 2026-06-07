@@ -1048,11 +1048,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexLabel",
 		]);
 		let configApplyToken = 0;
-		// Generation counter bumped by every ring-data mutation (config apply,
-		// rings_set_data, rings_patch_data). When applyRingsProps must defer the
-		// initial ring data until a gradient callback finishes loading, the deferred
-		// application checks this so it never replays stale data over newer data
-		// applied during the load.
+		// Ring colour callbacks bind asynchronously (MicroPython), but three-globe
+		// captures ringColor when each ring circle is emitted (triggerUpdate:false).
+		// To keep colour and data consistent, every ring-data emission goes through
+		// emitRingsData (below), which waits for any in-flight ring-colour binding
+		// and drops emissions superseded by a newer one (tracked by this counter).
+		let pendingRingColorBinding: Promise<unknown> = Promise.resolve();
 		let ringsDataApplyToken = 0;
 		const accessorTokens = new Map<string, number>();
 
@@ -1113,6 +1114,53 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			["ringColor", "color"],
 		]);
 		const colorFnAccessorProps = new Set(colorFnAccessorDefaults.keys());
+
+		// Emit ring data after any in-flight ring-colour binding has applied, so a
+		// ring circle is never emitted with a stale colour accessor (three-globe
+		// captures ringColor at emission). Each emission claims a generation; if a
+		// newer emission is requested while this one waits, the stale one is dropped
+		// rather than replaying old data over the newer data.
+		const emitRingsData = (data: Array<Record<string, unknown>>): void => {
+			const generation = ++ringsDataApplyToken;
+			void pendingRingColorBinding.then(() => {
+				if (generation === ringsDataApplyToken) {
+					globe.ringsData(data);
+				}
+			});
+		};
+
+		// Bind the ring colour accessor. A constant field-name accessor ("color")
+		// or null (reset to the per-datum field) binds synchronously; a frontend
+		// Python callback binds asynchronously via MicroPython, and the in-flight
+		// binding is published on pendingRingColorBinding so ring-data emissions
+		// wait for it.
+		const bindRingColor = (value: unknown): void => {
+			// globe.ringColor accepts a colour, colour array, or interpolator; the
+			// cast matches applyLayerProp's handling of these dynamic accessors.
+			const setRingColor = globe.ringColor as (arg: unknown) => void;
+			// Bumping the token invalidates any earlier in-flight binding so its
+			// async continuation does not overwrite this one.
+			const token = nextAccessorToken("ringColor");
+			if (!isFrontendPythonFunctionSpec(value)) {
+				setRingColor(
+					value == null ? colorFnAccessorDefaults.get("ringColor") : value,
+				);
+				pendingRingColorBinding = Promise.resolve();
+				return;
+			}
+			pendingRingColorBinding = toFrontendAccessor(value)
+				.then((wrapped) => {
+					if (
+						isCurrentAccessorToken("ringColor", token) &&
+						typeof wrapped === "function"
+					) {
+						setRingColor(() => wrapped);
+					}
+				})
+				.catch((error) => {
+					console.error("Failed to apply color function accessor.", error);
+				});
+		};
 
 		const applyLayerProp = (
 			props: Set<string>,
@@ -1321,8 +1369,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				} else if (type === "particles_set_data") {
 					globe.particlesData(normalizeParticlesData(payload?.data));
 				} else if (type === "rings_set_data") {
-					ringsDataApplyToken++;
-					globe.ringsData(payload?.data ?? []);
+					emitRingsData(payload?.data ?? []);
 				} else if (type === "labels_set_data") {
 					globe.labelsData(payload?.data ?? []);
 				} else if (type === "points_patch_data") {
@@ -1423,12 +1470,19 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					}
 					globe.particlesData(normalizeParticlesData(data));
 				} else if (type === "rings_patch_data") {
-					ringsDataApplyToken++;
-					patchLayerData(
-						() => globe.ringsData() ?? [],
-						(data) => globe.ringsData(data),
-						payload?.patches ?? [],
-					);
+					// Patch + re-emit after any in-flight ring-colour binding (see
+					// emitRingsData); drop if a newer ring-data emission supersedes it.
+					const patches = payload?.patches ?? [];
+					const generation = ++ringsDataApplyToken;
+					void pendingRingColorBinding.then(() => {
+						if (generation === ringsDataApplyToken) {
+							patchLayerData(
+								() => globe.ringsData() ?? [],
+								(data) => globe.ringsData(data),
+								patches,
+							);
+						}
+					});
 				} else if (type === "labels_patch_data") {
 					patchLayerData(
 						() => globe.labelsData() ?? [],
@@ -1454,7 +1508,14 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				} else if (type === "particles_prop") {
 					applyLayerProp(particlesProps, payload?.prop, payload?.value);
 				} else if (type === "rings_prop") {
-					applyLayerProp(ringsProps, payload?.prop, payload?.value);
+					// ringColor must go through bindRingColor so that in-flight binding
+					// is published for emitRingsData to await (ringColor is captured at
+					// ring emission, triggerUpdate:false).
+					if (payload?.prop === "ringColor") {
+						bindRingColor(payload?.value);
+					} else {
+						applyLayerProp(ringsProps, payload?.prop, payload?.value);
+					}
 				} else if (type === "labels_prop") {
 					applyLayerProp(labelsProps, payload?.prop, payload?.value);
 				} else if (type === "globe_prop") {
@@ -2113,53 +2174,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			if (ringsConfig.ringRepeatPeriod !== undefined) {
 				globe.ringRepeatPeriod(ringsConfig.ringRepeatPeriod ?? null);
 			}
-			const setRingsData = (): void => {
-				if (ringsConfig.ringsData !== undefined) {
-					globe.ringsData(ringsConfig.ringsData ?? []);
-				}
-			};
-			// three-globe captures ringColor when each ring circle is emitted
-			// (triggerUpdate: false), so a configured gradient callback must be bound
-			// BEFORE the initial ring data is emitted — otherwise a non-repeating ring
-			// can be emitted with its per-datum colour while MicroPython is still
-			// loading and never pick up the gradient. So for a callback, bind first
-			// and emit the data in the async continuation; a constant/field accessor
-			// binds synchronously and is already in place before emission below.
-			if (
-				ringsConfig.ringColor !== undefined &&
-				isFrontendPythonFunctionSpec(ringsConfig.ringColor)
-			) {
-				const token = nextAccessorToken("ringColor");
-				// Claim the current ring-data generation; only emit this initial data
-				// in the async continuation if nothing newer (a rings_set_data /
-				// rings_patch_data message, or a later config) was applied while
-				// MicroPython was loading, so we never replay stale data.
-				const dataToken = ++ringsDataApplyToken;
-				void toFrontendAccessor(ringsConfig.ringColor)
-					.then((wrapped) => {
-						if (
-							isCurrentAccessorToken("ringColor", token) &&
-							typeof wrapped === "function"
-						) {
-							globe.ringColor(() => wrapped);
-						}
-						if (dataToken === ringsDataApplyToken) {
-							setRingsData();
-						}
-					})
-					.catch((error) => {
-						console.error("Failed to apply color function accessor.", error);
-						if (dataToken === ringsDataApplyToken) {
-							setRingsData();
-						}
-					});
-				return;
-			}
 			if (ringsConfig.ringColor !== undefined) {
-				applyLayerProp(ringsProps, "ringColor", ringsConfig.ringColor);
+				bindRingColor(ringsConfig.ringColor);
 			}
-			ringsDataApplyToken++;
-			setRingsData();
+			if (ringsConfig.ringsData !== undefined) {
+				emitRingsData(ringsConfig.ringsData ?? []);
+			}
 		};
 
 		const applyLabelsProps = (labelsConfig?: LabelsLayerConfig): void => {
