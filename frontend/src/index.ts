@@ -2084,9 +2084,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			if (!ringsConfig) {
 				return;
 			}
-			if (ringsConfig.ringsData !== undefined) {
-				globe.ringsData(ringsConfig.ringsData ?? []);
-			}
 			if (ringsConfig.ringLat !== undefined) {
 				globe.ringLat(ringsConfig.ringLat ?? null);
 			}
@@ -2095,9 +2092,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			}
 			if (ringsConfig.ringAltitude !== undefined) {
 				globe.ringAltitude(ringsConfig.ringAltitude ?? null);
-			}
-			if (ringsConfig.ringColor !== undefined) {
-				applyLayerProp(ringsProps, "ringColor", ringsConfig.ringColor);
 			}
 			if (ringsConfig.ringResolution !== undefined) {
 				globe.ringResolution(ringsConfig.ringResolution);
@@ -2111,6 +2105,43 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			if (ringsConfig.ringRepeatPeriod !== undefined) {
 				globe.ringRepeatPeriod(ringsConfig.ringRepeatPeriod ?? null);
 			}
+			const setRingsData = (): void => {
+				if (ringsConfig.ringsData !== undefined) {
+					globe.ringsData(ringsConfig.ringsData ?? []);
+				}
+			};
+			// three-globe captures ringColor when each ring circle is emitted
+			// (triggerUpdate: false), so a configured gradient callback must be bound
+			// BEFORE the initial ring data is emitted — otherwise a non-repeating ring
+			// can be emitted with its per-datum colour while MicroPython is still
+			// loading and never pick up the gradient. So for a callback, bind first
+			// and emit the data in the async continuation; a constant/field accessor
+			// binds synchronously and is already in place before emission below.
+			if (
+				ringsConfig.ringColor !== undefined &&
+				isFrontendPythonFunctionSpec(ringsConfig.ringColor)
+			) {
+				const token = nextAccessorToken("ringColor");
+				void toFrontendAccessor(ringsConfig.ringColor)
+					.then((wrapped) => {
+						if (
+							isCurrentAccessorToken("ringColor", token) &&
+							typeof wrapped === "function"
+						) {
+							globe.ringColor(() => wrapped);
+						}
+						setRingsData();
+					})
+					.catch((error) => {
+						console.error("Failed to apply color function accessor.", error);
+						setRingsData();
+					});
+				return;
+			}
+			if (ringsConfig.ringColor !== undefined) {
+				applyLayerProp(ringsProps, "ringColor", ringsConfig.ringColor);
+			}
+			setRingsData();
 		};
 
 		const applyLabelsProps = (labelsConfig?: LabelsLayerConfig): void => {

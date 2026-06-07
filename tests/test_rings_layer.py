@@ -204,3 +204,52 @@ def test_ring_color_fn(
     page_session.wait_for_timeout(1200)
     reset = _sample_ring_colours(page_session, canvas_capture)
     assert reset["yellow"] > 0, reset
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_ring_color_fn_static_initial(
+    page_session: Page, canvas_capture, globe_flat_texture_data_url
+) -> None:
+    # A static ring (propagation_speed=0, repeat_period=0) is emitted exactly once,
+    # at full max_radius, coloured interpolator(0). Because three-globe captures
+    # ringColor at emission, a configured gradient must be bound *before* the ring
+    # data is applied; otherwise the ring is emitted with its per-datum default
+    # (#ffffaa) while MicroPython loads and never picks up the gradient. This is a
+    # stable (non-animated) capture, so it directly exercises that initial-config
+    # binding without the timing sensitivity of a propagating ring.
+    @frontend_python
+    def warm_to_cool(t: float) -> str:
+        # interpolator(0) is opaque red; the per-datum default is yellow #ffffaa.
+        red = int(255 * min(1.0, max(0.0, 1.0 - t)))
+        blue = int(255 * min(1.0, max(0.0, t)))
+        return f"rgba({red},40,{blue},1.0)"
+
+    rings = [
+        RingDatum(
+            lat=0,
+            lng=0,
+            altitude=0.02,
+            max_radius=14,
+            propagation_speed=0,
+            repeat_period=0,
+        )
+    ]
+
+    config = _make_config(
+        RingsLayerConfig(
+            rings_data=rings, ring_color_fn=warm_to_cool, ring_resolution=64
+        ),
+        globe_flat_texture_data_url,
+    )
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    # Allow MicroPython to load and the bind-then-emit sequence to complete.
+    page_session.wait_for_timeout(2500)
+    colours = _sample_ring_colours(page_session, canvas_capture, frames=4)
+
+    # The ring shows the gradient's t=0 colour (warm/red), not the per-datum
+    # yellow default -- i.e. the callback was bound before the ring was emitted.
+    assert colours["warm"] > 0, colours
+    assert colours["yellow"] == 0, colours
