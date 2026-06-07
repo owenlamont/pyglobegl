@@ -1048,6 +1048,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexLabel",
 		]);
 		let configApplyToken = 0;
+		// Generation counter bumped by every ring-data mutation (config apply,
+		// rings_set_data, rings_patch_data). When applyRingsProps must defer the
+		// initial ring data until a gradient callback finishes loading, the deferred
+		// application checks this so it never replays stale data over newer data
+		// applied during the load.
+		let ringsDataApplyToken = 0;
 		const accessorTokens = new Map<string, number>();
 
 		const nextAccessorToken = (prop: string): number => {
@@ -1315,6 +1321,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				} else if (type === "particles_set_data") {
 					globe.particlesData(normalizeParticlesData(payload?.data));
 				} else if (type === "rings_set_data") {
+					ringsDataApplyToken++;
 					globe.ringsData(payload?.data ?? []);
 				} else if (type === "labels_set_data") {
 					globe.labelsData(payload?.data ?? []);
@@ -1416,6 +1423,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					}
 					globe.particlesData(normalizeParticlesData(data));
 				} else if (type === "rings_patch_data") {
+					ringsDataApplyToken++;
 					patchLayerData(
 						() => globe.ringsData() ?? [],
 						(data) => globe.ringsData(data),
@@ -2122,6 +2130,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				isFrontendPythonFunctionSpec(ringsConfig.ringColor)
 			) {
 				const token = nextAccessorToken("ringColor");
+				// Claim the current ring-data generation; only emit this initial data
+				// in the async continuation if nothing newer (a rings_set_data /
+				// rings_patch_data message, or a later config) was applied while
+				// MicroPython was loading, so we never replay stale data.
+				const dataToken = ++ringsDataApplyToken;
 				void toFrontendAccessor(ringsConfig.ringColor)
 					.then((wrapped) => {
 						if (
@@ -2130,17 +2143,22 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 						) {
 							globe.ringColor(() => wrapped);
 						}
-						setRingsData();
+						if (dataToken === ringsDataApplyToken) {
+							setRingsData();
+						}
 					})
 					.catch((error) => {
 						console.error("Failed to apply color function accessor.", error);
-						setRingsData();
+						if (dataToken === ringsDataApplyToken) {
+							setRingsData();
+						}
 					});
 				return;
 			}
 			if (ringsConfig.ringColor !== undefined) {
 				applyLayerProp(ringsProps, "ringColor", ringsConfig.ringColor);
 			}
+			ringsDataApplyToken++;
 			setRingsData();
 		};
 
