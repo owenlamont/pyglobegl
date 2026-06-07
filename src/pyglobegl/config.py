@@ -1229,15 +1229,17 @@ class ParticlesLayerConfig(BaseModel, extra="forbid", frozen=True):
 
     The ``particle_label`` field sets the hover-tooltip accessor: a constant
     string, a ``FrontendPythonFunction`` (or a callable decorated with
-    ``@frontend_python``) that receives the particle datum and returns the tooltip
-    string, or ``None`` (the default) to use each ``ParticleDatum.label``.
+    ``@frontend_python``) that receives the hovered **individual particle point**
+    (a ``ParticlePointDatum``, not the containing group) and returns the tooltip
+    string, or ``None`` (the default) to use each ``ParticlePointDatum.label``.
     """
 
     particles_data: Annotated[
         list[ParticleDatum] | None, Field(serialization_alias="particlesData")
     ] = None
     # Hover tooltip accessor (constant string, frontend callback, or None).
-    # Callback input: a single particle datum dict; output: tooltip text string.
+    # Callback input: the hovered particle point dict (a ParticlePointDatum, not
+    # the group); output: tooltip HTML/text string.
     particle_label: Annotated[
         StrictStr | FrontendPythonFunctionInput | None,
         Field(serialization_alias="particleLabel"),

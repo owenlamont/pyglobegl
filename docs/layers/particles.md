@@ -41,11 +41,13 @@ display(GlobeWidget(config=config))
 
 ## Custom tooltip
 
-`ParticleDatum.label` is the particle group's hover tooltip. To compute one from
-the datum or share a constant across the layer, set a layer-level `particle_label`
-&mdash; a [frontend Python callback](../guides/frontend-callbacks.md)
-(datum &rarr; string), a plain string (one tooltip for all), or `None` (the
-default) to use each datum's `label`. Swap it at runtime with
+On hover globe.gl passes the **individual particle point** (a `ParticlePointDatum`),
+not the containing group, so `ParticlePointDatum.label` is each particle's hover
+tooltip. To compute one from that point datum or share a constant across the layer,
+set a layer-level `particle_label` &mdash; a
+[frontend Python callback](../guides/frontend-callbacks.md) (point datum &rarr;
+string), a plain string (one tooltip for all), or `None` (the default) to use each
+`ParticlePointDatum.label`. Swap it at runtime with
 `GlobeWidget.set_particle_label(...)`.
 
 !!! tip "From a GeoDataFrame"

@@ -1496,9 +1496,11 @@ class GlobeWidget(anywidget.AnyWidget):
     ) -> None:
         """Set the particles tooltip label (``None`` restores the per-datum label).
 
-        Accepts a constant string, a ``FrontendPythonFunction`` /
-        ``@frontend_python`` callable (particle datum -> tooltip string), or ``None``
-        to fall back to each ``ParticleDatum.label``.
+        On hover globe.gl passes the individual particle point, so the callback
+        receives a ``ParticlePointDatum`` (not the containing group). Accepts a
+        constant string, a ``FrontendPythonFunction`` / ``@frontend_python``
+        callable (particle point datum -> tooltip string), or ``None`` to fall back
+        to each ``ParticlePointDatum.label``.
         """
         serialized = self._encode_frontend_python_function(value)
         self._set_layer_prop(

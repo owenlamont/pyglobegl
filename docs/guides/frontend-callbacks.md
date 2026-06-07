@@ -126,9 +126,10 @@ The per-layer tooltip accessors (`point_label`, `arc_label`, `path_label`,
 `label_label`) are likewise *layer-level overrides* of the per-datum `label`
 field. Each accepts a `@frontend_python` callback (datum &rarr; tooltip string), a
 plain string (one fixed tooltip for every element), or `None` (the default) to
-fall back to each datum's `label`. The callback's datum argument stays loosely
-typed (`dict`), so a plain `def fn(d)` type checks. Swap them at runtime with
-`GlobeWidget.set_point_label(...)` and friends.
+fall back to each datum's `label`. (One exception: the particles layer passes the
+hovered **individual particle point**, a `ParticlePointDatum`, not the group.) The
+callback's datum argument stays loosely typed (`dict`), so a plain `def fn(d)` type
+checks. Swap them at runtime with `GlobeWidget.set_point_label(...)` and friends.
 
 !!! tip "Read dict inputs defensively"
 
