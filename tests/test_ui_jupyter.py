@@ -113,8 +113,15 @@ def _cell_error_text(cell) -> str:
     return ""
 
 
-def _wait_for_canvas(page, cell, timeout_ms: int = 30000) -> None:
+def _wait_for_canvas(
+    page, cell, output_timeout_ms: int = 15000, canvas_timeout_ms: int = 30000
+) -> None:
     """Wait for a sized canvas in the cell output.
+
+    The output area attaches quickly once the cell executes, so a short
+    ``output_timeout_ms`` surfaces a missed render promptly — the caller then
+    reloads and retries rather than waiting longer, since a stretched timeout
+    does not fix a render that wedged or never started.
 
     Raises:
         RuntimeError: The cell produced a traceback (a deterministic failure
@@ -123,12 +130,12 @@ def _wait_for_canvas(page, cell, timeout_ms: int = 30000) -> None:
             retryable, browser-timing failure).
     """
     output = cell.locator(".jp-OutputArea")
-    output.wait_for(state="attached", timeout=timeout_ms)
+    output.wait_for(state="attached", timeout=output_timeout_ms)
     error = _cell_error_text(cell)
     if error:
         raise RuntimeError(f"Cell output error:\n{error}")
     canvas = output.locator("canvas").first
-    canvas.wait_for(state="attached", timeout=timeout_ms)
+    canvas.wait_for(state="attached", timeout=canvas_timeout_ms)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         box = canvas.bounding_box()
@@ -138,18 +145,42 @@ def _wait_for_canvas(page, cell, timeout_ms: int = 30000) -> None:
     raise TimeoutError("Canvas attached but never became visible.")
 
 
-def _render_widget(page, notebook, cell_text) -> None:
-    """Run the widget cell, re-running it until a canvas renders.
+def _open_notebook(page, url: str, cell_text: str):
+    """Open (or, on a retry, reload) the demo notebook and select its kernel.
 
-    Rendering in CI occasionally misses a cell-execution state change, so the
-    fix is to re-run the cell (not wait longer). A cell traceback raises
-    ``RuntimeError``, which is not retried.
+    Returns:
+        The notebook-panel locator, with the widget cell present.
+    """
+    _goto_with_retry(page, url)
+    page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
+    _dismiss_notifications(page)
+    _ensure_webgl_available(page)
+    _select_kernel_if_prompted(page)
+    _wait_for_kernel_idle(page)
+    notebook = page.locator(".jp-NotebookPanel").first
+    notebook.get_by_text(cell_text, exact=True).wait_for(timeout=60000)
+    return notebook
+
+
+def _render_widget(page, url: str, cell_text: str) -> None:
+    """Open the notebook, render the widget, and wait for its canvas.
+
+    The page is reloaded between attempts. The browser flakes here are wedged or
+    missed renders, not merely slow ones, so a fresh page load — which
+    re-bootstraps JupyterLab and reconnects the kernel session — clears them
+    where a longer wait or an in-place cell re-run would not (the marimo UI test
+    hardens the same way, reloading on a canvas miss). On retry ``_open_notebook``
+    re-navigates to the notebook URL, which reloads the page. A cell traceback
+    raises ``RuntimeError``, not retried.
     """
     for attempt in stamina.retry_context(
         on=(PlaywrightError, TimeoutError), attempts=3, timeout=None
     ):
         with attempt:
+            notebook = _open_notebook(page, url, cell_text)
             cell = _execute_cell(page, notebook, cell_text)
+            if _select_kernel_from_dialog(page):
+                _wait_for_kernel_idle(page)
             _wait_for_canvas(page, cell)
 
 
@@ -315,23 +346,12 @@ def _jupyterlab_server() -> Iterator[str]:
         _shutdown_process(proc, log_file)
 
 
-@pytest.mark.timeout(240)
+@pytest.mark.timeout(360)
 def test_jupyter_widget_renders(page: "Page", ui_artifacts_writer) -> None:
     cell_text = "from pyglobegl import GlobeWidget"
     with _jupyterlab_server() as url:
         try:
-            _goto_with_retry(page, url)
-            page.wait_for_selector(".jp-NotebookPanel", timeout=60000)
-            _dismiss_notifications(page)
-            _ensure_webgl_available(page)
-            _select_kernel_if_prompted(page)
-            _wait_for_kernel_idle(page)
-            notebook = page.locator(".jp-NotebookPanel").first
-            notebook.get_by_text(cell_text, exact=True).wait_for(timeout=60000)
-            _execute_cell(page, notebook, cell_text)
-            if _select_kernel_from_dialog(page):
-                _wait_for_kernel_idle(page)
-            _render_widget(page, notebook, cell_text)
+            _render_widget(page, url, cell_text)
             _assert_no_root_overflow(page)
         except Exception:
             try:
