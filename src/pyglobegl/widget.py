@@ -1008,6 +1008,29 @@ class GlobeWidget(anywidget.AnyWidget):
             "heatmaps", self._heatmaps_props, "heatmapsTransitionDuration", value
         )
 
+    def get_heatmaps_color_fn(self) -> FrontendPythonFunction | None:
+        """Return the heatmaps colormap frontend callback, if set."""
+        value = self._decode_frontend_python_function(
+            self._heatmaps_props.get("heatmapColorFn")
+        )
+        if isinstance(value, FrontendPythonFunction) or value is None:
+            return value
+        return None
+
+    def set_heatmaps_color_fn(
+        self, value: FrontendPythonFunction | Callable[..., Any] | None
+    ) -> None:
+        """Set the heatmaps colormap frontend callback (``None`` resets default).
+
+        The callback runs in browser-side MicroPython and receives a single
+        numeric ``t`` in ``[0, 1]`` (normalised density), returning a CSS color
+        string.
+        """
+        serialized = self._encode_frontend_python_function(value)
+        self._set_layer_prop(
+            "heatmaps", self._heatmaps_props, "heatmapColorFn", serialized
+        )
+
     def get_hex_bin_points_data(self) -> list[HexBinPointDatum] | None:
         """Return a copy of the cached hex bin points data."""
         return self._denormalize_layer_data(self._hexbin_points_data, HexBinPointDatum)

@@ -109,7 +109,7 @@ type HeatmapsLayerConfig = {
 	heatmapPointLng?: number | string;
 	heatmapPointWeight?: number | string;
 	heatmapBandwidth?: number | string;
-	heatmapColorFn?: unknown;
+	heatmapColorFn?: FrontendPythonFunctionSpec | null;
 	heatmapColorSaturation?: number | string;
 	heatmapBaseAltitude?: number | string;
 	heatmapTopAltitude?: number | string;
@@ -1048,18 +1048,16 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexLabel",
 		]);
 		let configApplyToken = 0;
-		const hexbinAccessorTokens = new Map<string, number>();
+		const accessorTokens = new Map<string, number>();
 
-		const nextHexbinAccessorToken = (prop: string): number => {
-			const token = (hexbinAccessorTokens.get(prop) ?? 0) + 1;
-			hexbinAccessorTokens.set(prop, token);
+		const nextAccessorToken = (prop: string): number => {
+			const token = (accessorTokens.get(prop) ?? 0) + 1;
+			accessorTokens.set(prop, token);
 			return token;
 		};
 
-		const isCurrentHexbinAccessorToken = (
-			prop: string,
-			token: number,
-		): boolean => hexbinAccessorTokens.get(prop) === token;
+		const isCurrentAccessorToken = (prop: string, token: number): boolean =>
+			accessorTokens.get(prop) === token;
 
 		const stringConstantHexbinProps = new Set([
 			"hexTopColor",
@@ -1067,7 +1065,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			"hexLabel",
 		]);
 
-		const toHexBinAccessor = async (value: unknown): Promise<unknown> => {
+		const toFrontendAccessor = async (value: unknown): Promise<unknown> => {
 			if (value === null || value === undefined) {
 				return null;
 			}
@@ -1092,6 +1090,19 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 			return wrapCallback(callable);
 		};
 
+		// Accessors that return an interpolator (t)=>color rather than a scalar.
+		// globe.gl invokes the accessor with the datum, so the frontend callback
+		// must be bound as a constant returning the colour function — i.e.
+		// `() => wrapped`, NOT `wrapped` directly (see applyLayerProp below). We
+		// capture globe.gl's built-in default per prop up front so a null value
+		// restores it. To support more interpolator accessors (arc/path/ring
+		// gradient colours are the obvious next ones), add an entry here mapping
+		// the prop name to its own `globe.<prop>()` default.
+		const colorFnAccessorDefaults = new Map<string, unknown>([
+			["heatmapColorFn", globe.heatmapColorFn()],
+		]);
+		const colorFnAccessorProps = new Set(colorFnAccessorDefaults.keys());
+
 		const applyLayerProp = (
 			props: Set<string>,
 			prop: unknown,
@@ -1106,15 +1117,33 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 					(setter as (arg: unknown) => void)(buildMaterial(value));
 					return;
 				}
+				if (colorFnAccessorProps.has(prop)) {
+					const token = nextAccessorToken(prop);
+					void toFrontendAccessor(value)
+						.then((wrapped) => {
+							if (!isCurrentAccessorToken(prop, token)) {
+								return;
+							}
+							(setter as (arg: unknown) => void)(
+								wrapped == null
+									? colorFnAccessorDefaults.get(prop)
+									: () => wrapped,
+							);
+						})
+						.catch((error) => {
+							console.error("Failed to apply color function accessor.", error);
+						});
+					return;
+				}
 				if (constantAccessorProps.has(prop)) {
-					const token = nextHexbinAccessorToken(prop);
+					const token = nextAccessorToken(prop);
 					const accessorValue =
 						typeof value === "string" && stringConstantHexbinProps.has(prop)
 							? () => value
 							: value;
-					void toHexBinAccessor(accessorValue)
+					void toFrontendAccessor(accessorValue)
 						.then((nextValue) => {
-							if (!isCurrentHexbinAccessorToken(prop, token)) {
+							if (!isCurrentAccessorToken(prop, token)) {
 								return;
 							}
 							(setter as (arg: unknown) => void)(nextValue);
@@ -1747,7 +1776,11 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.heatmapBandwidth(heatmapsConfig.heatmapBandwidth ?? null);
 			}
 			if (heatmapsConfig.heatmapColorFn !== undefined) {
-				globe.heatmapColorFn(heatmapsConfig.heatmapColorFn ?? null);
+				applyLayerProp(
+					heatmapProps,
+					"heatmapColorFn",
+					heatmapsConfig.heatmapColorFn,
+				);
 			}
 			if (heatmapsConfig.heatmapColorSaturation !== undefined) {
 				globe.heatmapColorSaturation(
@@ -1778,32 +1811,34 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.hexBinPointsData(hexbinConfig.hexBinPointsData ?? []);
 			}
 			if (hexbinConfig.hexBinPointLat !== undefined) {
-				const token = nextHexbinAccessorToken("hexBinPointLat");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointLat);
+				const token = nextAccessorToken("hexBinPointLat");
+				const accessor = await toFrontendAccessor(hexbinConfig.hexBinPointLat);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexBinPointLat", token)) {
+				if (isCurrentAccessorToken("hexBinPointLat", token)) {
 					globe.hexBinPointLat(accessor);
 				}
 			}
 			if (hexbinConfig.hexBinPointLng !== undefined) {
-				const token = nextHexbinAccessorToken("hexBinPointLng");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointLng);
+				const token = nextAccessorToken("hexBinPointLng");
+				const accessor = await toFrontendAccessor(hexbinConfig.hexBinPointLng);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexBinPointLng", token)) {
+				if (isCurrentAccessorToken("hexBinPointLng", token)) {
 					globe.hexBinPointLng(accessor);
 				}
 			}
 			if (hexbinConfig.hexBinPointWeight !== undefined) {
-				const token = nextHexbinAccessorToken("hexBinPointWeight");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexBinPointWeight);
+				const token = nextAccessorToken("hexBinPointWeight");
+				const accessor = await toFrontendAccessor(
+					hexbinConfig.hexBinPointWeight,
+				);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexBinPointWeight", token)) {
+				if (isCurrentAccessorToken("hexBinPointWeight", token)) {
 					globe.hexBinPointWeight(accessor);
 				}
 			}
@@ -1811,12 +1846,12 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				globe.hexBinResolution(hexbinConfig.hexBinResolution);
 			}
 			if (hexbinConfig.hexMargin !== undefined) {
-				const token = nextHexbinAccessorToken("hexMargin");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexMargin);
+				const token = nextAccessorToken("hexMargin");
+				const accessor = await toFrontendAccessor(hexbinConfig.hexMargin);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexMargin", token)) {
+				if (isCurrentAccessorToken("hexMargin", token)) {
 					globe.hexMargin(accessor);
 				}
 			}
@@ -1826,8 +1861,8 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				);
 			}
 			if (hexbinConfig.hexTopColor !== undefined) {
-				const token = nextHexbinAccessorToken("hexTopColor");
-				const accessor = await toHexBinAccessor(
+				const token = nextAccessorToken("hexTopColor");
+				const accessor = await toFrontendAccessor(
 					typeof hexbinConfig.hexTopColor === "string"
 						? () => hexbinConfig.hexTopColor
 						: hexbinConfig.hexTopColor,
@@ -1835,13 +1870,13 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexTopColor", token)) {
+				if (isCurrentAccessorToken("hexTopColor", token)) {
 					globe.hexTopColor(accessor);
 				}
 			}
 			if (hexbinConfig.hexSideColor !== undefined) {
-				const token = nextHexbinAccessorToken("hexSideColor");
-				const accessor = await toHexBinAccessor(
+				const token = nextAccessorToken("hexSideColor");
+				const accessor = await toFrontendAccessor(
 					typeof hexbinConfig.hexSideColor === "string"
 						? () => hexbinConfig.hexSideColor
 						: hexbinConfig.hexSideColor,
@@ -1849,23 +1884,23 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexSideColor", token)) {
+				if (isCurrentAccessorToken("hexSideColor", token)) {
 					globe.hexSideColor(accessor);
 				}
 			}
 			if (hexbinConfig.hexAltitude !== undefined) {
-				const token = nextHexbinAccessorToken("hexAltitude");
-				const accessor = await toHexBinAccessor(hexbinConfig.hexAltitude);
+				const token = nextAccessorToken("hexAltitude");
+				const accessor = await toFrontendAccessor(hexbinConfig.hexAltitude);
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexAltitude", token)) {
+				if (isCurrentAccessorToken("hexAltitude", token)) {
 					globe.hexAltitude(accessor);
 				}
 			}
 			if (hexbinConfig.hexLabel !== undefined) {
-				const token = nextHexbinAccessorToken("hexLabel");
-				const accessor = await toHexBinAccessor(
+				const token = nextAccessorToken("hexLabel");
+				const accessor = await toFrontendAccessor(
 					typeof hexbinConfig.hexLabel === "string"
 						? () => hexbinConfig.hexLabel
 						: hexbinConfig.hexLabel,
@@ -1873,7 +1908,7 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				if (configToken !== undefined && configToken !== configApplyToken) {
 					return;
 				}
-				if (isCurrentHexbinAccessorToken("hexLabel", token)) {
+				if (isCurrentAccessorToken("hexLabel", token)) {
 					globe.hexLabel(accessor);
 				}
 			}

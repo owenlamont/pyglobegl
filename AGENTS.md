@@ -120,10 +120,12 @@ and immediately use the widget without rebuilding JupyterLab.
 
 ## Playwright-Assisted Validation (WSL2 + Windows GPU)
 
-The widget uses WebGL; WSL browsers often fail to create a WebGL context. To
-automate rendering checks, run Playwright on Windows and open the marimo server
-on `localhost` (don’t force `--host 0.0.0.0`, which can break localhost
-forwarding).
+The widget uses WebGL. Under WSLg with Google Chrome installed, the pytest UI
+tests render with GPU-accelerated WebGL directly in WSL (see the UI Tests
+section below), so this Windows route is now an alternative — useful when WSL
+GPU rendering is unavailable, or for interactive/manual visual checks. To use
+it, run Playwright on Windows and open the marimo server on `localhost` (don’t
+force `--host 0.0.0.0`, which can break localhost forwarding).
 
 - Start marimo (edit mode) in WSL:
   - `uv run marimo edit examples/marimo_demo.py --headless --port 2729`
@@ -165,14 +167,33 @@ forwarding).
     - `http://127.0.0.1:8890/lab/tree/examples/jupyter_demo.ipynb?token=<TOKEN>`
   - Run the first cell and confirm the globe renders.
 
-## UI Tests (Opt-in)
+## UI Tests
 
-- UI tests are marked `ui` and excluded by default.
-- Run marimo UI checks:
-- `uv run pytest -m ui`
-  - Skips on WSL because Chromium crashes.
-  - Run on Windows or full Linux to execute the UI test.
-  - If Playwright browsers are missing: `uv run playwright install`.
+- The Playwright reference-image tests (those using the `page`/`page_session`
+  fixtures, e.g. `tests/test_heatmaps_layer.py`) and the marimo/Jupyter UI tests
+  (`tests/test_ui_marimo.py`, `tests/test_ui_jupyter.py`) are not gated behind a
+  marker — they run as part of the default `uv run pytest` suite whenever a
+  Playwright browser is available (otherwise they error at browser launch).
+- They need a Playwright browser. On this WSL setup (Ubuntu 26.04) the bundled
+  Chromium is unavailable (`playwright install chromium` reports the OS is
+  unsupported), so install Google Chrome and run against that channel instead:
+  - `uv run playwright install --with-deps chrome` — needs sudo for the system
+    libraries (run it in a real terminal for the password prompt). The trailing
+    `ffmpeg` failure is harmless: ffmpeg is only used for video recording, not
+    canvas screenshots.
+  - `uv run pytest --browser-channel chrome` — the conftest defaults to the
+    `chromium` channel on WSL, so pass `chrome` explicitly to use the install
+    above.
+- Under WSLg (`/mnt/wslg` present, with `DISPLAY`/`WAYLAND_DISPLAY` set) these
+  tests render with GPU-accelerated WebGL; they no longer crash or skip on WSL.
+  They also run on Windows and full Linux. Software WebGL is accepted by default
+  (set `PYGLOBEGL_REQUIRE_HW_ACCEL=1` to require a hardware renderer).
+- Reference baselines auto-generate: on a missing baseline the capture is saved
+  to `tests/reference-images/<test>-<label>.png` and the test fails with a
+  "verify and re-run" message. Inspect the saved PNG, then re-run to confirm it
+  passes the comparison threshold. Cross-OS CI runners rely on the SSIM
+  tolerance to absorb renderer differences, so a baseline captured locally is
+  expected to be close enough across runners.
 
 ### Jupyter UI Test Notes
 

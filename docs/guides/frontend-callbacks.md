@@ -1,10 +1,13 @@
 # Frontend Python Callbacks
 
 Most layers in pyglobegl are driven entirely by typed data models. A few
-globe.gl accessors, though, are computed per-datum in the browser &mdash; the
-[hex bin layer](../layers/hex-bin.md) is the main example. Rather than make you
-write JavaScript, pyglobegl lets you decorate a Python function with
-`@frontend_python` and run it on the frontend.
+globe.gl accessors, though, are computed in the browser rather than mapped from a
+single Python datum &mdash; the [hex bin layer](../layers/hex-bin.md) (whose bins
+are aggregated client-side) and the
+[heatmaps layer](../layers/heatmaps.md#custom-colormap) (whose colormap is a
+function of normalised density) are the main examples. Rather than make you write
+JavaScript, pyglobegl lets you decorate a Python function with `@frontend_python`
+and run it on the frontend.
 
 ```python
 from pyglobegl import frontend_python
@@ -16,7 +19,15 @@ def hex_altitude(hexbin):
 ```
 
 Pass the decorated function wherever an accessor callback is accepted (for
-example `hex_altitude=`, `hex_top_color=`, `hex_label=`).
+example `hex_altitude=`, `hex_top_color=`, `hex_label=`, or the heatmaps
+`heatmap_color_fn=`).
+
+Most of these callbacks run at data-change time to bake globe.gl's render buffers
+(for example, the heatmap colormap is sampled to build a fixed colour lookup),
+not on every animation frame. Label/tooltip callbacks such as `hex_label` are the
+exception &mdash; they are evaluated lazily on hover to build the tooltip. Either
+way, keep the body cheap: ordinary Python arithmetic or string formatting is fast
+enough.
 
 ## How it works
 
