@@ -7,6 +7,8 @@ from pyglobegl import (
     FrontendPythonFunction,
     GlobeConfig,
     GlobeViewConfig,
+    GlobeWidget,
+    HeatmapsLayerConfig,
     HexBinLayerConfig,
 )
 
@@ -83,6 +85,59 @@ def test_hexbin_config_serializes_frontend_python_margin_and_point_weight() -> N
     assert hex_bin["hexMargin"]["name"] == "margin_fn"
     assert isinstance(hex_bin["hexBinPointWeight"], dict)
     assert hex_bin["hexBinPointWeight"]["name"] == "point_weight_fn"
+
+
+def test_heatmaps_config_serializes_frontend_python_color_fn() -> None:
+    @frontend_python
+    def colormap(t):
+        channel = int(255 * t)
+        return f"rgb({channel},0,{255 - channel})"
+
+    config = GlobeConfig(heatmaps=HeatmapsLayerConfig(heatmap_color_fn=colormap))
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+    color_fn = payload["heatmaps"]["heatmapColorFn"]
+
+    assert isinstance(color_fn, dict)
+    assert color_fn["__pyglobegl_type"] == "frontend_python_function"
+    assert color_fn["name"] == "colormap"
+    assert "def colormap" in color_fn["source"]
+
+
+def test_heatmaps_config_accepts_explicit_frontend_python_function() -> None:
+    fn = FrontendPythonFunction(
+        name="ramp", source="def ramp(t):\n    return '#ff0000'"
+    )
+
+    config = GlobeConfig(heatmaps=HeatmapsLayerConfig(heatmap_color_fn=fn))
+    payload = config.model_dump(by_alias=True, exclude_none=True, mode="json")
+
+    assert payload["heatmaps"]["heatmapColorFn"]["name"] == "ramp"
+
+
+def test_heatmaps_config_color_fn_defaults_to_none() -> None:
+    payload = GlobeConfig(heatmaps=HeatmapsLayerConfig()).model_dump(
+        by_alias=True, exclude_none=True, mode="json"
+    )
+
+    assert "heatmapColorFn" not in payload["heatmaps"]
+
+
+def test_widget_round_trips_heatmaps_color_fn() -> None:
+    @frontend_python
+    def colormap(t):
+        return f"rgb({int(255 * t)},0,0)"
+
+    widget = GlobeWidget(config=GlobeConfig(heatmaps=HeatmapsLayerConfig()))
+    assert widget.get_heatmaps_color_fn() is None
+
+    widget.set_heatmaps_color_fn(colormap)
+    resolved = widget.get_heatmaps_color_fn()
+    assert isinstance(resolved, FrontendPythonFunction)
+    assert resolved.name == "colormap"
+    assert "def colormap" in resolved.source
+
+    widget.set_heatmaps_color_fn(None)
+    assert widget.get_heatmaps_color_fn() is None
 
 
 def test_view_config_serializes_controls_auto_rotate_settings() -> None:

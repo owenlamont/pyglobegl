@@ -7,6 +7,7 @@ from pydantic import AnyUrl, TypeAdapter
 import pytest
 
 from pyglobegl import (
+    frontend_python,
     GlobeConfig,
     GlobeInitConfig,
     GlobeLayerConfig,
@@ -119,6 +120,62 @@ def test_heatmaps_accessors(
     widget.set_heatmaps_data(updated_heatmaps)
     page_session.wait_for_timeout(1500)
     canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_heatmap_color_fn(
+    page_session: Page, canvas_assert_capture, globe_flat_texture_data_url
+) -> None:
+    canvas_similarity_threshold = 0.97
+
+    @frontend_python
+    def warm_colormap(t):
+        red = int(255 * min(1.0, max(0.0, t)))
+        return f"rgb({red},{int(90 * t)},40)"
+
+    @frontend_python
+    def cool_colormap(t):
+        blue = int(255 * min(1.0, max(0.0, t)))
+        return f"rgb(40,{int(90 * t)},{blue})"
+
+    heatmaps_data = [
+        HeatmapDatum(
+            points=[
+                HeatmapPointDatum(lat=0, lng=0, weight=5.0),
+                HeatmapPointDatum(lat=20, lng=10, weight=3.0),
+                HeatmapPointDatum(lat=-25, lng=-15, weight=4.0),
+            ],
+            bandwidth=8.0,
+            color_saturation=10.0,
+            base_altitude=0.4,
+            top_altitude=0.8,
+        )
+    ]
+
+    config = _make_config(
+        HeatmapsLayerConfig(
+            heatmaps_data=heatmaps_data,
+            heatmap_color_fn=warm_colormap,
+            heatmaps_transition_duration=0,
+        ),
+        globe_flat_texture_data_url,
+    )
+    _disable_webgpu(page_session)
+    widget = GlobeWidget(config=config)
+    display(widget)
+
+    _await_globe_ready(page_session)
+    canvas_assert_capture(page_session, "initial", canvas_similarity_threshold)
+
+    widget.set_heatmaps_color_fn(cool_colormap)
+    page_session.wait_for_timeout(1500)
+    canvas_assert_capture(page_session, "updated", canvas_similarity_threshold)
+
+    # Passing None restores globe.gl's built-in colormap (exercises the
+    # colorFnAccessorDefaults reset path on the frontend).
+    widget.set_heatmaps_color_fn(None)
+    page_session.wait_for_timeout(1500)
+    canvas_assert_capture(page_session, "restored-default", canvas_similarity_threshold)
 
 
 @pytest.mark.usefixtures("solara_test")

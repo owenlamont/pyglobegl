@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -67,7 +67,7 @@ def _serialize_color_list_required(
     return str(value)
 
 
-def _serialize_hexbin_accessor(
+def _serialize_frontend_accessor(
     value: ColorValue | FrontendPythonFunction | str | float | None,
 ) -> str | float | dict[str, str] | None:
     if value is None:
@@ -79,6 +79,26 @@ def _serialize_hexbin_accessor(
     if isinstance(value, Color):
         return str(value)
     return value
+
+
+def _coerce_frontend_function_fields(data: Any, field_names: Sequence[str]) -> Any:
+    """Coerce decorator-marked callables in ``field_names`` to specs.
+
+    Shared by the layer configs' ``mode="before"`` validators so the frontend
+    callback coercion rule lives in one place.
+
+    Returns:
+        The input mapping with the named fields resolved to
+        ``FrontendPythonFunction`` where they were callables.
+    """
+    if not isinstance(data, Mapping):
+        return data
+    normalized = dict(data)
+    for field_name in field_names:
+        value = normalized.get(field_name)
+        if callable(value) or isinstance(value, FrontendPythonFunction):
+            normalized[field_name] = resolve_frontend_python_function(value)
+    return normalized
 
 
 def _default_hex_altitude_accessor() -> FrontendPythonFunction:
@@ -541,14 +561,51 @@ class HeatmapDatumPatch(BaseModel, extra="allow", frozen=True):
 
 
 class HeatmapsLayerConfig(BaseModel, extra="forbid", frozen=True):
-    """Heatmaps layer settings for globe.gl."""
+    """Heatmaps layer settings for globe.gl.
+
+    The ``heatmap_color_fn`` field accepts a ``FrontendPythonFunction`` (or a
+    callable decorated with ``@frontend_python``) that runs in browser-side
+    MicroPython. globe.gl samples it to build the heatmap colormap, calling it
+    with a single numeric ``t`` in ``[0, 1]`` (normalised density, where 0 is the
+    lowest weight and 1 the peak) and expecting a CSS color string in return.
+    The callback is invoked at data-change time to bake a fixed-size colour
+    lookup, not per animation frame. Leave it as ``None`` to keep globe.gl's
+    built-in colormap. Note that ``t`` arrives as an ``int`` at the ``0`` and
+    ``1`` endpoints (and a ``float`` in between), so write the callback to accept
+    either rather than branching on ``float``.
+
+    Reference:
+    https://github.com/vasturiano/globe.gl?tab=readme-ov-file#heatmaps-layer
+    """
 
     heatmaps_data: Annotated[
         list[HeatmapDatum] | None, Field(serialization_alias="heatmapsData")
     ] = None
+    # Heatmap colormap accessor (frontend callback).
+    # Callback input: a single numeric t in [0, 1] (normalised density).
+    # Callback output: CSS color string.
+    heatmap_color_fn: Annotated[
+        FrontendPythonFunctionInput | None, Field(serialization_alias="heatmapColorFn")
+    ] = None
     heatmaps_transition_duration: Annotated[
         int, Field(serialization_alias="heatmapsTransitionDuration")
     ] = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_frontend_functions(cls, data: Any) -> Any:
+        return _coerce_frontend_function_fields(data, ("heatmap_color_fn",))
+
+    @field_serializer("heatmap_color_fn", when_used="always")
+    def _serialize_heatmap_color_fn(
+        self, value: FrontendPythonFunction | None
+    ) -> dict[str, str] | None:
+        serialized = _serialize_frontend_accessor(value)
+        if serialized is None or isinstance(serialized, dict):
+            return serialized
+        raise TypeError(
+            "heatmap_color_fn must serialize to a frontend function or None."
+        )
 
 
 class HexBinPointDatum(BaseModel, extra="allow", frozen=True):
@@ -672,23 +729,19 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     @model_validator(mode="before")
     @classmethod
     def _coerce_frontend_functions(cls, data: Any) -> Any:
-        if not isinstance(data, Mapping):
-            return data
-        normalized = dict(data)
-        for field_name in (
-            "hex_bin_point_lat",
-            "hex_bin_point_lng",
-            "hex_bin_point_weight",
-            "hex_top_color",
-            "hex_side_color",
-            "hex_margin",
-            "hex_altitude",
-            "hex_label",
-        ):
-            value = normalized.get(field_name)
-            if callable(value) or isinstance(value, FrontendPythonFunction):
-                normalized[field_name] = resolve_frontend_python_function(value)
-        return normalized
+        return _coerce_frontend_function_fields(
+            data,
+            (
+                "hex_bin_point_lat",
+                "hex_bin_point_lng",
+                "hex_bin_point_weight",
+                "hex_top_color",
+                "hex_side_color",
+                "hex_margin",
+                "hex_altitude",
+                "hex_label",
+            ),
+        )
 
     @field_serializer(
         "hex_bin_point_lat",
@@ -699,7 +752,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_point_accessors(
         self, value: Latitude | Longitude | FiniteFloat | FrontendPythonFunction | None
     ) -> float | dict[str, str] | None:
-        serialized = _serialize_hexbin_accessor(value)
+        serialized = _serialize_frontend_accessor(value)
         if serialized is None:
             return None
         if isinstance(serialized, dict):
@@ -714,7 +767,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_margin(
         self, value: NonNegativeFloat | FrontendPythonFunction
     ) -> float | dict[str, str]:
-        serialized = _serialize_hexbin_accessor(value)
+        serialized = _serialize_frontend_accessor(value)
         if isinstance(serialized, dict):
             return serialized
         if isinstance(serialized, (int, float)):
@@ -725,7 +778,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_colors(
         self, value: ColorValue | FrontendPythonFunction
     ) -> str | dict[str, str]:
-        serialized = _serialize_hexbin_accessor(value)
+        serialized = _serialize_frontend_accessor(value)
         if isinstance(serialized, str):
             return serialized
         if isinstance(serialized, dict):
@@ -738,7 +791,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_altitude(
         self, value: NonNegativeFloat | FrontendPythonFunction
     ) -> float | dict[str, str]:
-        serialized = _serialize_hexbin_accessor(value)
+        serialized = _serialize_frontend_accessor(value)
         if isinstance(serialized, dict):
             return serialized
         if isinstance(serialized, (int, float)):
@@ -749,7 +802,7 @@ class HexBinLayerConfig(BaseModel, extra="forbid", frozen=True):
     def _serialize_hex_label(
         self, value: StrictStr | FrontendPythonFunction | None
     ) -> str | dict[str, str] | None:
-        serialized = _serialize_hexbin_accessor(value)
+        serialized = _serialize_frontend_accessor(value)
         if serialized is None:
             return None
         if isinstance(serialized, str):
