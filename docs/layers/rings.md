@@ -30,9 +30,13 @@ controls (propagation speed, repeat period) available on `RingsLayerConfig`.
 `RingDatum.color` is a single colour or a list of discrete stops. For a colour
 that varies as each ring propagates, set a layer-level `ring_color_fn` &mdash; a
 [frontend Python callback](../guides/frontend-callbacks.md) mapping the
-propagation parameter `t` in `[0, 1]` (0 when the ring is emitted, 1 at its
-`max_radius`) to a CSS colour string, typed by the exported `ColorInterpolator`
-alias. When set it overrides the per-datum colour for every ring.
+propagation parameter `t` in `[0, 1]` to a CSS colour string, typed by the
+exported `ColorInterpolator` alias. `t` is the animation progress: 0 when the ring
+is emitted and 1 at the end of its travel. With the default outward propagation
+(`propagation_speed > 0`) that runs from the centre (`t = 0`) to `max_radius`
+(`t = 1`); with inward propagation (`propagation_speed < 0`) the radius is
+reversed, so `t = 0` is at `max_radius` and `t = 1` at the centre. When set it
+overrides the per-datum colour for every ring.
 
 ```python
 from pyglobegl import ColorInterpolator, frontend_python

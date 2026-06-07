@@ -1165,8 +1165,12 @@ class RingsLayerConfig(BaseModel, extra="forbid", frozen=True):
     The ``ring_color_fn`` field accepts a ``FrontendPythonFunction`` (or a callable
     decorated with ``@frontend_python``) that runs in browser-side MicroPython and
     colours each ring as it propagates. globe.gl invokes it with a single numeric
-    ``t`` in ``[0, 1]`` (0 when the ring is emitted, 1 at its ``max_radius``) and
-    expects a CSS color string. When set it overrides the per-datum
+    ``t`` in ``[0, 1]`` -- the animation progress, 0 when the ring is emitted and 1
+    at the end of its travel -- and expects a CSS color string. With the default
+    outward propagation (``propagation_speed > 0``) that runs from the centre
+    (``t = 0``) to ``max_radius`` (``t = 1``); with inward propagation
+    (``propagation_speed < 0``) the radius is reversed, so ``t = 0`` is at
+    ``max_radius`` and ``t = 1`` at the centre. When set it overrides the per-datum
     ``RingDatum.color`` for every ring in the layer. Unlike the arc/path gradients
     (baked once at data-change time), rings sample this callback once per ring per
     animation frame as they expand, so keep the body cheap; MicroPython throughput

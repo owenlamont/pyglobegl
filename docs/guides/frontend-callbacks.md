@@ -39,13 +39,18 @@ A frontend callback is a **pure function**:
   or a datum `dict` for the hex-bin accessors. Nothing else is in scope.
 - **It returns one value** &mdash; a CSS colour string, a number, or tooltip
   text, depending on the accessor (see the [reference table](#callback-reference)).
-- **It cannot read or change anything else.** There is no access to the widget,
-  the globe, other layers, your notebook's variables, the network, or the
-  backend Python process. The body runs in an isolated MicroPython sandbox with
-  only its argument and MicroPython's builtins in scope, and its **return value
-  is the only thing that flows back out** &mdash; a callback cannot mutate globe
-  state as a side effect. To change the globe, call the widget's `set_*` /
-  `update_*` methods from Python instead.
+- **It runs in the browser, not your Python process.** It cannot see your
+  notebook's variables, your imports, or any backend state &mdash; only the
+  function's own source is shipped (keep it self-contained; see below).
+- **Treat it as pure; it is not a security sandbox.** By convention a callback
+  maps its one argument to one return value, and that return value is all
+  pyglobegl reads back &mdash; to change the globe, call the widget's `set_*` /
+  `update_*` methods from Python rather than reaching out from a callback. Note
+  this is a *convention*, not an enforced boundary: the body is executed as source
+  in a shared MicroPython runtime where the `js` interop module is in scope (and
+  the globe is reachable as a browser global), so callback code technically *can*
+  touch browser/network APIs and globe state. Only run callback bodies you trust
+  as code, and don't rely on isolation for safety.
 
 ### Typing your callback
 
