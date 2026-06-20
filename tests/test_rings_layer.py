@@ -213,8 +213,8 @@ def test_ring_color_fn_static_initial(
     # A static ring (propagation_speed=0, repeat_period=0) is emitted exactly once,
     # at full max_radius, coloured interpolator(0). Because three-globe captures
     # ringColor at emission, a configured gradient must be bound *before* the ring
-    # data is applied; otherwise the ring is emitted with its per-datum default
-    # (#ffffaa) while MicroPython loads and never picks up the gradient. This is a
+    # data is applied; otherwise the ring is emitted with its per-datum default of
+    # yellow #ffffaa while MicroPython loads and never picks up the gradient. This is a
     # stable (non-animated) capture, so it directly exercises that initial-config
     # binding without the timing sensitivity of a propagating ring.
     @frontend_python
