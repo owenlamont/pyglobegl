@@ -41,6 +41,12 @@ jobs:
         run: uv tool install prek
       - name: Run prek autoupdate --cooldown-days 7
         run: prek autoupdate --cooldown-days 7
+      - name: Sync biome.json $schema to the biome pre-commit hook rev
+        run: |
+          rev=$(grep -A2 'biomejs/pre-commit' prek.toml | sed -nE 's/.*rev = "v([0-9.]+)".*/\1/p')
+          if [ -n "$rev" ]; then
+            sed -i -E "s#(biomejs\.dev/schemas/)[0-9.]+#\1${rev}#" biome.json
+          fi
       - name: Check for changes
         id: check_diff
         run: |
@@ -68,7 +74,8 @@ jobs:
           body: |
             This PR upgrades dependencies via `uv sync --upgrade --all-extras`,
             refreshes `uv.lock`, updates frontend dependencies, updates
-            `prek.toml` by running `prek autoupdate --cooldown-days 7`.
+            `prek.toml` by running `prek autoupdate --cooldown-days 7`, and
+            syncs `biome.json`'s `$schema` to the `biomejs/pre-commit` hook rev.
           branch: bot/update-deps-and-linters
           author: GitHub Actions <actions@github.com>
           delete-branch: true
