@@ -43,10 +43,19 @@ jobs:
         run: prek autoupdate --cooldown-days 7
       - name: Sync biome.json $schema to the biome pre-commit hook rev
         run: |
-          rev=$(grep -A2 'biomejs/pre-commit' prek.toml | sed -nE 's/.*rev = "v([0-9.]+)".*/\1/p')
-          if [ -n "$rev" ]; then
-            sed -i -E "s#(biomejs\.dev/schemas/)[0-9.]+#\1${rev}#" biome.json
+          set -euo pipefail
+          hook_block=$(grep -A2 'biomejs/pre-commit' prek.toml || true)
+          if [ -z "$hook_block" ]; then
+            echo "biomejs/pre-commit hook not found in prek.toml; skipping schema sync."
+            exit 0
           fi
+          rev=$(printf '%s\n' "$hook_block" | sed -nE 's/^[[:space:]]*rev = "v?([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*$/\1/p')
+          if [ -z "$rev" ]; then
+            echo "::error::biomejs/pre-commit hook present but its rev is not a plain stable vX.Y.Z tag; refusing to leave biome.json \$schema out of sync. Update the sync step in update.yml." >&2
+            exit 1
+          fi
+          sed -i -E "s#(biomejs\.dev/schemas/)[0-9.]+#\1${rev}#" biome.json
+          echo "Synced biome.json \$schema to ${rev}."
       - name: Check for changes
         id: check_diff
         run: |
