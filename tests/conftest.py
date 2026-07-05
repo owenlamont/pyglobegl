@@ -149,7 +149,7 @@ def ui_artifacts_writer() -> Callable[[PlaywrightPage, str], None]:
 
 # autouse: the UI-artifacts dir must be cleared once per session before any test
 # runs, without every UI test having to depend on it explicitly.
-@pytest.fixture(scope="session", autouse=True)  # noqa: RUF076
+@pytest.fixture(scope="session", autouse=True)
 def _clear_ui_artifacts_dir(request: pytest.FixtureRequest) -> None:
     from xdist import get_xdist_worker_id
 
