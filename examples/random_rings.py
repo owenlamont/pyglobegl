@@ -25,7 +25,7 @@ from pyglobegl.config import ColorValue
 
 
 def _make_rings(seed: int = 11, count: int = 10) -> list[RingDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     colors: list[ColorValue] = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
     return [
         RingDatum(

@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 def _require_geopandas() -> None:
     try:
-        import geopandas as gpd  # noqa: F401
+        import geopandas as gpd  # ruff: ignore[unused-import]
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "GeoPandas is required for pyglobegl GeoDataFrame helpers. "
@@ -44,7 +44,7 @@ def _require_geopandas() -> None:
 
 def _require_pandera() -> None:
     try:
-        import pandera.pandas as pa  # noqa: F401
+        import pandera.pandas as pa  # ruff: ignore[unused-import]
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "pandera is required for GeoDataFrame validation. "
@@ -54,7 +54,7 @@ def _require_pandera() -> None:
 
 def _require_pandas() -> None:
     try:
-        import pandas as pd  # noqa: F401
+        import pandas as pd  # ruff: ignore[unused-import]
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "pandas is required for GeoDataFrame validation. "
@@ -231,8 +231,6 @@ def polygons_from_gdf(
     }
     validation_columns = set(columns)
     validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    # Pandera's PydanticModel schema must only contain model fields, so validate a
-    # subset that matches the Pydantic model.
     validation = (
         gdf[list(validation_columns)].copy()
         if validation_columns
@@ -268,27 +266,17 @@ def _validate_schema(
 def _validate_rows_with_pydantic(
     data: pd.DataFrame, model: type[BaseModel], context: str
 ) -> None:
-    from pandera.engines.pandas_engine import PydanticModel
-    import pandera.pandas as pa
     from pydantic import ValidationError
 
-    schema = pa.DataFrameSchema(dtype=PydanticModel(model), coerce=False)
-    try:
-        schema.validate(data)
-    except Exception as exc:
-        records = data.to_dict("records")
-        for record in records:
-            try:
-                model.model_validate(record)
-            except ValidationError as val_exc:  # noqa: PERF203 - clarity over micro-optimization
-                error = val_exc.errors()[0]
-                location = ".".join(str(item) for item in error.get("loc", []))
-                message = error.get("msg", "Invalid value.")
-                detail = f"{location}: {message}" if location else message
-                raise ValueError(
-                    f"{context} schema validation failed. ({detail})"
-                ) from val_exc
-        raise ValueError(f"{context} schema validation failed.") from exc
+    for record in data.to_dict("records"):
+        try:
+            model.model_validate(record)
+        except ValidationError as exc:  # ruff: ignore[try-except-in-loop] - clarity over micro-optimization
+            error = exc.errors()[0]
+            location = ".".join(str(item) for item in error.get("loc", []))
+            message = error.get("msg", "Invalid value.")
+            detail = f"{location}: {message}" if location else message
+            raise ValueError(f"{context} schema validation failed. ({detail})") from exc
 
 
 def _to_geojson_polygon_model(geom: BaseGeometry):
@@ -360,8 +348,6 @@ def points_from_gdf(
     optional_columns = {"altitude", "radius", "color", "label"}
     validation_columns = set(columns)
     validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    # Pandera's PydanticModel schema must only contain model fields, so validate a
-    # subset that matches the Pydantic model.
     validation = (
         gdf[list(validation_columns)].copy()
         if validation_columns
@@ -450,8 +436,6 @@ def arcs_from_gdf(
     }
     validation_columns = set(columns)
     validation_columns.update(col for col in optional_columns if col in renamed.columns)
-    # Pandera's PydanticModel schema must only contain model fields, so validate a
-    # subset that matches the Pydantic model.
     validation = (
         renamed[list(validation_columns)].copy()
         if validation_columns
@@ -532,8 +516,6 @@ def paths_from_gdf(
     }
     validation_columns = set(columns)
     validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    # Pandera's PydanticModel schema must only contain model fields, so validate a
-    # subset that matches the Pydantic model.
     validation_records = _expand_path_records(gdf, list(validation_columns))
     data_records = _expand_path_records(gdf, columns)
 

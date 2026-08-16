@@ -38,7 +38,7 @@ def _load_countries(seed: int = 42) -> list[HexPolygonDatum]:
     with urlopen(_COUNTRIES_URL) as response:
         data = json.load(response)
 
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     hexed: list[HexPolygonDatum] = []
     for feat in data.get("features", []):
         geometry = feat.get("geometry")

@@ -38,7 +38,7 @@ _COLORS = [
 
 
 def _make_tiles(seed: int = 13) -> list[TileDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     tile_width = 360 / _GRID_SIZE[0]
     tile_height = 180 / _GRID_SIZE[1]
     width = tile_width - _TILE_MARGIN

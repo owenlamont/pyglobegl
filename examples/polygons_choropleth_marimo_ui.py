@@ -259,7 +259,7 @@ def _(config, country_index):
                 )
 
     widget.on_polygon_hover(handle_hover)
-    widget  # noqa: B018
+    widget  # ruff: ignore[useless-expression]
     return
 
 

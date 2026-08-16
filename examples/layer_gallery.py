@@ -105,7 +105,7 @@ def _():
             when.second + when.microsecond / 1e6,
         )
         gmst = lm._gstime(jd + fr)
-        with urlopen(lm._TLE_URL) as response:  # noqa: S310
+        with urlopen(lm._TLE_URL) as response:  # ruff: ignore[suspicious-url-open-usage]
             raw = response.read().decode("utf-8")
         pts = []
         for name, line1, line2 in lm._parse_tle(raw):
@@ -135,7 +135,7 @@ def _():
     # still frame).
     import random
 
-    ring_rng = random.Random(3)  # noqa: S311
+    ring_rng = random.Random(3)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     bright_rings = [
         RingDatum(
             lat=ring_rng.uniform(-55, 65),
@@ -249,14 +249,14 @@ def _(configs, mo):
     selector = mo.ui.dropdown(
         options=list(configs.keys()), value="globe", label="Layer"
     )
-    selector  # noqa: B018
+    selector  # ruff: ignore[useless-expression]
     return (selector,)
 
 
 @app.cell
-def _(GlobeWidget, configs, mo, selector):  # noqa: N803
+def _(GlobeWidget, configs, mo, selector):  # ruff: ignore[invalid-argument-name]
     widget = mo.ui.anywidget(GlobeWidget(config=configs[selector.value]))
-    widget  # noqa: B018
+    widget  # ruff: ignore[useless-expression]
     return
 
 
