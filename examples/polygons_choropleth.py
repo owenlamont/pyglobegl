@@ -74,6 +74,25 @@ def _interpolate_scale(stops: list[tuple[int, int, int]], t: float) -> str:
 
 
 @lru_cache(maxsize=1)
+def _polygon_geometry(geometry: object) -> Polygon | MultiPolygon:
+    if not isinstance(geometry, dict):
+        raise ValueError("Feature geometry must be a GeoJSON object.")
+    if geometry.get("type") == "Polygon":
+        return Polygon.model_validate(geometry)
+    if geometry.get("type") == "MultiPolygon":
+        return MultiPolygon.model_validate(geometry)
+    raise ValueError("Country geometry must be Polygon or MultiPolygon.")
+
+
+def _country_label(props: dict[str, Any]) -> str:
+    return (
+        f"<b>{props.get('ADMIN', 'Unknown')} ({props.get('ISO_A2', '--')}):</b>"
+        " <br />"
+        f"GDP: <i>{props.get('GDP_MD_EST', 'N/A')}</i> M$<br/>"
+        f"Population: <i>{props.get('POP_EST', 'N/A')}</i>"
+    )
+
+
 def _load_countries() -> list[PolygonDatum]:
     with urlopen(_COUNTRIES_URL) as response:
         data = json.load(response)
@@ -100,21 +119,8 @@ def _load_countries() -> list[PolygonDatum]:
         t = math.sqrt(val) / math.sqrt(max_val) if max_val else 0.0
         props = feat.setdefault("properties", {})
         color = _interpolate_scale(_YLORRD_STOPS, t)
-        geometry = feat.get("geometry")
-        if not isinstance(geometry, dict):
-            raise ValueError("Feature geometry must be a GeoJSON object.")
-        if geometry.get("type") == "Polygon":
-            polygon_geometry = Polygon.model_validate(geometry)
-        elif geometry.get("type") == "MultiPolygon":
-            polygon_geometry = MultiPolygon.model_validate(geometry)
-        else:
-            raise ValueError("Country geometry must be Polygon or MultiPolygon.")
-        label = (
-            f"<b>{props.get('ADMIN', 'Unknown')} ({props.get('ISO_A2', '--')}):</b>"
-            " <br />"
-            f"GDP: <i>{props.get('GDP_MD_EST', 'N/A')}</i> M$<br/>"
-            f"Population: <i>{props.get('POP_EST', 'N/A')}</i>"
-        )
+        polygon_geometry = _polygon_geometry(feat.get("geometry"))
+        label = _country_label(props)
         polygons.append(
             PolygonDatum.model_validate(
                 {

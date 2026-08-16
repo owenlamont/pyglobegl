@@ -143,13 +143,35 @@ def _require_columns(gdf: gpd.GeoDataFrame, columns: Iterable[str]) -> None:
         raise ValueError(f"GeoDataFrame missing columns: {missing}")
 
 
-def _prepare_point_gdf(
+def _prepare_gdf(
     gdf: gpd.GeoDataFrame,
     *,
     geometry_column: str | None,
     default_column: str,
-    context: str,
+    geom_types: Sequence[str],
+    geom_error: str,
+    schema: Any,
+    schema_error: str,
 ) -> gpd.GeoDataFrame:
+    """Reproject onto EPSG:4326 and validate against a schema.
+
+    The chosen geometry column is made active and renamed to ``geometry`` first.
+
+    Args:
+        gdf: GeoDataFrame to prepare.
+        geometry_column: Explicit geometry column, or None to infer one.
+        default_column: Column preferred over the active geometry when it exists.
+        geom_types: Shapely type names the geometry column may contain.
+        geom_error: Raised when the geometry holds any other type.
+        schema: Pandera schema to validate the prepared frame against.
+        schema_error: Context used when schema validation fails.
+
+    Returns:
+        The reprojected, validated GeoDataFrame.
+
+    Raises:
+        ValueError: If the GeoDataFrame has no CRS or holds an unexpected geometry type.
+    """
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
 
@@ -163,12 +185,60 @@ def _prepare_point_gdf(
         gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
             "geometry", inplace=False
         )
-    if not gdf.geometry.geom_type.eq("Point").all():
-        raise ValueError("Geometry column must contain Point geometries.")
-    gdf = gdf.to_crs(4326)
-    return _validate_schema(
-        _build_points_schema(), gdf, f"GeoDataFrame failed {context} schema validation."
+    if not gdf.geometry.geom_type.isin(geom_types).all():
+        raise ValueError(geom_error)
+    return _validate_schema(schema, gdf.to_crs(4326), schema_error)
+
+
+def _prepare_point_gdf(
+    gdf: gpd.GeoDataFrame,
+    *,
+    geometry_column: str | None,
+    default_column: str,
+    context: str,
+) -> gpd.GeoDataFrame:
+    return _prepare_gdf(
+        gdf,
+        geometry_column=geometry_column,
+        default_column=default_column,
+        geom_types=("Point",),
+        geom_error="Geometry column must contain Point geometries.",
+        schema=_build_points_schema(),
+        schema_error=f"GeoDataFrame failed {context} schema validation.",
     )
+
+
+def _subset(gdf: gpd.GeoDataFrame, columns: Iterable[str]) -> pd.DataFrame:
+    """Copy out the named columns.
+
+    Returns:
+        A frame of `columns`, or a row-preserving empty one when there are none.
+    """
+    selected = list(columns)
+    return gdf[selected].copy() if selected else gdf.iloc[:, 0:0].copy()
+
+
+def _selected_columns(
+    gdf: gpd.GeoDataFrame,
+    include_columns: Iterable[str] | None,
+    optional_columns: Iterable[str],
+) -> tuple[list[str], list[str]]:
+    """Split the requested passthrough columns from the wider set to validate.
+
+    Args:
+        gdf: GeoDataFrame the columns are read from.
+        include_columns: Columns the caller asked to copy onto each datum.
+        optional_columns: Model fields validated whenever the frame carries them.
+
+    Returns:
+        The requested columns, and those plus whichever optional ones are present.
+        Requested columns absent from `gdf` are rejected by `_require_columns`.
+    """
+    columns = list(include_columns) if include_columns is not None else []
+    _require_columns(gdf, columns)
+    validation = set(columns)
+    validation.update(col for col in optional_columns if col in gdf.columns)
+    return columns, list(validation)
 
 
 def polygons_from_gdf(
@@ -179,6 +249,9 @@ def polygons_from_gdf(
 ) -> list[PolygonDatum]:
     """Convert a GeoDataFrame of polygon geometries into polygon data models.
 
+    Raises ValueError if the GeoDataFrame has no CRS, holds non-polygon
+    geometries, or is missing a requested column.
+
     Args:
         gdf: GeoDataFrame containing polygon geometries.
         geometry_column: Optional name of the geometry column to use.
@@ -187,59 +260,39 @@ def polygons_from_gdf(
     Returns:
         A list of PolygonDatum models with a GeoJSON geometry plus any requested
         attributes.
-
-    Raises:
-        ValueError: If the GeoDataFrame has no CRS or contains non-polygon geometries.
     """
     _require_geopandas()
     _require_pandas()
     _require_pandera()
 
-    if gdf.crs is None:
-        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
-
-    if geometry_column is None and "polygons" in gdf.columns:
-        resolved_geometry = "polygons"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    gdf = gdf.set_geometry(resolved_geometry, inplace=False)
-    if resolved_geometry != "geometry":
-        gdf = gdf.rename(columns={resolved_geometry: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).all():
-        raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
-
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_polygons_schema(), gdf, "polygons_from_gdf schema validation failed."
+    gdf = _prepare_gdf(
+        gdf,
+        geometry_column=geometry_column,
+        default_column="polygons",
+        geom_types=("Polygon", "MultiPolygon"),
+        geom_error="Geometry column must contain Polygon or MultiPolygon.",
+        schema=_build_polygons_schema(),
+        schema_error="polygons_from_gdf schema validation failed.",
     )
 
-    columns = list(include_columns) if include_columns is not None else []
-    missing = [col for col in columns if col not in gdf.columns]
-    if missing:
-        raise ValueError(f"GeoDataFrame missing columns: {missing}")
-
-    optional_columns = {
-        "name",
-        "label",
-        "cap_color",
-        "side_color",
-        "stroke_color",
-        "altitude",
-        "cap_curvature_resolution",
-    }
-    validation_columns = set(columns)
-    validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    validation = (
-        gdf[list(validation_columns)].copy()
-        if validation_columns
-        else gdf.iloc[:, 0:0].copy()
+    columns, validation_columns = _selected_columns(
+        gdf,
+        include_columns,
+        {
+            "name",
+            "label",
+            "cap_color",
+            "side_color",
+            "stroke_color",
+            "altitude",
+            "cap_curvature_resolution",
+        },
     )
+    validation = _subset(gdf, validation_columns)
     validation["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
     _validate_rows_with_pydantic(validation, PolygonDatum, "polygons_from_gdf")
 
-    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    data = _subset(gdf, columns)
     data["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
     return [PolygonDatum.model_validate(record) for record in data.to_dict("records")]
 
@@ -304,6 +357,9 @@ def points_from_gdf(
 ) -> list[PointDatum]:
     """Convert a GeoDataFrame of point geometries into point data models.
 
+    Raises ValueError if the GeoDataFrame has no CRS, holds non-point geometries,
+    or is missing a requested column.
+
     Args:
         gdf: GeoDataFrame containing point geometries.
         include_columns: Optional iterable of column names to copy onto each point.
@@ -312,52 +368,30 @@ def points_from_gdf(
     Returns:
         A list of PointDatum models with ``lat`` and ``lng`` plus any requested
         attributes.
-
-    Raises:
-        ValueError: If the GeoDataFrame has no CRS or contains no point geometries.
     """
     _require_geopandas()
     _require_pandas()
     _require_pandera()
 
-    if gdf.crs is None:
-        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
-
-    if point_geometry is None and "point" in gdf.columns:
-        resolved_geometry = "point"
-    else:
-        resolved_geometry = point_geometry or gdf.geometry.name
-    geometry_name = str(resolved_geometry)
-    gdf = gdf.set_geometry(geometry_name, inplace=False)
-    if geometry_name != "geometry":
-        gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.eq("Point").all():
-        raise ValueError("Geometry column must contain Point geometries.")
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_points_schema(), gdf, "GeoDataFrame failed point schema validation."
+    gdf = _prepare_gdf(
+        gdf,
+        geometry_column=point_geometry,
+        default_column="point",
+        geom_types=("Point",),
+        geom_error="Geometry column must contain Point geometries.",
+        schema=_build_points_schema(),
+        schema_error="GeoDataFrame failed point schema validation.",
     )
 
-    columns = list(include_columns) if include_columns is not None else []
-    missing = [col for col in columns if col not in gdf.columns]
-    if missing:
-        raise ValueError(f"GeoDataFrame missing columns: {missing}")
-
-    optional_columns = {"altitude", "radius", "color", "label"}
-    validation_columns = set(columns)
-    validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    validation = (
-        gdf[list(validation_columns)].copy()
-        if validation_columns
-        else gdf.iloc[:, 0:0].copy()
+    columns, validation_columns = _selected_columns(
+        gdf, include_columns, {"altitude", "radius", "color", "label"}
     )
+    validation = _subset(gdf, validation_columns)
     validation["lat"] = gdf.geometry.y
     validation["lng"] = gdf.geometry.x
     _validate_rows_with_pydantic(validation, PointDatum, "points_from_gdf")
 
-    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    data = _subset(gdf, columns)
     data["lat"] = gdf.geometry.y
     data["lng"] = gdf.geometry.x
     return [PointDatum.model_validate(record) for record in data.to_dict("records")]
@@ -463,6 +497,9 @@ def paths_from_gdf(
 ) -> list[PathDatum]:
     """Convert a GeoDataFrame of line geometries into path data models.
 
+    Raises ValueError if the GeoDataFrame has no CRS, holds non-line geometries,
+    or is missing a requested column.
+
     Args:
         gdf: GeoDataFrame containing line geometries.
         geometry_column: Optional name of the geometry column to use.
@@ -471,59 +508,43 @@ def paths_from_gdf(
     Returns:
         A list of PathDatum models with a list of coordinates plus any requested
         attributes.
-
-    Raises:
-        ValueError: If the GeoDataFrame has no CRS or contains non-line geometries.
     """
     _require_geopandas()
     _require_pandas()
     _require_pandera()
     import pandas as pd
 
-    if gdf.crs is None:
-        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
-
-    if geometry_column is None and "paths" in gdf.columns:
-        resolved_geometry = "paths"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    gdf = gdf.set_geometry(resolved_geometry, inplace=False)
-    if resolved_geometry != "geometry":
-        gdf = gdf.rename(columns={resolved_geometry: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.isin(["LineString", "MultiLineString"]).all():
-        raise ValueError("Geometry column must contain LineString or MultiLineString.")
-
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_paths_schema(), gdf, "GeoDataFrame failed path schema validation."
+    gdf = _prepare_gdf(
+        gdf,
+        geometry_column=geometry_column,
+        default_column="paths",
+        geom_types=("LineString", "MultiLineString"),
+        geom_error="Geometry column must contain LineString or MultiLineString.",
+        schema=_build_paths_schema(),
+        schema_error="GeoDataFrame failed path schema validation.",
     )
 
-    columns = list(include_columns) if include_columns is not None else []
-    missing = [col for col in columns if col not in gdf.columns]
-    if missing:
-        raise ValueError(f"GeoDataFrame missing columns: {missing}")
-
-    optional_columns = {
-        "color",
-        "dash_length",
-        "dash_gap",
-        "dash_initial_gap",
-        "dash_animate_time",
-        "label",
-        "name",
-    }
-    validation_columns = set(columns)
-    validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    validation_records = _expand_path_records(gdf, list(validation_columns))
+    columns, validation_columns = _selected_columns(
+        gdf,
+        include_columns,
+        {
+            "color",
+            "dash_length",
+            "dash_gap",
+            "dash_initial_gap",
+            "dash_animate_time",
+            "label",
+            "name",
+        },
+    )
+    validation_records = _expand_path_records(gdf, validation_columns)
     data_records = _expand_path_records(gdf, columns)
 
     if validation_records:
         validation_df = pd.DataFrame(validation_records)
     else:
         validation_df = pd.DataFrame(
-            columns=pd.Index(sorted(validation_columns | {"path"}))
+            columns=pd.Index(sorted({*validation_columns, "path"}))
         )
     _validate_rows_with_pydantic(validation_df, PathDatum, "paths_from_gdf")
 
@@ -671,47 +692,31 @@ def hexed_polygons_from_gdf(
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
 
-    if geometry_column is None and "polygons" in gdf.columns:
-        resolved_geometry = "polygons"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    gdf = gdf.set_geometry(resolved_geometry, inplace=False)
-    if resolved_geometry != "geometry":
-        gdf = gdf.rename(columns={resolved_geometry: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).all():
-        raise ValueError("Geometry column must contain Polygon or MultiPolygon.")
-
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_polygons_schema(),
+    gdf = _prepare_gdf(
         gdf,
-        "hexed_polygons_from_gdf schema validation failed.",
+        geometry_column=geometry_column,
+        default_column="polygons",
+        geom_types=("Polygon", "MultiPolygon"),
+        geom_error="Geometry column must contain Polygon or MultiPolygon.",
+        schema=_build_polygons_schema(),
+        schema_error="hexed_polygons_from_gdf schema validation failed.",
     )
 
-    columns = list(include_columns) if include_columns is not None else []
-    missing = [col for col in columns if col not in gdf.columns]
-    if missing:
-        raise ValueError(f"GeoDataFrame missing columns: {missing}")
-
-    optional_columns = {
-        "label",
-        "color",
-        "altitude",
-        "resolution",
-        "margin",
-        "use_dots",
-        "curvature_resolution",
-        "dot_resolution",
-    }
-    validation_columns = set(columns)
-    validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    validation = (
-        gdf[list(validation_columns)].copy()
-        if validation_columns
-        else gdf.iloc[:, 0:0].copy()
+    columns, validation_columns = _selected_columns(
+        gdf,
+        include_columns,
+        {
+            "label",
+            "color",
+            "altitude",
+            "resolution",
+            "margin",
+            "use_dots",
+            "curvature_resolution",
+            "dot_resolution",
+        },
     )
+    validation = _subset(gdf, validation_columns)
     validation["geometry"] = [_to_geojson_polygon_model(geom) for geom in gdf.geometry]
     _validate_rows_with_pydantic(validation, HexPolygonDatum, "hexed_polygons_from_gdf")
 
@@ -730,6 +735,9 @@ def tiles_from_gdf(
 ) -> list[TileDatum]:
     """Convert a GeoDataFrame of point geometries into tile data models.
 
+    Raises ValueError if the GeoDataFrame has no CRS, holds non-point geometries,
+    or is missing a requested column.
+
     Args:
         gdf: GeoDataFrame containing point geometries.
         geometry_column: Optional name of the geometry column to use.
@@ -737,59 +745,33 @@ def tiles_from_gdf(
 
     Returns:
         A list of TileDatum models.
-
-    Raises:
-        ValueError: If the GeoDataFrame is missing CRS or point geometry.
     """
     _require_geopandas()
     _require_pandas()
     _require_pandera()
 
-    if gdf.crs is None:
-        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
-
-    if geometry_column is None and "point" in gdf.columns:
-        resolved_geometry = "point"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    geometry_name = str(resolved_geometry)
-    gdf = gdf.set_geometry(geometry_name, inplace=False)
-    if geometry_name != "geometry":
-        gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.eq("Point").all():
-        raise ValueError("Geometry column must contain Point geometries.")
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_points_schema(), gdf, "GeoDataFrame failed tiles schema validation."
+    gdf = _prepare_point_gdf(
+        gdf, geometry_column=geometry_column, default_column="point", context="tiles"
     )
 
-    columns = list(include_columns) if include_columns is not None else []
-    missing = [col for col in columns if col not in gdf.columns]
-    if missing:
-        raise ValueError(f"GeoDataFrame missing columns: {missing}")
-
-    optional_columns = {
-        "altitude",
-        "width",
-        "height",
-        "use_globe_projection",
-        "curvature_resolution",
-        "label",
-    }
-    validation_columns = set(columns)
-    validation_columns.update(col for col in optional_columns if col in gdf.columns)
-    validation = (
-        gdf[list(validation_columns)].copy()
-        if validation_columns
-        else gdf.iloc[:, 0:0].copy()
+    columns, validation_columns = _selected_columns(
+        gdf,
+        include_columns,
+        {
+            "altitude",
+            "width",
+            "height",
+            "use_globe_projection",
+            "curvature_resolution",
+            "label",
+        },
     )
+    validation = _subset(gdf, validation_columns)
     validation["lat"] = gdf.geometry.y
     validation["lng"] = gdf.geometry.x
     _validate_rows_with_pydantic(validation, TileDatum, "tiles_from_gdf")
 
-    data = gdf[columns].copy() if columns else gdf.iloc[:, 0:0].copy()
+    data = _subset(gdf, columns)
     data["lat"] = gdf.geometry.y
     data["lng"] = gdf.geometry.x
     return [TileDatum.model_validate(record) for record in data.to_dict("records")]
@@ -887,24 +869,8 @@ def rings_from_gdf(
     _require_pandas()
     _require_pandera()
 
-    if gdf.crs is None:
-        raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
-
-    if geometry_column is None and "point" in gdf.columns:
-        resolved_geometry = "point"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    geometry_name = str(resolved_geometry)
-    gdf = gdf.set_geometry(geometry_name, inplace=False)
-    if geometry_name != "geometry":
-        gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.eq("Point").all():
-        raise ValueError("Geometry column must contain Point geometries.")
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_points_schema(), gdf, "GeoDataFrame failed rings schema validation."
+    gdf = _prepare_point_gdf(
+        gdf, geometry_column=geometry_column, default_column="point", context="rings"
     )
 
     columns = list(include_columns) if include_columns is not None else []
@@ -964,24 +930,10 @@ def labels_from_gdf(
     if gdf.crs is None:
         raise ValueError("GeoDataFrame must have a CRS to convert to EPSG:4326.")
 
-    if text_column not in gdf.columns:
-        raise ValueError(f"GeoDataFrame missing columns: {[text_column]}")
+    _require_columns(gdf, [text_column])
 
-    if geometry_column is None and "point" in gdf.columns:
-        resolved_geometry = "point"
-    else:
-        resolved_geometry = geometry_column or gdf.geometry.name
-    geometry_name = str(resolved_geometry)
-    gdf = gdf.set_geometry(geometry_name, inplace=False)
-    if geometry_name != "geometry":
-        gdf = gdf.rename(columns={geometry_name: "geometry"}).set_geometry(
-            "geometry", inplace=False
-        )
-    if not gdf.geometry.geom_type.eq("Point").all():
-        raise ValueError("Geometry column must contain Point geometries.")
-    gdf = gdf.to_crs(4326)
-    gdf = _validate_schema(
-        _build_points_schema(), gdf, "GeoDataFrame failed labels schema validation."
+    gdf = _prepare_point_gdf(
+        gdf, geometry_column=geometry_column, default_column="point", context="labels"
     )
 
     columns = list(include_columns) if include_columns is not None else []
