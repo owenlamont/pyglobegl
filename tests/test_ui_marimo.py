@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 import shutil
 import socket
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 import time
 from typing import TYPE_CHECKING
 
@@ -23,7 +23,7 @@ def _marimo_server() -> Iterator[str]:
     uv_path = shutil.which("uv")
     if uv_path is None:
         raise RuntimeError("uv not found on PATH.")
-    proc = subprocess.Popen(  # noqa: S603
+    proc = subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true]
         [
             uv_path,
             "run",

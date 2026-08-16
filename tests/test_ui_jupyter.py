@@ -6,7 +6,7 @@ import re
 import secrets
 import shutil
 import socket
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 import time
 from typing import Any, TYPE_CHECKING
 import urllib.error
@@ -278,14 +278,14 @@ def _start_jupyter(uv_path: str, token: str, port: int, log_file) -> subprocess.
     args.append("--ServerApp.password=")
     env = dict(os.environ)
     env.setdefault("PYTHONUNBUFFERED", "1")
-    return subprocess.Popen(  # noqa: S603
+    return subprocess.Popen(  # ruff: ignore[subprocess-without-shell-equals-true]
         args, stdout=log_file, stderr=subprocess.STDOUT, env=env
     )
 
 
 def _jupyter_http_ready(url: str) -> bool:
     try:
-        with urllib.request.urlopen(url, timeout=2) as response:  # noqa: S310
+        with urllib.request.urlopen(url, timeout=2) as response:  # ruff: ignore[suspicious-url-open-usage]
             return response.status < 500
     except urllib.error.HTTPError as exc:
         status_ok = exc.code < 500

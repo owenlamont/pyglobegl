@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 
 
 def test_optional_dependencies_not_required(tmp_path: Path) -> None:
@@ -23,7 +23,7 @@ def test_optional_dependencies_not_required(tmp_path: Path) -> None:
     )
     uv_path = shutil.which("uv")
     assert uv_path is not None, "uv must be installed to run optional dependency guard."
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
         [uv_path, "run", "--script", str(script_path)],
         capture_output=True,
         text=True,

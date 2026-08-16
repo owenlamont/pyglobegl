@@ -17,7 +17,7 @@ def _(mo):
     from pyglobegl import GlobeWidget
 
     widget = mo.ui.anywidget(GlobeWidget())
-    widget  # noqa: B018
+    widget  # ruff: ignore[useless-expression]
     return
 
 

@@ -71,6 +71,88 @@ def compute_values(features: list[dict[str, Any]]) -> tuple[list[float], float]:
 
 
 @app.function
+def hex_to_rgb(value: str) -> tuple[int, int, int]:
+    """Split a `#rrggbb` string into its integer channels.
+
+    Returns:
+        The red, green and blue channels.
+    """
+    value = value.lstrip("#")
+    return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+
+
+@app.function
+def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+    """Join integer channels back into a `#rrggbb` string.
+
+    Returns:
+        The hex colour.
+    """
+    return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+
+
+@app.function
+def interpolate_scale(stops: list[str], t: float) -> str:
+    """Sample a colour ramp at `t`, clamped to the 0..1 range.
+
+    Returns:
+        The interpolated hex colour.
+    """
+    t = max(0.0, min(1.0, t))
+    if len(stops) == 1:
+        return stops[0]
+    step = 1.0 / (len(stops) - 1)
+    idx = min(int(t / step), len(stops) - 2)
+    local_t = (t - idx * step) / step
+    start_rgb = hex_to_rgb(stops[idx])
+    end_rgb = hex_to_rgb(stops[idx + 1])
+    blended = (
+        int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * local_t),
+        int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * local_t),
+        int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * local_t),
+    )
+    return rgb_to_hex(blended)
+
+
+@app.function
+def parse_geometry(geometry: dict[str, Any]):
+    """Validate a GeoJSON geometry mapping into its geojson-pydantic model.
+
+    Returns:
+        The Polygon or MultiPolygon model.
+
+    Raises:
+        ValueError: If the geometry is neither a Polygon nor a MultiPolygon.
+    """
+    from geojson_pydantic import MultiPolygon, Polygon
+
+    geometry_type = geometry.get("type")
+    if geometry_type == "Polygon":
+        return Polygon.model_validate(geometry)
+    if geometry_type == "MultiPolygon":
+        return MultiPolygon.model_validate(geometry)
+    raise ValueError("Country geometry must be Polygon or MultiPolygon.")
+
+
+@app.function
+def build_label(props: dict[str, Any]) -> str:
+    """Render the hover label for one country feature.
+
+    Returns:
+        The label markup.
+    """
+    admin = props.get("ADMIN", "Unknown")
+    iso = props.get("ISO_A2", "--")
+    gdp = props.get("GDP_MD_EST", "N/A")
+    population = props.get("POP_EST", "N/A")
+    return (
+        f"<b>{admin} ({iso}):</b> <br />"
+        f"GDP: <i>{gdp}</i> M$<br/>"
+        f"Population: <i>{population}</i>"
+    )
+
+
+@app.function
 def build_polygons(features: list[dict[str, Any]], values: list[float], max_val: float):
     """Build polygon datums for globe.gl.
 
@@ -80,56 +162,9 @@ def build_polygons(features: list[dict[str, Any]], values: list[float], max_val:
     Raises:
         ValueError: If the geometry is missing or invalid.
     """
-    from geojson_pydantic import MultiPolygon, Polygon
-
     from pyglobegl import PolygonDatum
 
     ylorrrd_stops = ["#ffffb2", "#fed976", "#feb24c", "#fd8d3c", "#f03b20", "#bd0026"]
-
-    def interpolate_scale(stops: list[str], t: float) -> str:
-        t = max(0.0, min(1.0, t))
-        if len(stops) == 1:
-            return stops[0]
-        step = 1.0 / (len(stops) - 1)
-        idx = min(int(t / step), len(stops) - 2)
-        local_t = (t - idx * step) / step
-        start = stops[idx]
-        end = stops[idx + 1]
-
-        def hex_to_rgb(value: str) -> tuple[int, int, int]:
-            value = value.lstrip("#")
-            return int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
-
-        def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
-            return f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
-
-        start_rgb = hex_to_rgb(start)
-        end_rgb = hex_to_rgb(end)
-        blended = (
-            int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * local_t),
-            int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * local_t),
-            int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * local_t),
-        )
-        return rgb_to_hex(blended)
-
-    def parse_geometry(geometry: dict[str, Any]):
-        geometry_type = geometry.get("type")
-        if geometry_type == "Polygon":
-            return Polygon.model_validate(geometry)
-        if geometry_type == "MultiPolygon":
-            return MultiPolygon.model_validate(geometry)
-        raise ValueError("Country geometry must be Polygon or MultiPolygon.")
-
-    def build_label(props: dict[str, Any]) -> str:
-        admin = props.get("ADMIN", "Unknown")
-        iso = props.get("ISO_A2", "--")
-        gdp = props.get("GDP_MD_EST", "N/A")
-        population = props.get("POP_EST", "N/A")
-        return (
-            f"<b>{admin} ({iso}):</b> <br />"
-            f"GDP: <i>{gdp}</i> M$<br/>"
-            f"Population: <i>{population}</i>"
-        )
 
     polygons: list[PolygonDatum] = []
     for feat, val in zip(features, values, strict=False):
@@ -259,7 +294,7 @@ def _(config, country_index):
                 )
 
     widget.on_polygon_hover(handle_hover)
-    widget  # noqa: B018
+    widget  # ruff: ignore[useless-expression]
     return
 
 

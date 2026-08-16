@@ -138,7 +138,7 @@ def page():
     Returns:
         The root Solara element.
     """
-    rng = random.Random(7)  # noqa: S311
+    rng = random.Random(7)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     base_paths = solara.use_memo(
         lambda: _make_paths(
             rng, count=10, max_points=10000, max_step_deg=1.0, max_step_alt=0.015

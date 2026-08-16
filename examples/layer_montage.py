@@ -112,7 +112,7 @@ class StageUpdate:
 
 
 def _make_points(seed: int = 7, count: int = 240) -> list[PointDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     colors = ["red", "white", "blue", "green"]
     return [
         PointDatum(
@@ -126,7 +126,7 @@ def _make_points(seed: int = 7, count: int = 240) -> list[PointDatum]:
 
 
 def _make_arcs(seed: int = 11, count: int = 120) -> list[ArcDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     colors = ["#ff6b6b", "#ffd93d", "#4dabf7", "#69db7c"]
     return [
         ArcDatum(
@@ -151,7 +151,7 @@ def _make_paths(
     max_step_alt: float = 0.006,
     max_altitude: float = 0.04,
 ) -> list[PathDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     paths: list[PathDatum] = []
     for _ in range(count):
         lat = (rng.random() - 0.5) * 90
@@ -376,7 +376,7 @@ def _load_hexed_polygons(seed: int = 42) -> list[HexPolygonDatum]:
     with urlopen(_HEXED_COUNTRIES_URL) as response:
         data = json.load(response)
 
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     hexed: list[HexPolygonDatum] = []
     for feat in data.get("features", []):
         geometry = feat.get("geometry")
@@ -415,7 +415,7 @@ def _load_hexed_polygons(seed: int = 42) -> list[HexPolygonDatum]:
 
 
 def _make_tiles(seed: int = 13) -> list[TileDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     grid_size = (60, 20)
     tile_margin = 0.35
     tile_width = 360 / grid_size[0]
@@ -591,7 +591,7 @@ def _propagate_satellite_particles(when: datetime) -> list[ParticlePointDatum]:
 
 
 def _make_rings(seed: int = 11, count: int = 40) -> list[RingDatum]:
-    rng = random.Random(seed)  # noqa: S311
+    rng = random.Random(seed)  # ruff: ignore[suspicious-non-cryptographic-random-usage]
     colors: list[ColorValue] = ["rgba(255,100,50,1)", "rgba(255,100,50,0)"]
     return [
         RingDatum(
