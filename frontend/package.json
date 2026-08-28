@@ -1,7 +1,7 @@
 {
 	"dependencies": {
 		"@micropython/micropython-webassembly-pyscript": "^1.27.0",
-		"globe.gl": "^2.46.1",
+		"globe.gl": "^2.46.2",
 		"three": "^0.182.0"
 	},
 	"devDependencies": {
