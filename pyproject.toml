@@ -91,11 +91,3 @@ docs = [
 
 [tool.uv]
 exclude-newer = "7 days"
-
-# Security fixes published inside the 7-day cooldown window. `false` disables the
-# cooldown for these packages so the patched releases come through; remove these
-# entries once the global cooldown covers the fixes (the deps then resume normal
-# cooldown-gated updates).
-[tool.uv.exclude-newer-package]
-jupyter-server = false  # GHSA-fcw5-x6j4-ccmp -> 2.20.0
-jupyterlab = false      # GHSA-vmhf-c436-hxj4 -> 4.5.9

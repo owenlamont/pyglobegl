@@ -18,10 +18,6 @@ resolution-markers = [
 exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P7D"
 
-[options.exclude-newer-package]
-jupyter-server = false
-jupyterlab = false
-
 [[package]]
 name = "annotated-types"
 version = "0.8.0"
