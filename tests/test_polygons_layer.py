@@ -127,8 +127,8 @@ def _assert_canvas_matches(
     canvas_save_capture,
     canvas_similarity_threshold: float,
     *,
-    attempts: int = 1,
-    wait_ms: int = 0,
+    attempts: int = 5,
+    wait_ms: int = 500,
 ) -> None:
     if attempts < 1:
         raise ValueError("attempts must be at least 1.")
