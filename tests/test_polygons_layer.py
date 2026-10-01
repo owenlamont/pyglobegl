@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import Final, TYPE_CHECKING
 from uuid import uuid4
 
 from geojson_pydantic import Polygon
@@ -66,7 +66,6 @@ def _counter_clockwise_polygon(
 def _circle_polygon(
     lng: float, lat: float, radius_deg: float, *, steps: int = 72
 ) -> Polygon:
-    """Return a clockwise GeoJSON polygon ring around a centre point."""
     coords: list[Position2D | Position3D] = []
     for i in range(steps):
         angle = 2 * math.pi * (i / steps)
@@ -290,6 +289,53 @@ def test_polygons_render_counter_clockwise_rings(
         canvas_compare_images,
         canvas_save_capture,
         0.97,
+    )
+
+
+_DATELINE_RING: Final = (
+    _pos(170, -10),
+    _pos(170, 10),
+    _pos(-170, 10),
+    _pos(-170, -10),
+    _pos(170, -10),
+)
+
+
+@pytest.mark.parametrize(
+    "ring",
+    [
+        pytest.param(list(_DATELINE_RING), id="d3 winding"),
+        pytest.param(list(reversed(_DATELINE_RING)), id="rfc 7946 winding"),
+    ],
+)
+@pytest.mark.usefixtures("solara_test")
+def test_polygons_render_rings_crossing_antimeridian(
+    page_session: Page,
+    canvas_match_reference,
+    globe_flat_texture_data_url,
+    ring: list[Position2D | Position3D],
+) -> None:
+    polygons_data = [
+        PolygonDatum(
+            geometry=Polygon(type="Polygon", coordinates=[ring]),
+            cap_color="#ff66cc",
+            side_color="#ff66cc",
+            stroke_color=None,
+            altitude=0.05,
+        )
+    ]
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=polygons_data, polygons_transition_duration=0
+        ),
+        lng=180,
+    )
+    display(GlobeWidget(config=config))
+
+    _await_globe_ready(page_session)
+    canvas_match_reference(
+        page_session, "test_polygons_render_rings_crossing_antimeridian", 0.97
     )
 
 

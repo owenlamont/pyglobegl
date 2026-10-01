@@ -11,6 +11,7 @@ type AnyWidgetRenderProps = {
 
 import { loadMicroPython } from "@micropython/micropython-webassembly-pyscript";
 import microPythonWasmUrl from "@micropython/micropython-webassembly-pyscript/micropython.wasm?url";
+import { geoArea } from "d3-geo";
 import * as THREE from "three";
 
 type GlobeInitConfig = {
@@ -373,25 +374,16 @@ trackPendingLoads();
 
 type Ring = Array<[number, number, ...number[]]>;
 
-const isClockwise = (ring: Ring): boolean => {
-	let sum = 0;
-	for (let i = 0; i < ring.length - 1; i++) {
-		const [x1, y1] = ring[i];
-		const [x2, y2] = ring[i + 1];
-		sum += (x2 - x1) * (y2 + y1);
-	}
-	return sum > 0;
-};
+// three-globe triangulates caps with d3-geo, which fills the region on a ring's right,
+// so an exterior enclosing more than a hemisphere or a hole enclosing less is reversed.
+const enclosesMoreThanHemisphere = (ring: Ring): boolean =>
+	geoArea({ type: "Polygon", coordinates: [ring] }) > 2 * Math.PI;
 
 const toD3Winding = (rings: Ring[]): Ring[] =>
 	rings.map((ring, index) =>
-		isClockwise(ring) === (index === 0) ? ring : [...ring].reverse(),
+		enclosesMoreThanHemisphere(ring) === index > 0 ? ring : [...ring].reverse(),
 	);
 
-// GeoJSON (RFC 7946) winds exterior rings counter-clockwise, but three-globe
-// triangulates caps with d3-geo, which reads a counter-clockwise exterior as the
-// rest of the sphere and fills outside the shape. Rewinding here renders either
-// winding correctly without touching the datum Python sent.
 const rewoundGeometries = new WeakMap<object, unknown>();
 
 const rewindForD3 = (geometry: unknown): unknown => {

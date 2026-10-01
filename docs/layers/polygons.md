@@ -57,6 +57,8 @@ A polygon carries its `geometry` plus appearance fields such as `cap_color`,
     pyglobegl rewinds each polygon in the browser before drawing it. The geometry
     on your `PolygonDatum` is left as you supplied it, and the GeoPandas helpers
     emit spec-compliant rings: exteriors counter-clockwise, holes clockwise.
+    Each ring is read as the smaller of the two regions it divides the sphere into,
+    so a single polygon cannot cover more than half the globe.
 
 ## Custom tooltip
 
