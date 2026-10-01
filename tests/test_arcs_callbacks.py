@@ -82,7 +82,7 @@ def test_on_arc_click_callback(
         """,
         timeout=20000,
     )
-    globe_clicker(page_session, "left")
+    globe_clicker(page_session, "left", until=click_event)
 
     assert click_event.wait(5), "Expected arc click callback to fire."
     assert isinstance(payload.get("arc"), dict)
@@ -148,7 +148,7 @@ def test_on_arc_right_click_callback(
         """,
         timeout=20000,
     )
-    globe_clicker(page_session, "right")
+    globe_clicker(page_session, "right", until=click_event)
 
     assert click_event.wait(5), "Expected arc right-click callback to fire."
     assert isinstance(payload.get("arc"), dict)

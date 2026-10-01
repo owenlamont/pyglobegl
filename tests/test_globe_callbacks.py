@@ -87,7 +87,7 @@ def test_on_globe_click_callback(
         """,
         timeout=20000,
     )
-    globe_clicker(page_session, "left")
+    globe_clicker(page_session, "left", until=click_event)
 
     assert click_event.wait(5), "Expected globe click callback to fire."
     assert "lat" in payload
@@ -141,7 +141,7 @@ def test_on_globe_right_click_callback(
         """,
         timeout=20000,
     )
-    globe_clicker(page_session, "right")
+    globe_clicker(page_session, "right", until=click_event)
 
     assert click_event.wait(5), "Expected globe right-click callback to fire."
     assert "lat" in payload
