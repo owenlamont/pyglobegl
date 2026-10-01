@@ -21,15 +21,11 @@ if TYPE_CHECKING:
 @pytest.mark.usefixtures("solara_test")
 def test_layout_background_image(
     page_session: Page,
-    canvas_capture,
     canvas_label,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
+    canvas_match_reference,
     globe_earth_texture_url,
     globe_background_night_sky_data_url,
 ) -> None:
-    canvas_similarity_threshold = 0.99
     config = GlobeConfig(
         init=GlobeInitConfig(
             renderer_config={"preserveDrawingBuffer": True}, animate_in=False
@@ -69,21 +65,4 @@ def test_layout_background_image(
         timeout=20000,
     )
 
-    captured_image = canvas_capture(page_session)
-    test_label = canvas_label
-    reference_path = canvas_reference_path(test_label)
-    if not reference_path.exists():
-        raise AssertionError(
-            f"Reference image missing. Save the capture to {reference_path} and re-run."
-        )
-    try:
-        score = canvas_compare_images(captured_image, reference_path)
-        passed = score >= canvas_similarity_threshold
-    except Exception:
-        canvas_save_capture(captured_image, test_label, False)
-        raise
-    canvas_save_capture(captured_image, test_label, passed)
-    assert passed, (
-        "Captured image similarity below threshold. "
-        f"Score: {score:.4f} (threshold {canvas_similarity_threshold:.4f})."
-    )
+    canvas_match_reference(page_session, canvas_label, 0.99)
