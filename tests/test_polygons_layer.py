@@ -54,6 +54,15 @@ def _polygon(west: float, south: float, east: float, north: float) -> Polygon:
     )
 
 
+def _counter_clockwise_polygon(
+    west: float, south: float, east: float, north: float
+) -> Polygon:
+    clockwise = _polygon(west, south, east, north)
+    return Polygon(
+        type="Polygon", coordinates=[list(reversed(clockwise.coordinates[0]))]
+    )
+
+
 def _circle_polygon(
     lng: float, lat: float, radius_deg: float, *, steps: int = 72
 ) -> Polygon:
@@ -246,14 +255,9 @@ def test_polygons_render_counter_clockwise_rings(
     canvas_save_capture,
     globe_flat_texture_data_url,
 ) -> None:
-    def _counter_clockwise(polygon: Polygon) -> Polygon:
-        return Polygon(
-            type="Polygon", coordinates=[list(reversed(polygon.coordinates[0]))]
-        )
-
     polygons_data = [
         PolygonDatum(
-            geometry=_counter_clockwise(_polygon(-25, -5, -5, 10)),
+            geometry=_counter_clockwise_polygon(-25, -5, -5, 10),
             cap_color="#ff66cc",
             side_color="#ff66cc",
             stroke_color=None,
@@ -261,7 +265,7 @@ def test_polygons_render_counter_clockwise_rings(
             cap_curvature_resolution=0.5,
         ),
         PolygonDatum(
-            geometry=_counter_clockwise(_polygon(5, -5, 25, 10)),
+            geometry=_counter_clockwise_polygon(5, -5, 25, 10),
             cap_color="#66ccff",
             side_color="#66ccff",
             stroke_color=None,
@@ -278,8 +282,6 @@ def test_polygons_render_counter_clockwise_rings(
     display(GlobeWidget(config=config))
 
     _await_globe_ready(page_session)
-    # The same scene as test_polygons_accessors with every ring reversed, so it must
-    # match that baseline rather than filling the globe outside each polygon.
     _assert_canvas_matches(
         page_session,
         canvas_capture,
