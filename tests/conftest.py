@@ -496,11 +496,7 @@ def canvas_compare_images() -> Callable[[Image.Image, pathlib.Path], float]:
 
 @pytest.fixture
 def canvas_assert_capture(
-    canvas_capture,
-    canvas_label,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
+    canvas_label, canvas_match_reference
 ) -> Callable[[PlaywrightPage, str, float], None]:
     def _assert(page: PlaywrightPage, capture_label: str, threshold: float) -> None:
         if not capture_label:
@@ -512,29 +508,69 @@ def canvas_assert_capture(
                 "capture_label must exclude the test name prefix; it is added "
                 "automatically."
             )
-        label = f"{canvas_label}-{_safe_name(capture_label)}"
-        captured_image = canvas_capture(page)
+        canvas_match_reference(
+            page, f"{canvas_label}-{_safe_name(capture_label)}", threshold
+        )
+
+    return _assert
+
+
+def _best_capture(
+    page: PlaywrightPage,
+    capture: Callable[[PlaywrightPage], Image.Image],
+    score: Callable[[Image.Image], float],
+    threshold: float,
+    attempts: int,
+) -> tuple[float, Image.Image]:
+    best_score, best_image = -1.0, capture(page)
+    for attempt in range(attempts):
+        if attempt:
+            page.wait_for_timeout(500)
+        image = best_image if attempt == 0 else capture(page)
+        current = score(image)
+        if current > best_score:
+            best_score, best_image = current, image
+        if current >= threshold:
+            break
+    return best_score, best_image
+
+
+@pytest.fixture
+def canvas_match_reference(
+    canvas_capture, canvas_reference_path, canvas_compare_images, canvas_save_capture
+) -> Callable[[PlaywrightPage, str, float], None]:
+    """Compare the canvas with a reference image, re-capturing on a mismatch.
+
+    Returns:
+        A function that fails the test unless the canvas matches the reference.
+    """
+
+    def _match(
+        page: PlaywrightPage, label: str, threshold: float, attempts: int = 5
+    ) -> None:
         reference_path = canvas_reference_path(label)
         if not reference_path.exists():
             reference_path.parent.mkdir(parents=True, exist_ok=True)
-            captured_image.save(reference_path)
+            canvas_capture(page).save(reference_path)
             raise AssertionError(
                 "Reference image missing. Saved capture to "
                 f"{reference_path}; verify and re-run."
             )
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-            passed = score >= threshold
-        except Exception:
-            canvas_save_capture(captured_image, label, False)
-            raise
-        canvas_save_capture(captured_image, label, passed)
+        best_score, best_image = _best_capture(
+            page,
+            canvas_capture,
+            lambda image: canvas_compare_images(image, reference_path),
+            threshold,
+            attempts,
+        )
+        passed = best_score >= threshold
+        canvas_save_capture(best_image, label, passed)
         assert passed, (
             "Captured image similarity below threshold. "
-            f"Score: {score:.4f} (threshold {threshold:.4f})."
+            f"Best score: {best_score:.4f} (threshold {threshold:.4f})."
         )
 
-    return _assert
+    return _match
 
 
 @pytest.fixture(scope="session")

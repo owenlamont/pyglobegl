@@ -348,6 +348,29 @@ const textureFromSpec = (value: unknown): unknown => {
 	return value;
 };
 
+// Every three.js loader reports through DefaultLoadingManager, and a failed load
+// still ends its item, so this counts the textures and models still in flight.
+let pendingLoads = 0;
+const trackPendingLoads = (): void => {
+	const manager = THREE.DefaultLoadingManager as THREE.LoadingManager & {
+		__pyglobegl_tracked?: boolean;
+	};
+	if (manager.__pyglobegl_tracked) {
+		return;
+	}
+	manager.__pyglobegl_tracked = true;
+	const { itemStart, itemEnd } = manager;
+	manager.itemStart = (url: string): void => {
+		pendingLoads += 1;
+		itemStart(url);
+	};
+	manager.itemEnd = (url: string): void => {
+		pendingLoads = Math.max(0, pendingLoads - 1);
+		itemEnd(url);
+	};
+};
+trackPendingLoads();
+
 function ensureWebGPUShaderStage(): void {
 	const globalScope = globalThis as {
 		GPUShaderStage?: { VERTEX: number; FRAGMENT: number; COMPUTE: number };
@@ -428,18 +451,32 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 		const outputArea = el.closest(".output-area") as HTMLElement | null;
 
 		globe.onGlobeReady(() => {
-			(
-				globalThis as { __pyglobegl_globe_ready?: boolean }
-			).__pyglobegl_globe_ready = true;
-			(
-				globalThis as {
-					__pyglobegl_renderer_attributes?: WebGLContextAttributes | null;
-				}
-			).__pyglobegl_renderer_attributes = globe
-				.renderer()
-				.getContext()
-				.getContextAttributes();
 			model.send({ type: "globe_ready" });
+			// onGlobeReady fires before the globe or background has drawn, so the
+			// flag tests capture on waits for loads to finish and two more frames.
+			const renderInfo = globe.renderer().info.render;
+			let settledFrame = renderInfo.frame;
+			const markReady = (): void => {
+				if (pendingLoads > 0) {
+					settledFrame = renderInfo.frame;
+				}
+				if (pendingLoads > 0 || renderInfo.frame < settledFrame + 2) {
+					requestAnimationFrame(markReady);
+					return;
+				}
+				(
+					globalThis as { __pyglobegl_globe_ready?: boolean }
+				).__pyglobegl_globe_ready = true;
+				(
+					globalThis as {
+						__pyglobegl_renderer_attributes?: WebGLContextAttributes | null;
+					}
+				).__pyglobegl_renderer_attributes = globe
+					.renderer()
+					.getContext()
+					.getContextAttributes();
+			};
+			requestAnimationFrame(markReady);
 		});
 
 		globe.onGlobeClick((coords: { lat: number; lng: number }) => {
