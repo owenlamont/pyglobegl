@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable, Generator
 import contextlib
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import io
 import os
@@ -10,7 +11,7 @@ import pathlib
 import shutil
 import socketserver
 import threading
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, Final, Literal, TYPE_CHECKING
 
 import numpy as np
 from PIL import Image, ImageChops
@@ -515,24 +516,33 @@ def canvas_assert_capture(
     return _assert
 
 
+_RECAPTURE_ATTEMPTS: Final = 5
+_RECAPTURE_INTERVAL_MS: Final = 500
+
+
+@dataclass(frozen=True, slots=True)
+class _ScoredCapture:
+    score: float
+    image: Image.Image
+
+
 def _best_capture(
     page: PlaywrightPage,
     capture: Callable[[PlaywrightPage], Image.Image],
     score: Callable[[Image.Image], float],
     threshold: float,
-    attempts: int,
-) -> tuple[float, Image.Image]:
-    best_score, best_image = -1.0, capture(page)
-    for attempt in range(attempts):
+) -> _ScoredCapture:
+    best = _ScoredCapture(score=-1.0, image=capture(page))
+    for attempt in range(_RECAPTURE_ATTEMPTS):
         if attempt:
-            page.wait_for_timeout(500)
-        image = best_image if attempt == 0 else capture(page)
+            page.wait_for_timeout(_RECAPTURE_INTERVAL_MS)
+        image = best.image if attempt == 0 else capture(page)
         current = score(image)
-        if current > best_score:
-            best_score, best_image = current, image
+        if current > best.score:
+            best = _ScoredCapture(score=current, image=image)
         if current >= threshold:
             break
-    return best_score, best_image
+    return best
 
 
 @pytest.fixture
@@ -545,9 +555,7 @@ def canvas_match_reference(
         A function that fails the test unless the canvas matches the reference.
     """
 
-    def _match(
-        page: PlaywrightPage, label: str, threshold: float, attempts: int = 5
-    ) -> None:
+    def _match(page: PlaywrightPage, label: str, threshold: float) -> None:
         reference_path = canvas_reference_path(label)
         if not reference_path.exists():
             reference_path.parent.mkdir(parents=True, exist_ok=True)
@@ -556,18 +564,17 @@ def canvas_match_reference(
                 "Reference image missing. Saved capture to "
                 f"{reference_path}; verify and re-run."
             )
-        best_score, best_image = _best_capture(
+        best = _best_capture(
             page,
             canvas_capture,
             lambda image: canvas_compare_images(image, reference_path),
             threshold,
-            attempts,
         )
-        passed = best_score >= threshold
-        canvas_save_capture(best_image, label, passed)
+        passed = best.score >= threshold
+        canvas_save_capture(best.image, label, passed)
         assert passed, (
             "Captured image similarity below threshold. "
-            f"Best score: {best_score:.4f} (threshold {threshold:.4f})."
+            f"Best score: {best.score:.4f} (threshold {threshold:.4f})."
         )
 
     return _match
