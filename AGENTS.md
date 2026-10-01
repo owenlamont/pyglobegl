@@ -44,9 +44,11 @@ and immediately use the widget without rebuilding JupyterLab.
 - Use precise type hints and avoid `Any` unless unavoidable.
 - Keep comments minimal; prefer clear names and docstrings.
 - Keep imports at module top unless avoiding circular imports.
-- For GeoJSON polygons, ensure exterior rings are counter-clockwise (right-hand
-  rule) so three.js cap triangulation renders correctly; holes should be
-  clockwise.
+- Keep GeoJSON polygons in Python to RFC 7946: exterior rings
+  counter-clockwise, holes clockwise. three-globe triangulates caps with d3-geo,
+  whose convention is the opposite, so the frontend rewinds each geometry in the
+  `polygonGeoJsonGeometry` accessor (`rewindForD3`) before it renders. Either
+  winding therefore renders correctly (issue #91).
 - Stage new files before running prek so they are included in checks. If prek
   applies fixes, rerun it to confirm a clean pass.
 
@@ -62,6 +64,8 @@ and immediately use the widget without rebuilding JupyterLab.
     ...})`). The Pydantic `*LayerConfig` models intentionally do **not** carry
     these accessor fields, and the frontend never sets them as field-name
     strings or arrow functions — so a raw `GlobeConfig.model_dump()` omits them;
+    the one exception is `polygonGeoJsonGeometry`, which the frontend wraps to
+    rewind rings (see the winding rule under Code Style);
     inspect `GlobeWidget(...).config` to see the real payload. three-globe's
     own accessor defaults are mostly constants (`ringColor: () => '#ffffaa'`,
     `ringMaxRadius: 2`, …), so without this injection per-datum styling would be

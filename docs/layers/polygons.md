@@ -50,11 +50,15 @@ display(GlobeWidget(config=config))
 A polygon carries its `geometry` plus appearance fields such as `cap_color`,
 `side_color`, `stroke_color`, and `altitude` (extrusion height).
 
-!!! warning "Ring winding order"
+!!! note "Ring winding order"
 
-    Exterior rings must be **counter-clockwise** (right-hand rule) so three.js cap
-    triangulation renders correctly; holes should be **clockwise**. The GeoPandas
-    helpers handle this for you.
+    Either winding renders correctly. globe.gl follows d3-geo's spherical
+    convention, which is the reverse of the GeoJSON spec's right-hand rule, so
+    pyglobegl rewinds each polygon in the browser before drawing it. The geometry
+    on your `PolygonDatum` is left as you supplied it, and the GeoPandas helpers
+    emit spec-compliant rings: exteriors counter-clockwise, holes clockwise.
+    Each ring is read as the smaller of the two regions it divides the sphere into,
+    so a single polygon cannot cover more than half the globe.
 
 ## Custom tooltip
 

@@ -11,6 +11,9 @@ importers:
       '@micropython/micropython-webassembly-pyscript':
         specifier: ^1.27.0
         version: 1.27.0
+      d3-geo:
+        specifier: ^3.1.1
+        version: 3.1.1
       globe.gl:
         specifier: ^2.46.2
         version: 2.46.2

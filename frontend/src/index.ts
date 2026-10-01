@@ -11,6 +11,7 @@ type AnyWidgetRenderProps = {
 
 import { loadMicroPython } from "@micropython/micropython-webassembly-pyscript";
 import microPythonWasmUrl from "@micropython/micropython-webassembly-pyscript/micropython.wasm?url";
+import { geoArea } from "d3-geo";
 import * as THREE from "three";
 
 type GlobeInitConfig = {
@@ -370,6 +371,45 @@ const trackPendingLoads = (): void => {
 	};
 };
 trackPendingLoads();
+
+type Ring = Array<[number, number, ...number[]]>;
+
+// three-globe triangulates caps with d3-geo, which fills the region on a ring's right,
+// so an exterior enclosing more than a hemisphere or a hole enclosing less is reversed.
+const enclosesMoreThanHemisphere = (ring: Ring): boolean =>
+	geoArea({ type: "Polygon", coordinates: [ring] }) > 2 * Math.PI;
+
+const toD3Winding = (rings: Ring[]): Ring[] =>
+	rings.map((ring, index) =>
+		enclosesMoreThanHemisphere(ring) === index > 0 ? ring : [...ring].reverse(),
+	);
+
+const rewoundGeometries = new WeakMap<object, unknown>();
+
+const rewindForD3 = (geometry: unknown): unknown => {
+	if (typeof geometry !== "object" || geometry === null) {
+		return geometry;
+	}
+	const cached = rewoundGeometries.get(geometry);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const { type, coordinates } = geometry as {
+		type?: string;
+		coordinates?: unknown;
+	};
+	let rewound: unknown = geometry;
+	if (type === "Polygon") {
+		rewound = { ...geometry, coordinates: toD3Winding(coordinates as Ring[]) };
+	} else if (type === "MultiPolygon") {
+		rewound = {
+			...geometry,
+			coordinates: (coordinates as Ring[][]).map(toD3Winding),
+		};
+	}
+	rewoundGeometries.set(geometry, rewound);
+	return rewound;
+};
 
 function ensureWebGPUShaderStage(): void {
 	const globalScope = globalThis as {
@@ -964,7 +1004,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 		const polygonProps = new Set([
 			"polygonLabel",
-			"polygonGeoJsonGeometry",
 			"polygonCapColor",
 			"polygonCapMaterial",
 			"polygonSideColor",
@@ -1884,8 +1923,9 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				);
 			}
 			if (polygonsConfig.polygonGeoJsonGeometry !== undefined) {
-				globe.polygonGeoJsonGeometry(
-					polygonsConfig.polygonGeoJsonGeometry ?? null,
+				const field = polygonsConfig.polygonGeoJsonGeometry;
+				globe.polygonGeoJsonGeometry((datum: object) =>
+					rewindForD3((datum as Record<string, unknown>)[field]),
 				);
 			}
 			if (polygonsConfig.polygonCapColor !== undefined) {

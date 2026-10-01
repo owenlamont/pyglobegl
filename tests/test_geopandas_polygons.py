@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Final
+
 from geojson_pydantic import (
     MultiPolygon as GeoJsonMultiPolygon,
     Polygon as GeoJsonPolygon,
@@ -7,7 +9,7 @@ from geojson_pydantic import (
 import geopandas as gpd
 from pydantic_extra_types.color import Color
 import pytest
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import LinearRing, MultiPolygon, Point, Polygon
 
 from pyglobegl import PolygonDatum, polygons_from_gdf
 
@@ -123,3 +125,33 @@ def test_polygons_from_gdf_accepts_multipolygon() -> None:
     polygons = polygons_from_gdf(gdf, include_columns=["name"])
     assert isinstance(polygons[0], PolygonDatum)
     assert isinstance(polygons[0].geometry, GeoJsonMultiPolygon)
+
+
+_WINDING_POLYGON: Final = Polygon(
+    [(-10, -5), (10, -5), (10, 5), (-10, 5), (-10, -5)],
+    [[(-2, -1), (-2, 1), (2, 1), (2, -1), (-2, -1)]],
+)
+
+
+@pytest.mark.parametrize(
+    "polygon",
+    [
+        pytest.param(_WINDING_POLYGON, id="rfc 7946 input"),
+        pytest.param(_WINDING_POLYGON.reverse(), id="reversed input"),
+    ],
+)
+def test_polygons_from_gdf_winds_rings_to_rfc7946(polygon: Polygon) -> None:
+    gdf = gpd.GeoDataFrame(
+        {"polygons": [polygon, MultiPolygon([polygon])]},
+        geometry="polygons",
+        crs="EPSG:4326",
+    )
+
+    single, multi = (datum.geometry for datum in polygons_from_gdf(gdf))
+
+    assert isinstance(single, GeoJsonPolygon)
+    assert isinstance(multi, GeoJsonMultiPolygon)
+    assert LinearRing(single.coordinates[0]).is_ccw
+    assert not LinearRing(single.coordinates[1]).is_ccw
+    assert LinearRing(multi.coordinates[0][0]).is_ccw
+    assert not LinearRing(multi.coordinates[0][1]).is_ccw

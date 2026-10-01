@@ -39,10 +39,10 @@ display(GlobeWidget(config=config))
 A hexed polygon carries its `geometry` plus appearance fields such as `color`,
 `altitude`, and resolution/margin controls on `HexedPolygonsLayerConfig`.
 
-!!! warning "Ring winding order"
+!!! note "Ring winding order"
 
-    As with the [polygons layer](polygons.md), exterior rings must be
-    counter-clockwise and holes clockwise. The GeoPandas helpers normalise this.
+    Hexed polygons are filled with H3 cells, which ignores ring winding, so either
+    orientation renders the same, as it does on the [polygons layer](polygons.md).
 
 ## Custom tooltip
 
