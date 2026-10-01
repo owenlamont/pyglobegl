@@ -610,17 +610,21 @@ def canvas_match_reference(
                 "Reference image missing. Saved capture to "
                 f"{reference_path}; verify and re-run."
             )
-        best = _best_capture(
-            page,
-            canvas_capture,
-            lambda image: canvas_compare_images(image, reference_path),
-            threshold,
-        )
+        with Image.open(reference_path) as reference:
+            reference_size = reference.size
+
+        def _score(image: Image.Image) -> float:
+            if image.size != reference_size:
+                return -1.0
+            return canvas_compare_images(image, reference_path)
+
+        best = _best_capture(page, canvas_capture, _score, threshold)
         passed = best.score >= threshold
         canvas_save_capture(best.image, label, passed)
         assert passed, (
             "Captured image similarity below threshold. "
-            f"Best score: {best.score:.4f} (threshold {threshold:.4f})."
+            f"Best score: {best.score:.4f} (threshold {threshold:.4f}); "
+            f"capture size {best.image.size}, reference size {reference_size}."
         )
 
     return _match
