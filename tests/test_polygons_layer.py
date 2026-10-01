@@ -7,6 +7,7 @@ from uuid import uuid4
 from geojson_pydantic import Polygon
 from geojson_pydantic.types import Position2D, Position3D
 from IPython.display import display
+from PIL import Image
 from pydantic import AnyUrl, TypeAdapter
 import pytest
 
@@ -149,14 +150,16 @@ def _assert_canvas_matches(
             "Reference image missing. Saved capture to "
             f"{reference_path}; verify and re-run."
         )
+    with Image.open(reference_path) as reference:
+        reference_size = reference.size
     best_score = -1.0
     best_image = captured_image
     for attempt in range(attempts):
-        try:
-            score = canvas_compare_images(captured_image, reference_path)
-        except Exception:
-            canvas_save_capture(captured_image, canvas_label, False)
-            raise
+        score = (
+            canvas_compare_images(captured_image, reference_path)
+            if captured_image.size == reference_size
+            else -1.0
+        )
         if score > best_score:
             best_score = score
             best_image = captured_image

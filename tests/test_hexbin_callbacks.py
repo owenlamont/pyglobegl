@@ -148,7 +148,7 @@ def test_on_hexbin_click_callback(
     display(widget)
 
     _wait_for_canvas(page_session)
-    globe_clicker(page_session, "left")
+    globe_clicker(page_session, "left", until=click_event)
 
     assert click_event.wait(5), "Expected hexbin click callback to fire."
     assert isinstance(payload.get("hexbin"), dict)
@@ -172,7 +172,7 @@ def test_on_hexbin_right_click_callback(
     display(widget)
 
     _wait_for_canvas(page_session)
-    globe_clicker(page_session, "right")
+    globe_clicker(page_session, "right", until=click_event)
 
     assert click_event.wait(5), "Expected hexbin right-click callback to fire."
     assert isinstance(payload.get("hexbin"), dict)

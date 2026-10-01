@@ -11,7 +11,7 @@ import pathlib
 import shutil
 import socketserver
 import threading
-from typing import Any, Final, Literal, TYPE_CHECKING
+from typing import Any, Final, Literal, Protocol, TYPE_CHECKING
 
 import numpy as np
 from PIL import Image, ImageChops
@@ -202,11 +202,25 @@ def globe_background_night_sky_data_url() -> str:
     return image_to_data_url(Image.open(image_path))
 
 
-@pytest.fixture
-def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None]:
-    def _click(page: PlaywrightPage, button: Literal["left", "right"] = "left") -> None:
-        success = page.evaluate(
-            """
+_CLICK_ATTEMPTS: Final = 3
+_CLICK_ATTEMPT_WAIT_SECONDS: Final = 3.0
+
+
+class GlobeClicker(Protocol):
+    def __call__(
+        self,
+        page: PlaywrightPage,
+        button: Literal["left", "right"] = "left",
+        *,
+        until: threading.Event | None = None,
+    ) -> None: ...
+
+
+def _dispatch_globe_click(
+    page: PlaywrightPage, button: Literal["left", "right"]
+) -> None:
+    success = page.evaluate(
+        """
             async ({ button }) => {
               const target = document.querySelector(".scene-container");
               if (!target) {
@@ -224,6 +238,17 @@ def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None
                 [0.5, 0.6],
               ];
               const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+              const nextFrame = () =>
+                new Promise((resolve) => requestAnimationFrame(resolve));
+              const globe = window.__pyglobegl_globe;
+              const waitForRaycast = async () => {
+                await wait((globe?.pointerRaycasterThrottleMs?.() ?? 50) + 20);
+                const render = globe?.renderer?.().info.render;
+                const startFrame = render?.frame ?? 0;
+                while (render && render.frame < startFrame + 2) {
+                  await nextFrame();
+                }
+              };
 
               for (const [ratioX, ratioY] of sweepRatios) {
                 const x = rect.left + rect.width * ratioX;
@@ -244,7 +269,7 @@ def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None
                 };
                 target.dispatchEvent(new PointerEvent("pointerover", opts));
                 target.dispatchEvent(new PointerEvent("pointermove", opts));
-                await wait(20);
+                await waitForRaycast();
                 target.dispatchEvent(new PointerEvent("pointerdown", opts));
                 await wait(30);
                 target.dispatchEvent(new PointerEvent("pointerup", opts));
@@ -258,10 +283,31 @@ def globe_clicker() -> Callable[[PlaywrightPage, Literal["left", "right"]], None
               return true;
             }
             """,
-            {"button": button},
-        )
-        if not success:
-            raise AssertionError("Failed to dispatch globe click event.")
+        {"button": button},
+    )
+    if not success:
+        raise AssertionError("Failed to dispatch globe click event.")
+
+
+@pytest.fixture
+def globe_clicker() -> GlobeClicker:
+    """Click the globe centre, re-clicking until ``until`` is set if one is given.
+
+    Returns:
+        A function dispatching the click; it returns once ``until`` is set or the
+        attempts run out, leaving the assertion to the test.
+    """
+
+    def _click(
+        page: PlaywrightPage,
+        button: Literal["left", "right"] = "left",
+        *,
+        until: threading.Event | None = None,
+    ) -> None:
+        for _ in range(_CLICK_ATTEMPTS if until else 1):
+            _dispatch_globe_click(page, button)
+            if until is None or until.wait(_CLICK_ATTEMPT_WAIT_SECONDS):
+                return
 
     return _click
 
@@ -564,17 +610,21 @@ def canvas_match_reference(
                 "Reference image missing. Saved capture to "
                 f"{reference_path}; verify and re-run."
             )
-        best = _best_capture(
-            page,
-            canvas_capture,
-            lambda image: canvas_compare_images(image, reference_path),
-            threshold,
-        )
+        with Image.open(reference_path) as reference:
+            reference_size = reference.size
+
+        def _score(image: Image.Image) -> float:
+            if image.size != reference_size:
+                return -1.0
+            return canvas_compare_images(image, reference_path)
+
+        best = _best_capture(page, canvas_capture, _score, threshold)
         passed = best.score >= threshold
         canvas_save_capture(best.image, label, passed)
         assert passed, (
             "Captured image similarity below threshold. "
-            f"Best score: {best.score:.4f} (threshold {threshold:.4f})."
+            f"Best score: {best.score:.4f} (threshold {threshold:.4f}); "
+            f"capture size {best.image.size}, reference size {reference_size}."
         )
 
     return _match
