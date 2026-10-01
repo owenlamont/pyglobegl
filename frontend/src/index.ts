@@ -371,6 +371,54 @@ const trackPendingLoads = (): void => {
 };
 trackPendingLoads();
 
+type Ring = Array<[number, number, ...number[]]>;
+
+const isClockwise = (ring: Ring): boolean => {
+	let sum = 0;
+	for (let i = 0; i < ring.length - 1; i++) {
+		const [x1, y1] = ring[i];
+		const [x2, y2] = ring[i + 1];
+		sum += (x2 - x1) * (y2 + y1);
+	}
+	return sum > 0;
+};
+
+const toD3Winding = (rings: Ring[]): Ring[] =>
+	rings.map((ring, index) =>
+		isClockwise(ring) === (index === 0) ? ring : [...ring].reverse(),
+	);
+
+// GeoJSON (RFC 7946) winds exterior rings counter-clockwise, but three-globe
+// triangulates caps with d3-geo, which reads a counter-clockwise exterior as the
+// rest of the sphere and fills outside the shape. Rewinding here renders either
+// winding correctly without touching the datum Python sent.
+const rewoundGeometries = new WeakMap<object, unknown>();
+
+const rewindForD3 = (geometry: unknown): unknown => {
+	if (typeof geometry !== "object" || geometry === null) {
+		return geometry;
+	}
+	const cached = rewoundGeometries.get(geometry);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const { type, coordinates } = geometry as {
+		type?: string;
+		coordinates?: unknown;
+	};
+	let rewound: unknown = geometry;
+	if (type === "Polygon") {
+		rewound = { ...geometry, coordinates: toD3Winding(coordinates as Ring[]) };
+	} else if (type === "MultiPolygon") {
+		rewound = {
+			...geometry,
+			coordinates: (coordinates as Ring[][]).map(toD3Winding),
+		};
+	}
+	rewoundGeometries.set(geometry, rewound);
+	return rewound;
+};
+
 function ensureWebGPUShaderStage(): void {
 	const globalScope = globalThis as {
 		GPUShaderStage?: { VERTEX: number; FRAGMENT: number; COMPUTE: number };
@@ -964,7 +1012,6 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 
 		const polygonProps = new Set([
 			"polygonLabel",
-			"polygonGeoJsonGeometry",
 			"polygonCapColor",
 			"polygonCapMaterial",
 			"polygonSideColor",
@@ -1884,8 +1931,9 @@ export function render({ el, model }: AnyWidgetRenderProps): () => void {
 				);
 			}
 			if (polygonsConfig.polygonGeoJsonGeometry !== undefined) {
-				globe.polygonGeoJsonGeometry(
-					polygonsConfig.polygonGeoJsonGeometry ?? null,
+				const field = polygonsConfig.polygonGeoJsonGeometry;
+				globe.polygonGeoJsonGeometry((datum: object) =>
+					rewindForD3((datum as Record<string, unknown>)[field]),
 				);
 			}
 			if (polygonsConfig.polygonCapColor !== undefined) {

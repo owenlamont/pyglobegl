@@ -57,7 +57,7 @@ def _polygon(west: float, south: float, east: float, north: float) -> Polygon:
 def _circle_polygon(
     lng: float, lat: float, radius_deg: float, *, steps: int = 72
 ) -> Polygon:
-    """Return a CCW GeoJSON polygon ring for use with three-globe caps."""
+    """Return a clockwise GeoJSON polygon ring around a centre point."""
     coords: list[Position2D | Position3D] = []
     for i in range(steps):
         angle = 2 * math.pi * (i / steps)
@@ -234,6 +234,60 @@ def test_polygons_accessors(
         canvas_compare_images,
         canvas_save_capture,
         canvas_similarity_threshold,
+    )
+
+
+@pytest.mark.usefixtures("solara_test")
+def test_polygons_render_counter_clockwise_rings(
+    page_session: Page,
+    canvas_capture,
+    canvas_reference_path,
+    canvas_compare_images,
+    canvas_save_capture,
+    globe_flat_texture_data_url,
+) -> None:
+    def _counter_clockwise(polygon: Polygon) -> Polygon:
+        return Polygon(
+            type="Polygon", coordinates=[list(reversed(polygon.coordinates[0]))]
+        )
+
+    polygons_data = [
+        PolygonDatum(
+            geometry=_counter_clockwise(_polygon(-25, -5, -5, 10)),
+            cap_color="#ff66cc",
+            side_color="#ff66cc",
+            stroke_color=None,
+            altitude=0.05,
+            cap_curvature_resolution=0.5,
+        ),
+        PolygonDatum(
+            geometry=_counter_clockwise(_polygon(5, -5, 25, 10)),
+            cap_color="#66ccff",
+            side_color="#66ccff",
+            stroke_color=None,
+            altitude=0.05,
+            cap_curvature_resolution=1.0,
+        ),
+    ]
+    config = _make_config(
+        globe_flat_texture_data_url,
+        PolygonsLayerConfig(
+            polygons_data=polygons_data, polygons_transition_duration=0
+        ),
+    )
+    display(GlobeWidget(config=config))
+
+    _await_globe_ready(page_session)
+    # The same scene as test_polygons_accessors with every ring reversed, so it must
+    # match that baseline rather than filling the globe outside each polygon.
+    _assert_canvas_matches(
+        page_session,
+        canvas_capture,
+        "test_polygons_accessors",
+        canvas_reference_path,
+        canvas_compare_images,
+        canvas_save_capture,
+        0.97,
     )
 
 
