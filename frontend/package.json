@@ -7,7 +7,7 @@
 	},
 	"devDependencies": {
 		"@anywidget/vite": "^0.2.2",
-		"@types/node": "^25.9.8",
+		"@types/node": "^25.9.9",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.6"
 	},
