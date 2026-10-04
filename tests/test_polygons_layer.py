@@ -7,7 +7,6 @@ from uuid import uuid4
 from geojson_pydantic import Polygon
 from geojson_pydantic.types import Position2D, Position3D
 from IPython.display import display
-from PIL import Image
 from pydantic import AnyUrl, TypeAdapter
 import pytest
 
@@ -127,64 +126,9 @@ def _await_globe_ready(page_session: Page) -> None:
     page_session.wait_for_timeout(250)
 
 
-def _assert_canvas_matches(
-    page_session: Page,
-    canvas_capture,
-    canvas_label: str,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    canvas_similarity_threshold: float,
-    *,
-    attempts: int = 5,
-    wait_ms: int = 500,
-) -> None:
-    if attempts < 1:
-        raise ValueError("attempts must be at least 1.")
-    captured_image = canvas_capture(page_session)
-    reference_path = canvas_reference_path(canvas_label)
-    if not reference_path.exists():
-        reference_path.parent.mkdir(parents=True, exist_ok=True)
-        captured_image.save(reference_path)
-        raise AssertionError(
-            "Reference image missing. Saved capture to "
-            f"{reference_path}; verify and re-run."
-        )
-    with Image.open(reference_path) as reference:
-        reference_size = reference.size
-    best_score = -1.0
-    best_image = captured_image
-    for attempt in range(attempts):
-        score = (
-            canvas_compare_images(captured_image, reference_path)
-            if captured_image.size == reference_size
-            else -1.0
-        )
-        if score > best_score:
-            best_score = score
-            best_image = captured_image
-        if score >= canvas_similarity_threshold:
-            canvas_save_capture(captured_image, canvas_label, True)
-            return
-        if attempt < attempts - 1 and wait_ms > 0:
-            page_session.wait_for_timeout(wait_ms)
-            captured_image = canvas_capture(page_session)
-    canvas_save_capture(best_image, canvas_label, False)
-    pytest.fail(
-        "Captured image similarity below threshold. "
-        f"Best score: {best_score:.4f} "
-        f"(threshold {canvas_similarity_threshold:.4f})."
-    )
-
-
 @pytest.mark.usefixtures("solara_test")
 def test_polygons_accessors(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.97
     polygons_data = [
@@ -226,36 +170,19 @@ def test_polygons_accessors(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygons_accessors",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygons_accessors", canvas_similarity_threshold
     )
     widget.set_polygons_data(updated_polygons)
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygons_accessors-updated",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygons_accessors-updated", canvas_similarity_threshold
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygons_render_counter_clockwise_rings(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     polygons_data = [
         PolygonDatum(
@@ -284,15 +211,7 @@ def test_polygons_render_counter_clockwise_rings(
     display(GlobeWidget(config=config))
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygons_accessors",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        0.97,
-    )
+    canvas_match_reference(page_session, "test_polygons_accessors", 0.97)
 
 
 _DATELINE_RING: Final = (
@@ -417,12 +336,7 @@ def test_polygon_label_tooltip(
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygons_transition_duration(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.975
     initial_polygons = [
@@ -454,39 +368,24 @@ def test_polygons_transition_duration(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
+    canvas_match_reference(
         page_session,
-        canvas_capture,
         "test_polygons_transition_duration-initial",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
         canvas_similarity_threshold,
     )
     widget.set_polygons_transition_duration(0)
     widget.set_polygons_data(updated_polygons)
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
+    canvas_match_reference(
         page_session,
-        canvas_capture,
         "test_polygons_transition_duration-updated",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
         canvas_similarity_threshold,
-        attempts=6,
-        wait_ms=150,
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_cap_material(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     polygon_id = uuid4()
@@ -510,14 +409,8 @@ def test_polygon_cap_material(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_cap_material-initial",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_cap_material-initial", canvas_similarity_threshold
     )
 
     widget.set_polygon_cap_material(
@@ -526,25 +419,14 @@ def test_polygon_cap_material(
         )
     )
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_cap_material-updated",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_cap_material-updated", canvas_similarity_threshold
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_side_material(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     polygons_data = [
@@ -568,14 +450,8 @@ def test_polygon_side_material(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_side_material-initial",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_side_material-initial", canvas_similarity_threshold
     )
 
     widget.set_polygon_side_material(
@@ -584,25 +460,14 @@ def test_polygon_side_material(
         )
     )
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_side_material-updated",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_side_material-updated", canvas_similarity_threshold
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_cap_color(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_cap_color = "#ff66cc"
@@ -630,38 +495,21 @@ def test_polygon_cap_color(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_cap_color-cap-ff66cc",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_cap_color-cap-ff66cc", canvas_similarity_threshold
     )
     widget.update_polygon(
         polygon_id, cap_color=updated_cap_color, side_color=updated_cap_color
     )
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_cap_color-cap-66ccff",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_cap_color-cap-66ccff", canvas_similarity_threshold
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_side_color(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_side_color = "#66ccff"
@@ -691,36 +539,19 @@ def test_polygon_side_color(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_side_color-side-66ccff",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_side_color-side-66ccff", canvas_similarity_threshold
     )
     widget.update_polygon(polygon_id, side_color=updated_side_color)
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_side_color-side-ffcc66",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_side_color-side-ffcc66", canvas_similarity_threshold
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_stroke_color(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_stroke_color = "#ffffff"
@@ -748,36 +579,23 @@ def test_polygon_stroke_color(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
+    canvas_match_reference(
         page_session,
-        canvas_capture,
         "test_polygon_stroke_color-stroke-ffffff",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
         canvas_similarity_threshold,
     )
     widget.update_polygon(polygon_id, stroke_color=updated_stroke_color)
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
+    canvas_match_reference(
         page_session,
-        canvas_capture,
         "test_polygon_stroke_color-stroke-00ffcc",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
         canvas_similarity_threshold,
     )
 
 
 @pytest.mark.usefixtures("solara_test")
 def test_polygon_altitude(
-    page_session: Page,
-    canvas_capture,
-    canvas_reference_path,
-    canvas_compare_images,
-    canvas_save_capture,
-    globe_flat_texture_data_url,
+    page_session: Page, canvas_match_reference, globe_flat_texture_data_url
 ) -> None:
     canvas_similarity_threshold = 0.99
     initial_altitude = 0.02
@@ -805,25 +623,13 @@ def test_polygon_altitude(
     display(widget)
 
     _await_globe_ready(page_session)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_altitude-altitude-0_02",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_altitude-altitude-0_02", canvas_similarity_threshold
     )
     widget.update_polygon(polygon_id, altitude=updated_altitude)
     page_session.wait_for_timeout(100)
-    _assert_canvas_matches(
-        page_session,
-        canvas_capture,
-        "test_polygon_altitude-altitude-0_12",
-        canvas_reference_path,
-        canvas_compare_images,
-        canvas_save_capture,
-        canvas_similarity_threshold,
+    canvas_match_reference(
+        page_session, "test_polygon_altitude-altitude-0_12", canvas_similarity_threshold
     )
 
 
