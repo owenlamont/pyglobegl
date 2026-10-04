@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from itertools import starmap
+import sys
 from typing import Any
 
+import geopandas as gpd
 import pytest
 
 from pyglobegl import PointDatum, points_from_gdf
@@ -131,3 +133,23 @@ def test_points_from_gdf_invalid_optional_column_types(
 
     with pytest.raises(ValueError, match=match):
         points_from_gdf(gdf)
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        pytest.param("geopandas", id="geopandas"),
+        pytest.param("pandas", id="pandas"),
+        pytest.param("pandera.pandas", id="pandera"),
+    ],
+)
+def test_points_from_gdf_missing_dependency_keeps_module_name(
+    monkeypatch: pytest.MonkeyPatch, module: str
+) -> None:
+    gdf = gpd.GeoDataFrame(geometry=gpd.points_from_xy([0.0], [0.0]), crs="EPSG:4326")
+    monkeypatch.setitem(sys.modules, module, None)
+
+    with pytest.raises(ModuleNotFoundError, match=r"pyglobegl\[geopandas\]") as info:
+        points_from_gdf(gdf)
+
+    assert info.value.name == module
