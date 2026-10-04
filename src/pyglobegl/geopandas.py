@@ -38,7 +38,8 @@ def _require_geopandas() -> None:
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "GeoPandas is required for pyglobegl GeoDataFrame helpers. "
-            "Install with `uv add pyglobegl[geopandas]`."
+            "Install with `uv add pyglobegl[geopandas]`.",
+            name=exc.name,
         ) from exc
 
 
@@ -48,7 +49,8 @@ def _require_pandera() -> None:
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "pandera is required for GeoDataFrame validation. "
-            "Install with `uv add pyglobegl[geopandas]`."
+            "Install with `uv add pyglobegl[geopandas]`.",
+            name=exc.name,
         ) from exc
 
 
@@ -58,7 +60,8 @@ def _require_pandas() -> None:
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
             "pandas is required for GeoDataFrame validation. "
-            "Install with `uv add pyglobegl[geopandas]`."
+            "Install with `uv add pyglobegl[geopandas]`.",
+            name=exc.name,
         ) from exc
 
 
