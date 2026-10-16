@@ -79,10 +79,6 @@ def _build_points_schema() -> type[pa.DataFrameModel]:
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
 
-        class Config:
-            coerce = False
-            strict = False
-
         @pa.check("geometry", error="Geometry must be Points.")
         def _points_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
             return series.geom_type == "Point"
@@ -104,10 +100,6 @@ def _build_polygons_schema() -> type[pa.DataFrameModel]:
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
 
-        class Config:
-            coerce = False
-            strict = False
-
         @pa.check("geometry", error="Geometry must be Polygon or MultiPolygon.")
         def _polygon_only(self, series: GeoSeries[Geometry]) -> Series[bool]:
             return series.geom_type.isin(["Polygon", "MultiPolygon"])
@@ -128,10 +120,6 @@ def _build_paths_schema() -> type[pa.DataFrameModel]:
         geometry: GeoSeries[Geometry] = pa.Field(
             nullable=False, dtype_kwargs={"crs": "EPSG:4326"}
         )
-
-        class Config:
-            coerce = False
-            strict = False
 
         @pa.check("geometry", error="Geometry must be LineString or MultiLineString.")
         def _line_only(self, series: GeoSeries[Geometry]) -> Series[bool]:

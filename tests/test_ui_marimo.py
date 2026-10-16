@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager, suppress
 import shutil
 import socket
@@ -18,7 +18,7 @@ def _free_port() -> int:
 
 
 @contextmanager
-def _marimo_server() -> Iterator[str]:
+def _marimo_server() -> Generator[str, None, None]:
     port = _free_port()
     uv_path = shutil.which("uv")
     if uv_path is None:

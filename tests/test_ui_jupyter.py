@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 import os
 from pathlib import Path
@@ -331,7 +331,7 @@ def _shutdown_process(proc: subprocess.Popen, log_file) -> None:
 
 
 @contextmanager
-def _jupyterlab_server() -> Iterator[str]:
+def _jupyterlab_server() -> Generator[str, None, None]:
     port = _free_port()
     uv_path = shutil.which("uv")
     if uv_path is None:
