@@ -4,7 +4,7 @@ import base64
 from collections.abc import Callable, Generator
 import contextlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import io
 import os
 import pathlib
@@ -132,7 +132,7 @@ def _ui_artifacts_dir() -> pathlib.Path:
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _write_debug_artifacts(page: PlaywrightPage, prefix: str) -> None:

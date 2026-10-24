@@ -6,7 +6,7 @@ Launch commands:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from functools import lru_cache
 import math
 import threading
@@ -144,7 +144,7 @@ def _propagate_points(when: datetime) -> list[ParticlePointDatum]:
 
 
 def _initial_particles() -> list[ParticlePointDatum]:
-    return _propagate_points(datetime.now(tz=timezone.utc))
+    return _propagate_points(datetime.now(tz=UTC))
 
 
 config = GlobeConfig(
@@ -175,7 +175,7 @@ def page():
     widget = solara.use_memo(lambda: GlobeWidget(config=config), [])
 
     def _stream_positions(stop_event: threading.Event):
-        current_time = datetime.now(tz=timezone.utc)
+        current_time = datetime.now(tz=UTC)
         while not stop_event.is_set():
             current_time = current_time + timedelta(seconds=_TIME_STEP_SECONDS)
             points = _propagate_points(current_time)

@@ -315,7 +315,7 @@ def _validate_rows_with_pydantic(
     for record in data.to_dict("records"):
         try:
             model.model_validate(record)
-        except ValidationError as exc:  # ruff: ignore[try-except-in-loop] - clarity over micro-optimization
+        except ValidationError as exc:
             error = exc.errors()[0]
             location = ".".join(str(item) for item in error.get("loc", []))
             message = error.get("msg", "Invalid value.")

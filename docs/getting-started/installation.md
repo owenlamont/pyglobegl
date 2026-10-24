@@ -1,6 +1,9 @@
 # Installation
 
-`pyglobegl` is published on PyPI and requires Python 3.10 or newer.
+`pyglobegl` is published on PyPI and supports Python 3.11 through 3.15.
+
+Use Python 3.11 through 3.14 for marimo: marimo's `loro` dependency does not yet
+build on Python 3.15.
 
 === "pip"
 
