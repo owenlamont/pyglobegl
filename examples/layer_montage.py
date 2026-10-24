@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator, Mapping
 import csv
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from functools import lru_cache
 import json
 import math
@@ -647,7 +647,7 @@ def _build_stages() -> list[Stage]:
     heatmap = _load_population_heatmap()
     hexed = _load_hexed_polygons()
     tiles = _make_tiles()
-    particles = _propagate_satellite_particles(datetime.now(tz=timezone.utc))
+    particles = _propagate_satellite_particles(datetime.now(tz=UTC))
     rings = _make_rings()
     labels = _load_world_cities()
 
@@ -824,7 +824,7 @@ def _run_montage(
     if not ready:
         return
     stage_index = 0
-    current_time = datetime.now(tz=timezone.utc)
+    current_time = datetime.now(tz=UTC)
     yield StageUpdate(stage_index=stage_index, pov=None, apply_stage=True)
     while not stop_event.is_set():
         stage = stages[stage_index]

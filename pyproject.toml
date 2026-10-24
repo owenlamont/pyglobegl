@@ -7,7 +7,7 @@ authors = [
     { name = "Owen Lamont", email = "owenrlamont@gmail.com" }
 ]
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.11,<3.16"
 keywords = [
     "anywidget",
     "globe.gl",
@@ -25,11 +25,11 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Typed",
@@ -39,7 +39,7 @@ classifiers = [
 dependencies = [
     "anywidget>=0.9.21",
     "geojson-pydantic>=2.1.0",
-    "pillow>=12.1.0",
+    "pillow>=13.0.0",
     "pydantic>=2.12.5",
     "pydantic-extra-types>=2.11.0",
     "traitlets>=5.14.3",
@@ -91,3 +91,4 @@ docs = [
 
 [tool.uv]
 exclude-newer = "7 days"
+exclude-newer-package = { certifi = false, filelock = false }

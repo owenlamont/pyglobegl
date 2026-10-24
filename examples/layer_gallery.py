@@ -12,6 +12,8 @@ Launch commands:
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import marimo
 
 
@@ -28,7 +30,7 @@ def _():
 
 @app.cell
 def _():
-    from datetime import datetime, timezone
+    from datetime import datetime
     import math
     import sys
     from urllib.request import urlopen
@@ -127,7 +129,7 @@ def _():
             )
         return pts[: lm._MAX_SATELLITES]
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     sat_points = satellite_points(now)
 
     # Bright, slow rings so several concentric waves stay on-screen for a static
