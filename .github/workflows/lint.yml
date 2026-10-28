@@ -25,6 +25,14 @@ jobs:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('prek.toml') }}
           restore-keys: prek-${{ runner.os }}-
+      - name: Install mise
+        run: |
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install toolchain
+        run: |
+          mise install pnpm
+          echo "$HOME/.local/share/mise/shims" >> $GITHUB_PATH
       - name: Install the project
         run: uv sync
       - name: Install pre-commit globally
