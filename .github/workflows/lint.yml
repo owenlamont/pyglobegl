@@ -29,9 +29,10 @@ jobs:
         run: |
           curl https://mise.run | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
-          echo "$HOME/.local/share/mise/shims" >> $GITHUB_PATH
       - name: Install toolchain
-        run: mise install
+        run: |
+          mise install
+          echo "$HOME/.local/share/mise/shims" >> $GITHUB_PATH
       - name: Install the project
         run: uv sync
       - name: Install pre-commit globally
