@@ -1,7 +1,7 @@
 {
 	"dependencies": {
 		"@micropython/micropython-webassembly-pyscript": "^1.27.0",
-		"d3-geo": "^3.1.1",
+		"d3-geo": "^3.1.2",
 		"globe.gl": "^2.46.2",
 		"three": "^0.182.0"
 	},
@@ -9,7 +9,7 @@
 		"@anywidget/vite": "^0.2.2",
 		"@types/node": "^25.9.9",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.7"
+		"vite": "^7.3.8"
 	},
 	"name": "pyglobegl-frontend",
 	"private": true,
