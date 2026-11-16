@@ -91,4 +91,8 @@ docs = [
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = { certifi = false, filelock = false }
+# tornado: GHSA-5cjw-f85j-cv6r is fixed in 6.6.1, still inside the cooldown; drop after 2026-11-17.
+exclude-newer-package = { certifi = false, filelock = false, tornado = false }
+# soupsieve's fix for GHSA-mmhr-3c5m-f64f needs Python 3.11.5+, and emscripten is
+# excluded because playwright ships no wheels there once environments is set.
+environments = ["python_full_version >= '3.11.5' and sys_platform != 'emscripten'"]
